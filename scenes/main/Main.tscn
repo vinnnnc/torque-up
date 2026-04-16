@@ -1,0 +1,76 @@
+[gd_scene format=3 uid="uid://dhwiis6fqhw1g"]
+
+[ext_resource type="Script" uid="uid://dj5enbd5rj1r3" path="res://scripts/core/game_manager.gd" id="1_glv2v"]
+[ext_resource type="Script" uid="uid://dbg3ai26ahx7j" path="res://scripts/camera/camera_2d.gd" id="1_r0du0"]
+[ext_resource type="Script" uid="uid://lenxqbsl7jo1" path="res://scripts/controllers/placement_controller.gd" id="2_uu6xs"]
+[ext_resource type="PackedScene" uid="uid://bvc1ip2ykvo" path="res://scenes/components/Gear.tscn" id="4_cm0pq"]
+[ext_resource type="PackedScene" uid="uid://3p6qdnn5o0wi" path="res://scenes/ui/HUD.tscn" id="5_a8t5x"]
+[ext_resource type="Script" uid="uid://bvi337cf8mloe" path="res://scripts/components/gear_visual.gd" id="6_m4n62"]
+[ext_resource type="Script" uid="uid://cualn1v811xrv" path="res://scripts/components/anchor_rotor.gd" id="7_h01f3"]
+[ext_resource type="Script" uid="uid://ds2x7pbd4ge5l" path="res://scripts/features/editor/dev_level_editor.gd" id="10_21m0i"]
+[ext_resource type="Script" uid="uid://cwshcm08vs022" path="res://scripts/features/debug/perf_overlay.gd" id="11_71kjp"]
+
+[node name="Node2D" type="Node2D" unique_id=1465959995]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=259303582]
+position = Vector2(576, 323)
+script = ExtResource("1_r0du0")
+
+[node name="GameManager" type="Node" parent="." unique_id=1419560908]
+script = ExtResource("1_glv2v")
+
+[node name="Grid" type="Node2D" parent="." unique_id=1014952225]
+
+[node name="Network" type="Node2D" parent="." unique_id=1857059566]
+
+[node name="CentralEngine" type="Node2D" parent="Network" unique_id=159928825]
+position = Vector2(576, 550)
+script = ExtResource("7_h01f3")
+base_spin_speed = 0.7
+
+[node name="Visual" type="Node2D" parent="Network/CentralEngine" unique_id=279898126]
+script = ExtResource("6_m4n62")
+tooth_count = 26
+outer_radius = 34.0
+inner_radius = 29.560000000000002
+hub_radius = 9.459200000000001
+body_color = Color(0.46, 0.34, 0.22, 1)
+tooth_color = Color(0.74, 0.58, 0.36, 1)
+outline_color = Color(0.16, 0.1, 0.06, 1)
+
+[node name="PowerSource" type="Node2D" parent="Network" unique_id=761662706]
+position = Vector2(576, 323)
+script = ExtResource("7_h01f3")
+always_active = true
+base_spin_speed = 1.45
+torque_spin_factor = 0.015
+
+[node name="Visual" type="Node2D" parent="Network/PowerSource" unique_id=1191795328]
+script = ExtResource("6_m4n62")
+tooth_count = 20
+outer_radius = 26.0
+inner_radius = 21.560000000000002
+hub_radius = 6.8992
+body_color = Color(0.26, 0.48, 0.78, 1)
+tooth_color = Color(0.4, 0.68, 1, 1)
+outline_color = Color(0.07, 0.14, 0.23, 1)
+
+[node name="Components" type="Node2D" parent="Network" unique_id=739929044]
+
+[node name="Connections" type="Node2D" parent="Network" unique_id=143639542]
+
+[node name="Zones" type="Node2D" parent="." unique_id=1229517004]
+
+[node name="Barriers" type="Node2D" parent="." unique_id=1448792342]
+
+[node name="PlacementController" type="Node2D" parent="." unique_id=796507095]
+script = ExtResource("2_uu6xs")
+gear_scene = ExtResource("4_cm0pq")
+
+[node name="DevLevelEditor" type="Node" parent="." unique_id=642312004]
+script = ExtResource("10_21m0i")
+
+[node name="PerfOverlay" type="CanvasLayer" parent="." unique_id=987640122]
+script = ExtResource("11_71kjp")
+
+[node name="UI" parent="." unique_id=1047276783 instance=ExtResource("5_a8t5x")]

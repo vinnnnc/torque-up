@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://bvc1ip2ykvo"]
+
+[ext_resource type="Script" uid="uid://djc24xpu68n0t" path="res://scripts/components/gear.gd" id="1_47weg"]
+[ext_resource type="Script" path="res://scripts/components/gear_visual.gd" id="2_tthv6"]
+
+[node name="Gear" type="Node2D" unique_id=1452351737]
+script = ExtResource("1_47weg")
+
+[node name="Visual" type="Node2D" parent="." unique_id=912632092]
+script = ExtResource("2_tthv6")

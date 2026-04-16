@@ -1,0 +1,169 @@
+[gd_scene format=3 uid="uid://3p6qdnn5o0wi"]
+
+[ext_resource type="Script" uid="uid://cbgefnfoa3xx0" path="res://scripts/features/ui/hud_controller.gd" id="1_hud"]
+
+[node name="HUD" type="CanvasLayer" unique_id=1818769013]
+script = ExtResource("1_hud")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=44089220]
+offset_left = 857.0
+offset_top = 27.0
+offset_right = 1121.0
+offset_bottom = 173.0
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=50519175]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="Stats" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=438011400]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HorsepowerRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=967979965]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/HorsepowerRow" unique_id=1638438268]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Horsepower"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/HorsepowerRow" unique_id=1943079753]
+layout_mode = 2
+text = "0.0"
+horizontal_alignment = 2
+
+[node name="TorqueRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=315480503]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/TorqueRow" unique_id=434259800]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Torque"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/TorqueRow" unique_id=802495322]
+layout_mode = 2
+text = "0.0"
+horizontal_alignment = 2
+
+[node name="EfficiencyRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=1436002549]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/EfficiencyRow" unique_id=933873028]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Efficiency"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/EfficiencyRow" unique_id=973224651]
+layout_mode = 2
+text = "100.0%"
+horizontal_alignment = 2
+
+[node name="RpmRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=610932774]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/RpmRow" unique_id=1468102298]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "RPM"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/RpmRow" unique_id=1145279084]
+layout_mode = 2
+text = "0"
+horizontal_alignment = 2
+
+[node name="HotbarPanel" type="PanelContainer" parent="." unique_id=2049472253]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -348.0
+offset_top = -63.0
+offset_right = 362.0
+offset_bottom = -19.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="HotbarPanel" unique_id=1429880013]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Hotbar" type="HBoxContainer" parent="HotbarPanel/MarginContainer" unique_id=1443427638]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="NoneButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=858038806]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+tooltip_text = "Deselect all tools"
+toggle_mode = true
+text = "None"
+
+[node name="SmallGearButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=1682081271]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Place small gears (compact, high friction)"
+toggle_mode = true
+text = "Gear S"
+
+[node name="MediumGearButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=1597078288]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Place medium gears (balanced)"
+toggle_mode = true
+text = "Gear M"
+
+[node name="LargeGearButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=1300306684]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Place large gears (low friction, long distance)"
+toggle_mode = true
+text = "Gear L"
+
+[node name="ShaftButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=770567411]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Place rigid shafts (low friction, bridging)"
+toggle_mode = true
+text = "Shaft"
+
+[node name="BeltButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=1878592687]
+custom_minimum_size = Vector2(56, 26)
+layout_mode = 2
+tooltip_text = "Click twice: select first gear, then second gear (max 480 units)"
+toggle_mode = true
+text = "Chain"
+
+[node name="FlywheelButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=-2061521730]
+custom_minimum_size = Vector2(72, 26)
+layout_mode = 2
+tooltip_text = "Place a flywheel — buffers torque spikes and covers short stalls"
+toggle_mode = true
+text = "Flywheel"
+
+[node name="ClutchButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=-950410619]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Place a clutch — one-way coupling, freewheels when source RPM falls below network RPM"
+toggle_mode = true
+text = "Clutch"
+
+[node name="DifferentialButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=160700492]
+custom_minimum_size = Vector2(72, 26)
+layout_mode = 2
+tooltip_text = "Place a differential — merges two power sources into one output, blending RPM and summing torque"
+toggle_mode = true
+text = "Diff"
+
+[node name="DeleteButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=659612899]
+custom_minimum_size = Vector2(64, 26)
+layout_mode = 2
+tooltip_text = "Click near component to remove it"
+toggle_mode = true
+text = "Delete"

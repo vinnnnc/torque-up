@@ -1,0 +1,71 @@
+extends Node
+
+signal state_changed(horsepower: float, available_torque: float, efficiency: float, rpm: float)
+signal lifetime_hp_changed(lifetime_hp: float, reliability_multiplier: float)
+signal jam_registered(total_jams: int)
+
+## Current-tick snapshot values.
+var horsepower: float = 0.0
+var available_torque: float = 0.0
+var efficiency: float = 1.0
+var rpm: float = 0.0
+
+## Sandbox / endless scoring — never decrements.
+var lifetime_hp: float = 0.0
+## Modulates how quickly lifetime_hp accumulates based on network reliability.
+var reliability_multiplier: float = 1.0
+
+## Jam tracking for reliability calculation.
+var total_jams: int = 0
+## Jams in a rolling 60-second window.
+var _recent_jams: Array = []
+const JAM_WINDOW_SECONDS: float = 60.0
+const JAM_PENALTY_PER_JAM: float = 0.08
+const MIN_RELIABILITY: float = 0.35
+
+## Called once per simulation tick to update the current snapshot and
+## accumulate lifetime HP based on the current output and reliability.
+func set_state(
+	new_horsepower: float,
+	new_available_torque: float,
+	new_efficiency: float,
+	new_rpm: float,
+	tick_delta: float = 0.0
+) -> void:
+	horsepower = maxf(new_horsepower, 0.0)
+	available_torque = new_available_torque
+	efficiency = clampf(new_efficiency, 0.0, 1.0)
+	rpm = maxf(new_rpm, 0.0)
+
+	if tick_delta > 0.0:
+		_purge_old_jams()
+		lifetime_hp += horsepower * tick_delta * reliability_multiplier
+		lifetime_hp_changed.emit(lifetime_hp, reliability_multiplier)
+
+	state_changed.emit(horsepower, available_torque, efficiency, rpm)
+
+
+## Record a jam event at the current time. Reliability multiplier updates
+## based on how many jams occurred within the rolling window.
+func register_jam() -> void:
+	total_jams += 1
+	_recent_jams.append(Time.get_ticks_msec() * 0.001)
+	_purge_old_jams()
+	_recalculate_reliability()
+	jam_registered.emit(total_jams)
+
+
+func _purge_old_jams() -> void:
+	var now := Time.get_ticks_msec() * 0.001
+	var cutoff := now - JAM_WINDOW_SECONDS
+	var keep: Array = []
+	for t in _recent_jams:
+		if float(t) >= cutoff:
+			keep.append(t)
+	_recent_jams = keep
+
+
+func _recalculate_reliability() -> void:
+	var recent_count := _recent_jams.size()
+	var penalty := recent_count * JAM_PENALTY_PER_JAM
+	reliability_multiplier = clampf(1.0 - penalty, MIN_RELIABILITY, 1.0)
