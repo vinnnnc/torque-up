@@ -4,7 +4,7 @@
 
 The current simulation is split into two layers:
 
-- local source simulation: every power node can drive the connected subnetwork around it for visual and state feedback
+- local source simulation: disconnected power nodes run a lightweight torque-budget pass for visual feedback (spin vs stall)
 - engine scoring simulation: only the subnetwork that reaches the central engine contributes to delivered torque, horsepower, efficiency, and HUD RPM
 
 This avoids the old privileged "main power node" model while still keeping the engine as the authoritative scoring sink.
@@ -31,6 +31,7 @@ Efficiency is currently based on:
 - number of reachable engine-network connections
 - zone efficiency modifiers
 - a small mixed-network bonus when a reachable network uses both gears and shafts
+- compound stack added-layer penalty (per added layer)
 
 Efficiency is clamped to a minimum floor.
 
@@ -41,13 +42,15 @@ The game tracks angular speed internally on components and source visuals.
 HUD RPM is currently:
 
 - the absolute RPM of the central engine drive
+- gear ratio propagation uses per-edge tooth/radius ratio multipliers through the network traversal
+- the engine edge ratio prefers tooth-count ratio when available
 - derived from engine angular speed using $RPM = |\omega| \times 60 / 2\pi$
 
 This is a display stat, not yet a full standalone simulation resource.
 
 ## Local Source Simulation
 
-Disconnected source islands are still simulated.
+Disconnected source islands use a simplified local pass.
 
 Per local power node, the game currently computes:
 
@@ -55,15 +58,14 @@ Per local power node, the game currently computes:
 - local friction load
 - local torque droop
 - local underpowered state
-- local drive utilization
-- local direction conflicts
 
 This allows isolated networks to:
 
 - spin
 - stall when out of torque
-- show underpowered visuals
-- hard-stop on conflict or jam
+- show underpowered source visuals
+
+Isolated islands do not feed engine scoring metrics.
 
 ## Direction and Conflict
 
@@ -116,4 +118,4 @@ Barrier zones do not modify simulation directly. They block placement and snappi
 
 - clutch and differential still use simplified ratio propagation in the graph layer
 - differential roles are not yet fully directional in simulation
-- local subnetworks are simulated per source and merged heuristically for motion/conflict presentation rather than through a full multi-source solver
+- disconnected source islands use simplified visual drive targets rather than full per-path drive/conflict propagation

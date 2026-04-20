@@ -60,6 +60,17 @@ Start with:
 
 These documents are the best reference for the repository as it exists now.
 
+## Session Management
+
+The game uses persistent session tracking with local personal best records:
+
+- **Auto-save on exit**: Component layout, network state, and lifetime HP are saved
+- **Resume or start fresh**: Player can resume last session or clear and begin new game
+- **Personal best**: Highest lifetime HP ever achieved is tracked locally and displayed in HUD
+- **No leaderboards**: Focus is on self-improvement iteration, not competitive ranking
+
+See [docs/progression-and-balance.md](docs/progression-and-balance.md) for session design and balancing parameters.
+
 ## Current UI
 
 The HUD currently exposes:
@@ -68,16 +79,19 @@ The HUD currently exposes:
 - Torque
 - Efficiency
 - RPM
+- Personal best (top-right corner)
 
 The build hotbar currently exposes:
 
-- Gear S
-- Gear M
-- Gear L
-- Shaft
-- Chain
-- Flywheel
-- Clutch
+- Gear S (key 1)
+- Gear M (key 2)
+- Gear L (key 3)
+- Shaft (key 4)
+- Chain (key 5)
+- Flywheel (key 6)
+- Clutch (key 7)
+- Differential (key 8)
+- Delete mode (key X)
 - Differential
 - Delete
 

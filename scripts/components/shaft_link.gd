@@ -30,11 +30,11 @@ func _draw() -> void:
 	var a := to_local(gear_a.global_position)
 	var b := to_local(gear_b.global_position)
 	var axis := b - a
-	var len := axis.length()
-	if len <= 0.001:
+	var axis_len := axis.length()
+	if axis_len <= 0.001:
 		return
 
-	var dir := axis / len
+	var dir := axis / axis_len
 	var n := dir.rotated(PI * 0.5)
 	var half_w := rod_width * 0.5
 

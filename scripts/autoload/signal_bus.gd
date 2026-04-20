@@ -8,3 +8,5 @@ signal component_removed
 signal network_changed
 @warning_ignore("unused_signal")
 signal component_selected(component_id: String)
+@warning_ignore("unused_signal")
+signal placement_feedback(message: String)

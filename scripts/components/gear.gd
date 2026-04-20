@@ -30,26 +30,37 @@ var _is_stalled: bool = false
 var _pulse_phase: float = 0.0
 var _is_shaft_component: bool = false
 var _is_shell_component: bool = false
+var _is_flywheel_component: bool = false
 var _base_rotation: float = 0.0
 var _visual: Node = null
 var _pulley_mode: bool = false
+var _flywheel_energy: float = 0.0
+var _flywheel_peak_speed: float = 0.0
+var _flywheel_last_sign: float = 1.0
 ## Direction conflict state — gear receives two incompatible spin requirements.
 var _has_direction_conflict: bool = false
 ## Condition system state.
 var _condition_state: int = ConditionState.NORMAL
 var _condition_heat: float = 0.0
 var _condition_contamination: float = 0.0
+var _stack_parent_id: int = -1
+var _compound_added_layers: int = 0
 
 const TORQUE_TO_SPEED := 0.06
 const SMOOTHING := 8.0
+const FLYWHEEL_SPEED_TO_ENERGY := 10.0
+const FLYWHEEL_PEAK_TRACKING := 3.0
 
 func _ready() -> void:
 	_pulse_phase = randf() * TAU
 	var component_type: String = str(get_meta("component_type", ""))
 	_is_shaft_component = component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT
 	_is_shell_component = component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL
+	_is_flywheel_component = component_type == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL
 	_base_rotation = rotation
 	_visual = get_node_or_null("Visual")
+	_stack_parent_id = int(get_meta("stack_parent_id", -1))
+	_compound_added_layers = _compute_compound_added_layers()
 
 func set_torque(value: float) -> void:
 	torque = value
@@ -107,14 +118,127 @@ func set_stacked_top(enabled: bool) -> void:
 		_visual.is_stacked_top = enabled
 		_visual.queue_redraw()
 
+
+func is_sprocket_mode() -> bool:
+	return _pulley_mode
+
+
+func get_compound_added_layers() -> int:
+	return _compound_added_layers
+
+
+func _compute_compound_added_layers() -> int:
+	if has_meta("compound_added_layers"):
+		return max(0, int(get_meta("compound_added_layers")))
+	if _stack_parent_id >= 0:
+		return 1
+	var container := get_parent()
+	if container == null:
+		return 0
+	var self_id := get_instance_id()
+	for child in container.get_children():
+		var child_node := child as Node2D
+		if child_node == null:
+			continue
+		if int(child_node.get_meta("stack_parent_id", -1)) == self_id:
+			return 1
+	return 0
+
+
+func _resolve_stack_parent_velocity() -> Variant:
+	if _stack_parent_id < 0:
+		return null
+	var container := get_parent()
+	if container == null:
+		return null
+	for child in container.get_children():
+		var parent_node := child as Node2D
+		if parent_node == null:
+			continue
+		if parent_node.get_instance_id() != _stack_parent_id:
+			continue
+		var parent_velocity: Variant = parent_node.get("angular_velocity")
+		if parent_velocity == null:
+			return null
+		return float(parent_velocity)
+	return null
+
+
+## Returns how much temporary torque energy can be released this tick.
+func draw_discharge(deficit: float, tick_delta: float) -> float:
+	if not _is_flywheel_component:
+		return 0.0
+	if deficit <= 0.0 or tick_delta <= 0.0:
+		return 0.0
+
+	var capacity: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_CAPACITY, 0.001)
+	var discharge_rate: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_DISCHARGE_RATE, 0.0)
+	var available: float = minf(_flywheel_energy, capacity * discharge_rate * tick_delta)
+	var drawn: float = minf(available, deficit)
+	_flywheel_energy = maxf(_flywheel_energy - drawn, 0.0)
+	return drawn
+
+
+## Absorbs part of available surplus into flywheel energy storage.
+func absorb_surplus(surplus: float, tick_delta: float) -> void:
+	if not _is_flywheel_component:
+		return
+	if surplus <= 0.0 or tick_delta <= 0.0:
+		return
+
+	var capacity: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_CAPACITY, 0.001)
+	var charge_rate: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_CHARGE_RATE, 0.0)
+	var absorbed: float = surplus * charge_rate * tick_delta
+	_flywheel_energy = minf(_flywheel_energy + absorbed, capacity)
+
+
+func get_charge_ratio() -> float:
+	if not _is_flywheel_component:
+		return 0.0
+	var capacity: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_CAPACITY, 0.001)
+	return clampf(_flywheel_energy / capacity, 0.0, 1.0)
+
 func _process(delta: float) -> void:
+	var current_parent_id := int(get_meta("stack_parent_id", -1))
+	if current_parent_id != _stack_parent_id:
+		_stack_parent_id = current_parent_id
+		_compound_added_layers = _compute_compound_added_layers()
+	elif not has_meta("compound_added_layers"):
+		var resolved_layers := _compute_compound_added_layers()
+		if resolved_layers != _compound_added_layers:
+			_compound_added_layers = resolved_layers
+
+	var parent_velocity_variant: Variant = _resolve_stack_parent_velocity()
 	var target_velocity := _direct_target_velocity if _use_direct_drive else torque * TORQUE_TO_SPEED
+	if parent_velocity_variant != null:
+		target_velocity = float(parent_velocity_variant)
+	var has_drive_target: bool = absf(target_velocity) > 0.001
+	if has_drive_target:
+		_flywheel_last_sign = signf(target_velocity)
+		if _flywheel_last_sign == 0.0:
+			_flywheel_last_sign = 1.0
+
+	if _is_flywheel_component and has_drive_target:
+		var tracked_peak: float = maxf(_flywheel_peak_speed, absf(target_velocity))
+		_flywheel_peak_speed = lerpf(_flywheel_peak_speed, tracked_peak, min(delta * FLYWHEEL_PEAK_TRACKING, 1.0))
+		absorb_surplus(absf(target_velocity) * FLYWHEEL_SPEED_TO_ENERGY, delta)
+	elif _is_flywheel_component:
+		var capacity: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_CAPACITY, 0.001)
+		var discharge_rate: float = maxf(PROJECT_PATHS_SCRIPT.FLYWHEEL_DISCHARGE_RATE, 0.0)
+		_flywheel_energy = maxf(_flywheel_energy - (capacity * discharge_rate * delta), 0.0)
+		var retained_speed: float = _flywheel_last_sign * (_flywheel_peak_speed * get_charge_ratio())
+		target_velocity = retained_speed
 	# Jam, stall, or direction conflict are hard-stop states for readability.
 	if _condition_state == ConditionState.JAMMED or _is_stalled or _has_direction_conflict:
 		target_velocity = 0.0
 		angular_velocity = 0.0
+		if _is_flywheel_component:
+			_flywheel_energy = 0.0
+			_flywheel_peak_speed = 0.0
 	else:
-		angular_velocity = lerpf(angular_velocity, target_velocity, min(delta * SMOOTHING, 1.0))
+		var response_penalty := PROJECT_PATHS_SCRIPT.COMPOUND_LAYER_INERTIA_RESPONSE_PENALTY * float(_compound_added_layers)
+		var smoothing_scale := 1.0 / maxf(1.0, 1.0 + response_penalty)
+		angular_velocity = lerpf(angular_velocity, target_velocity, min(delta * SMOOTHING * smoothing_scale, 1.0))
 	if _is_shaft_component or _is_shell_component:
 		rotation = _base_rotation
 		if _visual and _visual.has_method("set_shaft_spin_speed"):

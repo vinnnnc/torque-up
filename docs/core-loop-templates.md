@@ -1,6 +1,12 @@
 # Core Loop Templates (Implementation Later)
 
-These templates define level structure and objective pressure so gameplay is optimization-focused rather than simple connectivity.
+These templates define optional level/challenge structures with explicit objectives and win conditions. They are experimental challenge designs layered on top of the core sandbox progression.
+
+**Current Progression Model**: See [docs/progression-and-balance.md](progression-and-balance.md) for the sandbox progression structure (Phase 0–3) driven by torque milestones and the torque frontier unlock mechanic.
+
+These templates represent alternative progression routes or optional challenge modes that could be explored later if the game expands beyond pure sandbox optimization.
+
+---
 
 ## Template A: Throughput Ramp
 
@@ -102,3 +108,23 @@ Recommended params:
 - Average efficiency and stability
 - Failure cause distribution (slip, overload, disconnected)
 - % players achieving silver/gold on first attempt
+
+---
+
+## Relationship to Sandbox Progression
+
+The sandbox game (as defined in [docs/progression-and-balance.md](progression-and-balance.md)) provides organic progression through:
+
+1. **Torque milestones** (50 → 150 → 300 → 500+ HP)
+2. **Torque frontier unlock** (spatial progression gated by sustained torque)
+3. **Session resume** (players iterate and refine layouts)
+4. **Personal best tracking** (self-comparison, not ranking)
+
+These templates represent **optional challenge structures** that could layer on top of sandbox mode:
+
+- Single discrete objective with clear win/lose condition
+- Alternative to "open-ended optimization"
+- Could be gated by torque frontier or available anytime
+- Experimental: test before committing to challenge mode
+
+**Current Focus**: Build and balance the sandbox core first. Challenge templates are speculative design for potential future expansion.

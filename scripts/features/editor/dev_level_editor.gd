@@ -2,7 +2,7 @@ extends Node
 class_name DevLevelEditor
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
-const CHAIN_COMPONENT_SCRIPT_PATH := "res://scripts/components/belt.gd"
+const CHAIN_COMPONENT_SCRIPT_PATH := "res://scripts/components/chain.gd"
 const GEAR_SCENE_PATH := "res://scenes/components/Gear.tscn"
 const ANCHOR_ROTOR_SCRIPT_PATH := "res://scripts/components/anchor_rotor.gd"
 const GEAR_VISUAL_SCRIPT_PATH := "res://scripts/components/gear_visual.gd"
@@ -36,8 +36,17 @@ const TOOL_DELETE_DEV := "delete_dev"
 @onready var _barriers_node: Node2D = get_node_or_null(barriers_node_path)
 @onready var _signal_bus: Node = get_node_or_null("/root/SignalBus")
 
+@export var small_gear_scene: PackedScene
+@export var medium_gear_scene: PackedScene
+@export var large_gear_scene: PackedScene
+@export var shaft_scene: PackedScene
+@export var flywheel_scene: PackedScene
+@export var clutch_scene: PackedScene
+@export var differential_scene: PackedScene
+@export var chain_scene: PackedScene
+
 var _active_tool: String = TOOL_NONE
-var _menu_visible: bool = true
+var _menu_visible: bool = false
 var _menu_layer: CanvasLayer = null
 var _menu_root: Control = null
 var _tool_status_label: Label = null
@@ -205,12 +214,12 @@ func _serialize_components() -> Dictionary:
 		if str(node.get_meta("component_type", "")) != PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
 			continue
 
-		var belt_component := _get_belt_component(node)
-		if belt_component == null:
+		var chain_component := _get_chain_component(node)
+		if chain_component == null:
 			continue
 
-		var pulley_a := belt_component.get("pulley_a") as Node2D
-		var pulley_b := belt_component.get("pulley_b") as Node2D
+		var pulley_a := chain_component.get("pulley_a") as Node2D
+		var pulley_b := chain_component.get("pulley_b") as Node2D
 		if pulley_a == null or pulley_b == null:
 			continue
 
@@ -294,9 +303,9 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 		child.queue_free()
 	_clear_dev_world_nodes()
 
-	var gear_scene := load(GEAR_SCENE_PATH) as PackedScene
+	var default_gear_scene := load(GEAR_SCENE_PATH) as PackedScene
 	var chain_script := load(CHAIN_COMPONENT_SCRIPT_PATH) as Script
-	if gear_scene == null or chain_script == null:
+	if default_gear_scene == null or chain_script == null:
 		push_warning("DevLevelEditor: required resources are missing")
 		return
 
@@ -316,11 +325,14 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 		if component_id < 0:
 			continue
 
-		var node := gear_scene.instantiate() as Node2D
+		var component_type := str(component.get("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM))
+		var chosen_scene := _get_scene_for_component(component_type)
+		if chosen_scene == null:
+			chosen_scene = default_gear_scene
+		var node := chosen_scene.instantiate() as Node2D
 		if node == null:
 			continue
 
-		var component_type := str(component.get("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM))
 		node.set_meta("component_type", component_type)
 		node.global_position = _array_to_vec2(component.get("position", [0.0, 0.0]))
 		node.rotation = float(component.get("rotation", 0.0))
@@ -365,19 +377,29 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 		if pulley_a == null or pulley_b == null:
 			continue
 
-		var chain_node := Node2D.new()
-		chain_node.set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
-		var chain_component: Node = chain_script.new() as Node
-		if chain_component == null:
-			continue
-		chain_node.add_child(chain_component)
-		chain_component.configure(
-			pulley_a,
-			pulley_b,
-			_get_node_connection_radius(pulley_a),
-			_get_node_connection_radius(pulley_b)
-		)
-		_components_container.add_child(chain_node)
+		# Prefer exported chain scene when available
+		if chain_scene != null:
+			var chain_node := chain_scene.instantiate() as Node2D
+			if chain_node == null:
+				continue
+			if chain_node.has_method("configure"):
+				chain_node.call("configure", pulley_a, pulley_b, _get_node_connection_radius(pulley_a), _get_node_connection_radius(pulley_b))
+			chain_node.set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
+			_components_container.add_child(chain_node)
+		else:
+			var chain_node := Node2D.new()
+			chain_node.set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
+			var chain_component: Node = chain_script.new() as Node
+			if chain_component == null:
+				continue
+			chain_node.add_child(chain_component)
+			chain_component.configure(
+				pulley_a,
+				pulley_b,
+				_get_node_connection_radius(pulley_a),
+				_get_node_connection_radius(pulley_b)
+			)
+			_components_container.add_child(chain_node)
 
 	for power_raw in saved_power_nodes:
 		if not power_raw is Dictionary:
@@ -746,9 +768,18 @@ func _get_mouse_world_position() -> Vector2:
 	return canvas_xform.affine_inverse() * get_viewport().get_mouse_position()
 
 
-func _get_belt_component(belt_node: Node2D) -> Node:
-	for child in belt_node.get_children():
-		if child and child.has_method("configure") and child.has_method("get_distance_to_world_point"):
+func _get_chain_component(chain_node: Node2D) -> Node:
+	if chain_node == null:
+		return null
+
+	# Support direct connector scripts as well as legacy wrapper-child setup.
+	if chain_node.has_method("set_tension_state") or chain_node.has_method("set_jam_state"):
+		return chain_node
+	if chain_node.get("pulley_a") != null or chain_node.get("pulley_b") != null:
+		return chain_node
+
+	for child in chain_node.get_children():
+		if child and (child.has_method("set_tension_state") or child.has_method("set_jam_state")):
 			return child
 	return null
 
@@ -792,6 +823,28 @@ func _configure_visual_for_component(node: Node2D, component_type: String) -> vo
 		visual.set("use_module_profile", true)
 	if visual.has_method("_sync_module_profile"):
 		visual.call("_sync_module_profile")
+
+
+func _get_scene_for_component(component_type: String) -> PackedScene:
+	match component_type:
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL:
+			return small_gear_scene if small_gear_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM:
+			return medium_gear_scene if medium_gear_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE:
+			return large_gear_scene if large_gear_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
+			return shaft_scene if shaft_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
+			return flywheel_scene if flywheel_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
+			return clutch_scene if clutch_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
+			return differential_scene if differential_scene != null else null
+		PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
+			return chain_scene if chain_scene != null else null
+		_:
+			return null
 
 
 func _get_component_outer_radius(component_type: String) -> float:

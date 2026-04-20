@@ -15,7 +15,11 @@ Current behavior:
 - use regular circular perimeter snapping
 - contribute friction and torque load based on profile
 - rotate directly when driven
-- support stacked placement for compound gear setups
+- support Phase 1 compound stacking (max 2 layers)
+- same-size stack is blocked for gear+gear and allowed for gear+sprocket
+- converted sprocket-mode gears cannot form gear-mesh links
+- stacked layers share angular velocity (rigid-coupled presentation)
+- each added compound layer applies efficiency and response penalties
 
 ## Shaft
 
@@ -36,6 +40,8 @@ Current behavior:
 Current behavior:
 
 - legacy `belt` code paths still exist for compatibility, but should be treated as aliases to chain
+- chain placement auto-converts eligible gears to sprocket mode
+- sprocket conversion is blocked when the target stack has any active gear-mesh neighbour
 - connects two selected pulleys/sprockets
 - uses span, radius, and chain-specific friction rules
 - preserves rotational direction through the connector path

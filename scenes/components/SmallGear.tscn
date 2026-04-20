@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://small-gear-scene"]
+
+[ext_resource type="Script" path="res://scripts/components/gear.gd" id=1]
+[ext_resource type="Script" path="res://scripts/components/gear_small_visual.gd" id=2]
+
+[node name="GearSmall" type="Node2D" unique_id=200000]
+script = ExtResource( 1 )
+
+[node name="Visual" type="Node2D" parent="." unique_id=200001]
+script = ExtResource( 2 )

@@ -5,7 +5,7 @@ const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 
 var socket_count: int = 8
 var socket_radius: float = PROJECT_PATHS_SCRIPT.DEFAULT_SOCKET_RADIUS
-var snap_max_distance: float = 64.0
+var snap_max_distance: float = PROJECT_PATHS_SCRIPT.DEFAULT_SNAP_MAX_DISTANCE
 var placement_clearance: float = PROJECT_PATHS_SCRIPT.DEFAULT_PLACEMENT_CLEARANCE
 var marker_samples: int = 24
 var component_radius: float = PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
@@ -133,8 +133,8 @@ func get_nearest_snap_origin(
 		if candidate_origin.is_empty():
 			continue
 
-		var candidate_origin_pos: Vector2 = candidate_origin["position"]
-		var candidate_origin_radius: float = candidate_origin["radius"]
+		var _candidate_origin_pos: Vector2 = candidate_origin["position"]
+		var _candidate_origin_radius: float = candidate_origin["radius"]
 		var edge_candidate := _get_snap_candidate_for_origin(world_pos, candidate_origin, component_outer_radius)
 		if not _is_too_close(edge_candidate, components_container, blocked_positions, component_outer_radius):
 			return candidate_origin
@@ -177,8 +177,8 @@ func get_snap_result(
 			return dual_candidate
 		return {"valid": false, "position": world_pos}
 
-	var origin_pos: Vector2 = nearest_origin["position"]
-	var origin_radius: float = nearest_origin["radius"]
+	var _origin_pos: Vector2 = nearest_origin["position"]
+	var _origin_radius: float = nearest_origin["radius"]
 	var candidate := _get_snap_candidate_for_origin(world_pos, nearest_origin, component_outer_radius)
 	var is_close_enough := candidate.distance_to(world_pos) <= snap_max_distance
 	var is_clear := not _is_too_close(candidate, components_container, blocked_positions, component_outer_radius)
@@ -425,7 +425,7 @@ func _is_too_close(candidate: Vector2, components_container: Node, blocked_posit
 		var placed_component := child as Node2D
 		if not placed_component:
 			continue
-		var placed_radius := _get_node_connection_radius(placed_component)
+		var placed_radius := _get_node_block_radius(placed_component)
 		# Use pairwise radius tangency for variable-size gears; a global clearance floor
 		# would incorrectly block valid placements after applying contact-radius meshing.
 		var component_min_distance := placed_radius + component_outer_radius - 0.6
@@ -461,8 +461,16 @@ func _get_node_outer_radius(node: Node2D) -> float:
 
 
 func _get_node_connection_radius(node: Node2D) -> float:
+	if node and str(node.get_meta("component_type", "")) == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL and node.has_meta("shaft_connection_radius"):
+		return maxf(2.0, float(node.get_meta("shaft_connection_radius")))
 	var outer_radius := _get_node_outer_radius(node)
 	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
+
+
+func _get_node_block_radius(node: Node2D) -> float:
+	if node and node.has_meta("flywheel_block_radius"):
+		return maxf(2.0, float(node.get_meta("flywheel_block_radius")))
+	return _get_node_connection_radius(node)
 
 
 func _to_origin_data(entry: Variant) -> Dictionary:
@@ -523,24 +531,40 @@ func _get_component_port_snap_origins(node: Node2D) -> Array:
 		return []
 
 	var component_type := str(node.get_meta("component_type"))
+	if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
+		var shaft_radius := _get_shaft_connection_radius(node)
+		var shaft_dir := Vector2.RIGHT.rotated(node.global_rotation)
+		return [
+			{
+				"position": node.global_position + (shaft_dir * shaft_radius),
+				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+				"node": node
+			},
+			{
+				"position": node.global_position - (shaft_dir * shaft_radius),
+				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+				"node": node
+			}
+		]
+
 	var local_ports: Array = []
 	match component_type:
-		PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
-			local_ports = [-PI * 0.5, PI * 0.5]
 		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-			local_ports = [-PI * 0.5, PI * 0.5]
+			# Center-based shaft ports: visible on top, hidden on back
+			local_ports = [0.0, PI]
 		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-			local_ports = [-2.35, -0.79, PI * 0.5]
+			# Center-based shaft ports: input on top, outputs on sides
+			local_ports = [0.0, PI * 0.5, -PI * 0.5]
 		_:
 			return []
 
 	var snap_origins: Array = []
-	var connection_radius := _get_node_connection_radius(node)
 	for port_angle_raw in local_ports:
 		var port_angle: float = float(port_angle_raw) + node.global_rotation
 		var outward: Vector2 = Vector2.RIGHT.rotated(port_angle)
+		# Shaft ports snap at component center, not on perimeter
 		snap_origins.append({
-			"position": node.global_position + (outward * connection_radius),
+			"position": node.global_position,
 			"radius": 0.0,
 			"fixed_direction": outward,
 			"node": node

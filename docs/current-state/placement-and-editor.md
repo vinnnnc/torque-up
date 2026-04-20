@@ -9,7 +9,7 @@ Current features:
 - preview ghost with valid/invalid color
 - socket markers and active socket ring
 - 8-way drag lock for repeated gear placement
-- stack placement for compound standard gears
+- compound stack placement with explicit rejection feedback for invalid pairings
 - specialized chain and shaft placement flows
 
 ## Snapping Rules
@@ -39,6 +39,8 @@ Chain placement is currently a two-click workflow:
 Current chain rules:
 
 - span limit is enforced
+- chain auto-converts eligible endpoints to sprocket mode
+- conversion is blocked with feedback when the endpoint stack has active gear-mesh neighbours
 - chain is stored under the chain component type
 - older belt terminology remains in compatibility paths only
 

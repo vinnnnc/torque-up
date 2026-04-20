@@ -9,6 +9,14 @@
 [ext_resource type="Script" uid="uid://cualn1v811xrv" path="res://scripts/components/anchor_rotor.gd" id="7_h01f3"]
 [ext_resource type="Script" uid="uid://ds2x7pbd4ge5l" path="res://scripts/features/editor/dev_level_editor.gd" id="10_21m0i"]
 [ext_resource type="Script" uid="uid://cwshcm08vs022" path="res://scripts/features/debug/perf_overlay.gd" id="11_71kjp"]
+[ext_resource type="PackedScene" path="res://scenes/components/SmallGear.tscn" id="12_smallgear"]
+[ext_resource type="PackedScene" path="res://scenes/components/MediumGear.tscn" id="13_mediumgear"]
+[ext_resource type="PackedScene" path="res://scenes/components/LargeGear.tscn" id="14_largegear"]
+[ext_resource type="PackedScene" path="res://scenes/components/Shaft.tscn" id="15_shaft"]
+[ext_resource type="PackedScene" path="res://scenes/components/Flywheel.tscn" id="16_flywheel"]
+[ext_resource type="PackedScene" path="res://scenes/components/Clutch.tscn" id="17_clutch"]
+[ext_resource type="PackedScene" path="res://scenes/components/Differential.tscn" id="18_differential"]
+[ext_resource type="PackedScene" path="res://scenes/components/Chain.tscn" id="19_chain"]
 
 [node name="Node2D" type="Node2D" unique_id=1465959995]
 
@@ -30,10 +38,11 @@ base_spin_speed = 0.7
 
 [node name="Visual" type="Node2D" parent="Network/CentralEngine" unique_id=279898126]
 script = ExtResource("6_m4n62")
-tooth_count = 26
+tooth_count = 32
 outer_radius = 34.0
-inner_radius = 29.560000000000002
-hub_radius = 9.459200000000001
+inner_radius = 31.0
+hub_radius = 9.92
+tooth_depth = 3.0
 body_color = Color(0.46, 0.34, 0.22, 1)
 tooth_color = Color(0.74, 0.58, 0.36, 1)
 outline_color = Color(0.16, 0.1, 0.06, 1)
@@ -47,15 +56,17 @@ torque_spin_factor = 0.015
 
 [node name="Visual" type="Node2D" parent="Network/PowerSource" unique_id=1191795328]
 script = ExtResource("6_m4n62")
-tooth_count = 20
+tooth_count = 24
 outer_radius = 26.0
-inner_radius = 21.560000000000002
-hub_radius = 6.8992
+inner_radius = 23.0
+hub_radius = 7.36
+tooth_depth = 3.0
 body_color = Color(0.26, 0.48, 0.78, 1)
 tooth_color = Color(0.4, 0.68, 1, 1)
 outline_color = Color(0.07, 0.14, 0.23, 1)
 
 [node name="Components" type="Node2D" parent="Network" unique_id=739929044]
+position = Vector2(0, -1)
 
 [node name="Connections" type="Node2D" parent="Network" unique_id=143639542]
 
@@ -66,9 +77,25 @@ outline_color = Color(0.07, 0.14, 0.23, 1)
 [node name="PlacementController" type="Node2D" parent="." unique_id=796507095]
 script = ExtResource("2_uu6xs")
 gear_scene = ExtResource("4_cm0pq")
+small_gear_scene = ExtResource("12_smallgear")
+medium_gear_scene = ExtResource("13_mediumgear")
+large_gear_scene = ExtResource("14_largegear")
+shaft_scene = ExtResource("15_shaft")
+flywheel_scene = ExtResource("16_flywheel")
+clutch_scene = ExtResource("17_clutch")
+differential_scene = ExtResource("18_differential")
+chain_scene = ExtResource("19_chain")
 
 [node name="DevLevelEditor" type="Node" parent="." unique_id=642312004]
 script = ExtResource("10_21m0i")
+small_gear_scene = ExtResource("12_smallgear")
+medium_gear_scene = ExtResource("13_mediumgear")
+large_gear_scene = ExtResource("14_largegear")
+shaft_scene = ExtResource("15_shaft")
+flywheel_scene = ExtResource("16_flywheel")
+clutch_scene = ExtResource("17_clutch")
+differential_scene = ExtResource("18_differential")
+chain_scene = ExtResource("19_chain")
 
 [node name="PerfOverlay" type="CanvasLayer" parent="." unique_id=987640122]
 script = ExtResource("11_71kjp")

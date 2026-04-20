@@ -107,7 +107,8 @@ func get_component_profile(node: Node2D) -> Dictionary:
 		"tooth_count": _get_node_tooth_count(node),
 		"friction": _get_component_friction_load(node),
 		"inertia": _get_component_inertia(node),
-		"max_torque": _get_component_max_torque(node)
+		"max_torque": _get_component_max_torque(node),
+		"compound_added_layers": _get_compound_added_layers(node)
 	}
 
 	return profile
@@ -418,7 +419,7 @@ func _get_connector_to_pulley_ratio(connector_node: Node2D, target_pulley: Node2
 	if connector_node == null or target_pulley == null:
 		return 1.0
 
-	var connector := _get_belt_component_node(connector_node)
+	var connector := _get_connector_component_node(connector_node)
 	if connector == null:
 		return 1.0
 
@@ -544,7 +545,7 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 	var is_connector_b := type_b == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
 	if is_connector_a or is_connector_b:
 		if node_a_ref and node_b_ref:
-			return _belt_links_node(node_a_ref, node_b_ref) or _belt_links_node(node_b_ref, node_a_ref)
+			return _connector_links_node(node_a_ref, node_b_ref) or _connector_links_node(node_b_ref, node_a_ref)
 		return false
 
 	if node_a_ref and node_b_ref:
@@ -570,6 +571,9 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 	if node_b_ref and _is_port_limited_component(type_b):
 		if not _neighbor_matches_component_ports(node_b_ref, node_a_ref, type_b):
 			return false
+
+	if _mesh_blocked_by_sprocket_mode(node_a_ref, node_b_ref, type_a, type_b):
+		return false
 
 	return true
 
@@ -650,14 +654,14 @@ func _stack_links_nodes(node_a: Node2D, node_b: Node2D) -> bool:
 	return node_a.global_position.distance_to(node_b.global_position) <= 0.001
 
 
-func _belt_links_node(belt_node: Node2D, other_node: Node2D) -> bool:
-	if belt_node == null or other_node == null:
+func _connector_links_node(connector_node: Node2D, other_node: Node2D) -> bool:
+	if connector_node == null or other_node == null:
 		return false
-	var ctype := _get_component_type(belt_node)
+	var ctype := _get_component_type(connector_node)
 	if ctype != PROJECT_PATHS_SCRIPT.COMPONENT_BELT and ctype != PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
 		return false
 
-	var connector := _get_belt_component_node(belt_node)
+	var connector := _get_connector_component_node(connector_node)
 	if connector == null:
 		return false
 
@@ -681,12 +685,18 @@ func _shaft_links_node(shaft_node: Node2D, other_node: Node2D) -> bool:
 	return false
 
 
-func _get_belt_component_node(belt_node: Node2D) -> Node:
-	"""Finds the BeltComponent or ChainComponent child node inside a connector wrapper."""
-	if belt_node == null:
+func _get_connector_component_node(connector_node: Node2D) -> Node:
+	"""Finds the connector component node on direct chain nodes or wrapper children."""
+	if connector_node == null:
 		return null
 
-	for child in belt_node.get_children():
+	# Support direct scripted connector nodes (no wrapper child).
+	if connector_node.has_method("set_tension_state") or connector_node.has_method("set_jam_state"):
+		return connector_node
+	if connector_node.get("pulley_a") != null or connector_node.get("pulley_b") != null:
+		return connector_node
+
+	for child in connector_node.get_children():
 		if child and (child.has_method("set_tension_state") or child.has_method("set_jam_state")):
 			return child
 
@@ -714,6 +724,8 @@ func _get_node_connection_radius(node: Node2D) -> float:
 		return 0.01
 	if ctype == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT and node and node.has_meta("shaft_end_a_id"):
 		return 0.01
+	if ctype == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL and node and node.has_meta("shaft_connection_radius"):
+		return maxf(2.0, float(node.get_meta("shaft_connection_radius")))
 
 	var outer_radius := _get_node_outer_radius(node)
 	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
@@ -778,6 +790,51 @@ func _get_shaft_connection_radius(node: Node2D) -> float:
 		return maxf(0.0, float(node.get_meta("shaft_connection_radius")))
 
 	return _get_node_connection_radius(node)
+
+
+func _get_compound_added_layers(node: Node2D) -> int:
+	if node == null:
+		return 0
+	if node.has_meta("compound_added_layers"):
+		return max(0, int(node.get_meta("compound_added_layers")))
+	if node.has_meta("stack_parent_id"):
+		return 1
+	var container := node.get_parent()
+	if container == null:
+		return 0
+	var node_id := node.get_instance_id()
+	for child in container.get_children():
+		var child_node := child as Node2D
+		if child_node == null:
+			continue
+		if int(child_node.get_meta("stack_parent_id", -1)) == node_id:
+			return 1
+	return 0
+
+
+func _mesh_blocked_by_sprocket_mode(node_a: Node2D, node_b: Node2D, type_a: String, type_b: String) -> bool:
+	if node_a == null or node_b == null:
+		return false
+	if not _is_standard_gear_component_type(type_a) or not _is_standard_gear_component_type(type_b):
+		return false
+	if _stack_links_nodes(node_a, node_b):
+		return false
+	return _is_sprocket_mode(node_a) or _is_sprocket_mode(node_b)
+
+
+func _is_standard_gear_component_type(component_type: String) -> bool:
+	return component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
+
+
+func _is_sprocket_mode(node: Node2D) -> bool:
+	if node == null:
+		return false
+	if node.has_method("is_sprocket_mode"):
+		return bool(node.call("is_sprocket_mode"))
+	var pulley_flag: Variant = node.get("_pulley_mode")
+	if pulley_flag != null:
+		return bool(pulley_flag)
+	return false
 
 
 func _get_node_tooth_count(node: Node2D) -> int:

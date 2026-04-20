@@ -27,9 +27,8 @@ var _chain_phase: float = 0.0
 
 const CHAIN_TOOTH_MARGIN := 1.2
 const CHAIN_SPEED_SCALE := 65.0
-const CHAIN_LINK_SPACING := 10.0
-const CHAIN_LINK_WIDTH := 5.5
-const CHAIN_LINK_HEIGHT := 3.5
+const CHAIN_MARK_SPACING := 11.0
+const CHAIN_MARK_WIDTH := 1.4
 const CHAIN_JAM_PULSE_SPEED := 3.0
 
 
@@ -60,15 +59,8 @@ func _ready() -> void:
 
 	set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
 
-	if pulley_a == null or pulley_b == null:
-		push_error("ChainComponent: failed to find sprockets: a=%s  b=%s" % [pulley_a, pulley_b])
-		queue_free()
-		return
-
-	if pulley_a.has_method("set_pulley_mode"):
-		pulley_a.set_pulley_mode(true)
-	if pulley_b.has_method("set_pulley_mode"):
-		pulley_b.set_pulley_mode(true)
+	# Pulley references may not be set yet if this chain is a preview instance
+	# or being loaded from a save. Validation happens in configure() or _process() will handle null pulleys.
 
 
 func set_jam_state(jam: float) -> void:
@@ -126,6 +118,7 @@ func _draw() -> void:
 	var geometry := _compute_open_belt_geometry(pos_a, radius_a, pos_b, radius_b)
 	if geometry.is_empty():
 		_draw_chain_run(pos_a, pos_b, chain_color)
+		_draw_moving_marks_on_line(pos_a, pos_b, link_highlight_color)
 		return
 
 	var p1_up: Vector2 = geometry["p1_up"]
@@ -141,7 +134,13 @@ func _draw() -> void:
 
 	# Draw the arc wrap on each sprocket (solid line).
 	_draw_arc_segment(pos_a, radius_a, a_up, a_dn, true, chain_color, line_width)
-	_draw_arc_segment(pos_b, radius_b, a_dn, a_up, true, chain_color, line_width)
+	_draw_arc_segment(pos_b, radius_b, a_up, a_dn, false, chain_color, line_width)
+
+	# Moving marks on both straight spans and wrapped arcs.
+	_draw_moving_marks_on_line(p1_up, p2_up, link_highlight_color)
+	_draw_moving_marks_on_arc(pos_a, radius_a, a_dn, a_up, false, link_highlight_color)
+	_draw_moving_marks_on_line(p2_dn, p1_dn, link_highlight_color)
+	_draw_moving_marks_on_arc(pos_b, radius_b, a_up, a_dn, false, link_highlight_color)
 
 	# Draw jam glow overlay when accumulating jam.
 	if jam_amount > 0.02:
@@ -158,30 +157,56 @@ func _draw_chain_run(start_pos: Vector2, end_pos: Vector2, run_color: Color) -> 
 	if length <= 0.001:
 		return
 
-	var dir := span / length
-	var normal := dir.rotated(PI * 0.5)
-
 	# Base run line.
 	draw_line(start_pos, end_pos, run_color, line_width)
 
-	# Chain links: alternating outer-plate and pin-plate rects.
-	var count := int(ceil(length / CHAIN_LINK_SPACING)) + 1
+
+func _draw_moving_marks_on_line(start_pos: Vector2, end_pos: Vector2, mark_color: Color) -> void:
+	var span := end_pos - start_pos
+	var length := span.length()
+	if length <= 0.001:
+		return
+
+	var dir := span / length
+	var normal := dir.rotated(PI * 0.5)
+	var count := int(ceil(length / CHAIN_MARK_SPACING)) + 1
 	for i in range(count):
-		var offset := fposmod(_chain_phase + (float(i) * CHAIN_LINK_SPACING), length)
+		var offset := fposmod(_chain_phase + (float(i) * CHAIN_MARK_SPACING), length)
 		var center := start_pos + dir * offset
-		var is_outer_plate := (i % 2 == 0)
-		var lw := CHAIN_LINK_WIDTH if is_outer_plate else (CHAIN_LINK_WIDTH * 0.65)
-		var lh := CHAIN_LINK_HEIGHT if is_outer_plate else (CHAIN_LINK_HEIGHT * 0.75)
-		var link_col := link_highlight_color if is_outer_plate else run_color
-		# Draw link as 4 corner verts (axis-aligned parallelogram along run).
-		var corners := PackedVector2Array([
-			center + dir * (lw * 0.5) + normal * (lh * 0.5),
-			center + dir * (lw * 0.5) - normal * (lh * 0.5),
-			center - dir * (lw * 0.5) - normal * (lh * 0.5),
-			center - dir * (lw * 0.5) + normal * (lh * 0.5),
-			center + dir * (lw * 0.5) + normal * (lh * 0.5),
-		])
-		draw_polyline(corners, link_col, 1.2)
+		draw_line(
+			center - normal * (line_width * 0.45),
+			center + normal * (line_width * 0.45),
+			mark_color,
+			CHAIN_MARK_WIDTH
+		)
+
+
+func _draw_moving_marks_on_arc(
+	center: Vector2,
+	radius: float,
+	start_angle: float,
+	end_angle: float,
+	ccw: bool,
+	mark_color: Color
+) -> void:
+	var delta := _signed_angle_delta(start_angle, end_angle, ccw)
+	var arc_len := absf(delta) * radius
+	if arc_len <= 0.001:
+		return
+
+	var travel_sign := 1.0 if delta >= 0.0 else -1.0
+	var count := int(ceil(arc_len / CHAIN_MARK_SPACING)) + 1
+	for i in range(count):
+		var offset := fposmod(_chain_phase + (float(i) * CHAIN_MARK_SPACING), arc_len)
+		var angle := start_angle + ((offset / radius) * travel_sign)
+		var radial := Vector2.RIGHT.rotated(angle)
+		var p := center + radial * radius
+		draw_line(
+			p - radial * (line_width * 0.45),
+			p + radial * (line_width * 0.45),
+			mark_color,
+			CHAIN_MARK_WIDTH
+		)
 
 
 func _get_sprocket_angular_speed(sprocket: GearComponent) -> float:
@@ -239,8 +264,71 @@ func _draw_arc_segment(
 
 func _signed_angle_delta(from_angle: float, to_angle: float, ccw: bool) -> float:
 	var raw := wrapf(to_angle - from_angle, -PI, PI)
-	if ccw and raw > 0.0:
-		raw -= TAU
-	elif not ccw and raw < 0.0:
+	if ccw and raw < 0.0:
 		raw += TAU
+	elif not ccw and raw > 0.0:
+		raw -= TAU
 	return raw
+
+
+func get_distance_to_world_point(world_pos: Vector2) -> float:
+	if pulley_a == null or pulley_b == null:
+		return INF
+
+	var pos_a := pulley_a.global_position
+	var pos_b := pulley_b.global_position
+	var radius_a := maxf(3.0, connection_radius_a + PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN + CHAIN_TOOTH_MARGIN)
+	var radius_b := maxf(3.0, connection_radius_b + PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN + CHAIN_TOOTH_MARGIN)
+
+	var geometry := _compute_open_belt_geometry(pos_a, radius_a, pos_b, radius_b)
+	if geometry.is_empty():
+		return _point_segment_distance(world_pos, pos_a, pos_b)
+
+	var p1_up: Vector2 = geometry["p1_up"]
+	var p1_dn: Vector2 = geometry["p1_dn"]
+	var p2_up: Vector2 = geometry["p2_up"]
+	var p2_dn: Vector2 = geometry["p2_dn"]
+	var a_up: float = float(geometry["a_up"])
+	var a_dn: float = float(geometry["a_dn"])
+
+	var min_dist := INF
+	min_dist = minf(min_dist, _point_segment_distance(world_pos, p1_up, p2_up))
+	min_dist = minf(min_dist, _point_segment_distance(world_pos, p1_dn, p2_dn))
+	min_dist = minf(min_dist, _point_arc_distance(world_pos, pos_a, radius_a, a_up, a_dn, true))
+	min_dist = minf(min_dist, _point_arc_distance(world_pos, pos_b, radius_b, a_up, a_dn, true))
+	return min_dist
+
+
+func _point_segment_distance(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var ab_len_sq := ab.length_squared()
+	if ab_len_sq <= 0.000001:
+		return p.distance_to(a)
+
+	var t := clampf((p - a).dot(ab) / ab_len_sq, 0.0, 1.0)
+	var closest := a + (ab * t)
+	return p.distance_to(closest)
+
+
+func _point_arc_distance(p: Vector2, center: Vector2, radius: float, start_angle: float, end_angle: float, ccw: bool) -> float:
+	var point_vec := p - center
+	if point_vec.length_squared() <= 0.000001:
+		var near_start := center + Vector2.RIGHT.rotated(start_angle) * radius
+		var near_end := center + Vector2.RIGHT.rotated(end_angle) * radius
+		return minf(p.distance_to(near_start), p.distance_to(near_end))
+
+	var point_angle := point_vec.angle()
+	if _is_angle_on_arc(point_angle, start_angle, end_angle, ccw):
+		return absf(point_vec.length() - radius)
+
+	var arc_start := center + Vector2.RIGHT.rotated(start_angle) * radius
+	var arc_end := center + Vector2.RIGHT.rotated(end_angle) * radius
+	return minf(p.distance_to(arc_start), p.distance_to(arc_end))
+
+
+func _is_angle_on_arc(angle: float, start_angle: float, end_angle: float, ccw: bool) -> bool:
+	var total := _signed_angle_delta(start_angle, end_angle, ccw)
+	var partial := _signed_angle_delta(start_angle, angle, ccw)
+	if total >= 0.0:
+		return partial >= -0.0001 and partial <= total + 0.0001
+	return partial <= 0.0001 and partial >= total - 0.0001

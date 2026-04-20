@@ -1,7 +1,7 @@
 extends CanvasLayer
 class_name PerfOverlay
 
-@export var visible_on_start: bool = true
+@export var visible_on_start: bool = false
 @export var toggle_key: Key = KEY_F9
 @export var update_interval_sec: float = 0.2
 

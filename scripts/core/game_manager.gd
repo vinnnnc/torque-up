@@ -31,9 +31,13 @@ var _perf_last_reachable_count: int = 0
 var _perf_last_profile_count: int = 0
 var _perf_last_underpowered: bool = false
 var _perf_last_component_count: int = 0
+var _ui_overlay_snapshot: Dictionary = {}
+var _ui_component_profiles: Dictionary = {}
+var _ui_component_load_ratios: Dictionary = {}
+var _ui_connected_component_ids: Dictionary = {}
 
 @onready var _components_container: Node = get_node(components_container_path)
-@onready var _power_source: Node2D = get_node_or_null(power_source_path)
+
 @onready var _central_engine: Node2D = get_node_or_null(central_engine_path)
 @onready var _game_state: Node = get_node_or_null("/root/GameState")
 @onready var _signal_bus: Node = get_node_or_null("/root/SignalBus")
@@ -120,6 +124,7 @@ func _recalculate_and_publish_state() -> void:
 	var all_power_sources: Array = _get_all_power_sources()
 	var power_sources: Array = _get_active_power_sources()
 	var local_power_sources: Array = all_power_sources
+	var tick_delta := 1.0 / maxf(1.0, simulation_tick_hz)
 
 	var available_torque := 0.0
 	if not power_sources.is_empty():
@@ -141,6 +146,7 @@ func _recalculate_and_publish_state() -> void:
 		if available_torque > 0.001:
 			preliminary_load_ratio = clampf(friction_load / available_torque, 0.0, 1.0)
 		available_torque = _compute_available_torque_from_sources(power_sources, preliminary_load_ratio)
+	available_torque = _apply_flywheel_buffer(available_torque, friction_load, reachable_profiles, tick_delta)
 
 	var free_torque := available_torque - friction_load
 	var is_underpowered := free_torque < 0.0
@@ -152,6 +158,7 @@ func _recalculate_and_publish_state() -> void:
 	var effective_drive_torque := maxf(available_torque - friction_load, 0.0)
 	var efficiency_for_engine := network_service.compute_efficiency(reachable_connection_count) * zone_efficiency_multiplier
 	efficiency_for_engine *= _compute_network_mix_efficiency_bonus(reachable_profiles)
+	efficiency_for_engine *= _compute_compound_stack_efficiency_multiplier(reachable_profiles)
 	efficiency_for_engine = clampf(efficiency_for_engine, PROJECT_PATHS_SCRIPT.MIN_EFFICIENCY, 1.0)
 
 	var connected := false
@@ -165,14 +172,17 @@ func _recalculate_and_publish_state() -> void:
 
 		if connected:
 			delivered_torque = effective_drive_torque
-			horsepower = torque_system.compute_output_horsepower(delivered_torque, efficiency_for_engine)
 
 	var drive_utilization := _get_drive_utilization(available_torque, friction_load)
 	var source_drive_speed := _get_source_drive_speed(power_sources, is_underpowered)
+	var bottleneck_profile := _get_bottleneck_profile(reachable_profiles)
 	var local_source_drive_speeds: Dictionary = {}
 	var local_source_underpowered: Dictionary = {}
 	var component_drive_targets: Dictionary = {}
-	var local_conflict_set: Dictionary = {}
+	var isolated_component_targets: Dictionary = {}
+	var isolated_stalled_components: Dictionary = {}
+	var isolated_conflict_set: Dictionary = {}
+	var connected_conflict_set: Dictionary = {}
 	for local_source_raw in local_power_sources:
 		var local_source := local_source_raw as Node2D
 		if local_source == null:
@@ -196,15 +206,26 @@ func _recalculate_and_publish_state() -> void:
 		if local_available_torque > 0.001:
 			var local_load_ratio := clampf(local_friction_load / local_available_torque, 0.0, 1.0)
 			local_available_torque = _get_power_source_output(local_source, local_load_ratio)
+		local_available_torque = _apply_flywheel_buffer(local_available_torque, local_friction_load, local_profiles, tick_delta)
 
 		var local_is_underpowered := local_available_torque <= local_friction_load
-		local_source_underpowered[local_source.get_instance_id()] = local_is_underpowered
+		var local_source_id := local_source.get_instance_id()
+		local_source_underpowered[local_source_id] = local_is_underpowered
 
 		var local_source_speed := 0.0
 		if not local_is_underpowered:
 			var local_utilization := _get_drive_utilization(local_available_torque, local_friction_load)
-			local_source_speed = _get_source_drive_speed([local_source], false) * local_utilization
-		local_source_drive_speeds[local_source.get_instance_id()] = local_source_speed
+			# Keep source identity visible under load. Fully linear damping made
+			# speed nodes look too similar to torque nodes in practical builds.
+			var speed_utilization := lerpf(0.35, 1.0, local_utilization)
+			local_source_speed = _get_source_drive_speed([local_source], false) * speed_utilization
+		local_source_drive_speeds[local_source_id] = local_source_speed
+
+		# Simplified isolated island behavior for jam scope:
+		# disconnected subnetworks still need torque-budget spin/stall plus
+		# correct direction/ratio from local graph multipliers.
+		if power_sources.has(local_source):
+			continue
 
 		var local_source_drive_radius := _get_node_outer_radius(local_source)
 		var local_source_drive_teeth := _get_node_tooth_count(local_source)
@@ -217,97 +238,148 @@ func _recalculate_and_publish_state() -> void:
 			[],
 			connection_tolerance
 		)
-		var local_conflicts := network_service.get_direction_conflicts(
+		var local_conflicts_arr := network_service.get_direction_conflicts(
 			_components_container,
 			local_source.global_position,
 			local_source_radius,
 			[],
 			connection_tolerance
 		)
-		for local_conflict_id_raw in local_conflicts:
-			local_conflict_set[int(local_conflict_id_raw)] = true
+		var local_conflicts: Dictionary = {}
+		for local_conflict_raw in local_conflicts_arr:
+			local_conflicts[int(local_conflict_raw)] = true
 
-		for key in local_multipliers.keys():
-			var target_speed := local_source_speed * float(local_multipliers[key])
-			var key_id := int(key)
-			if local_conflict_set.has(key_id):
-				component_drive_targets[key_id] = 0.0
+		for local_component_raw in local_reachable:
+			var local_component := local_component_raw as Node2D
+			if local_component == null:
 				continue
 
-			var prev_speed := float(component_drive_targets.get(key_id, 0.0))
-			if absf(prev_speed) > 0.001 and absf(target_speed) > 0.001 and signf(prev_speed) != signf(target_speed):
-				local_conflict_set[key_id] = true
-				component_drive_targets[key_id] = 0.0
+			var local_component_id := local_component.get_instance_id()
+			if local_is_underpowered:
+				isolated_stalled_components[local_component_id] = true
+				isolated_component_targets[local_component_id] = 0.0
 				continue
 
-			if absf(target_speed) > absf(prev_speed):
-				component_drive_targets[key_id] = target_speed
-	var should_compute_drive_graph := source_drive_speed != 0.0
+			if isolated_stalled_components.has(local_component_id):
+				continue
 
-	if should_compute_drive_graph and not power_sources.is_empty():
-		var first_power_source := power_sources[0] as Node2D
-		if first_power_source:
-			var source_radius := _get_node_connection_radius(first_power_source)
-			var source_drive_radius := _get_node_outer_radius(first_power_source)
-			var source_drive_teeth := _get_node_tooth_count(first_power_source)
-			var extra_spin_nodes: Array = []
-			for source_raw in power_sources:
-				var source := source_raw as Node2D
-				if source == null or source == first_power_source:
-					continue
-				extra_spin_nodes.append({
-					"key": source.get_instance_id(),
-					"position": source.global_position,
-					"radius": _get_node_connection_radius(source),
-					"drive_radius": _get_node_outer_radius(source),
-					"drive_teeth": _get_node_tooth_count(source)
-				})
+			if local_conflicts.has(local_component_id):
+				isolated_conflict_set[local_component_id] = true
+				isolated_component_targets[local_component_id] = 0.0
+				continue
 
-			network_spin_signs = network_service.get_network_spin_signs(
+			var local_multiplier := float(local_multipliers.get(local_component_id, 0.0))
+			var local_target := local_source_speed * local_multiplier
+
+			var prev_local_target := float(isolated_component_targets.get(local_component_id, 0.0))
+			if absf(prev_local_target) > 0.001 and absf(local_target) > 0.001 and signf(prev_local_target) != signf(local_target):
+				isolated_conflict_set[local_component_id] = true
+				isolated_component_targets[local_component_id] = 0.0
+				continue
+			if absf(local_target) > absf(prev_local_target):
+				isolated_component_targets[local_component_id] = local_target
+	if not power_sources.is_empty():
+		for source_raw in power_sources:
+			var source := source_raw as Node2D
+			if source == null:
+				continue
+
+			var source_radius := _get_node_connection_radius(source)
+			var source_drive_radius := _get_node_outer_radius(source)
+			var source_drive_teeth := _get_node_tooth_count(source)
+			var source_speed := float(local_source_drive_speeds.get(source.get_instance_id(), source_drive_speed))
+
+			var source_spin_signs := network_service.get_network_spin_signs(
 				_components_container,
-				first_power_source.global_position,
+				source.global_position,
 				source_radius,
-				extra_spin_nodes,
-				connection_tolerance
-			)
-			network_drive_multipliers = network_service.get_network_drive_multipliers(
-				_components_container,
-				first_power_source.global_position,
-				source_radius,
-				source_drive_radius,
-				source_drive_teeth,
-				extra_spin_nodes,
-				connection_tolerance
-			)
-
-	_apply_component_drive_targets(component_drive_targets)
-	_update_component_connection_state(reachable_components)
-	_update_component_stress_state(reachable_components, reachable_profiles, drive_utilization, is_underpowered)
-
-	# Direction conflict detection: components where two gear paths require opposite rotation.
-	var direction_conflict_ids: Array = local_conflict_set.keys()
-	if not power_sources.is_empty() and network_spin_signs.size() > 0:
-		var first_source := power_sources[0] as Node2D
-		if first_source:
-			var engine_conflicts := network_service.get_direction_conflicts(
-				_components_container,
-				first_source.global_position,
-				_get_node_connection_radius(first_source),
 				[],
 				connection_tolerance
 			)
-			for engine_conflict_id_raw in engine_conflicts:
-				local_conflict_set[int(engine_conflict_id_raw)] = true
-			direction_conflict_ids = local_conflict_set.keys()
+			for sign_key_raw in source_spin_signs.keys():
+				if not network_spin_signs.has(sign_key_raw):
+					network_spin_signs[sign_key_raw] = source_spin_signs[sign_key_raw]
+
+			var source_multipliers := network_service.get_network_drive_multipliers(
+				_components_container,
+				source.global_position,
+				source_radius,
+				source_drive_radius,
+				source_drive_teeth,
+				[],
+				connection_tolerance
+			)
+
+			if network_drive_multipliers.is_empty():
+				network_drive_multipliers = source_multipliers
+
+			for key_raw in source_multipliers.keys():
+				var key_id := int(key_raw)
+				var target_speed := source_speed * float(source_multipliers[key_raw])
+				var prev_speed := float(component_drive_targets.get(key_id, 0.0))
+				if absf(prev_speed) > 0.001 and absf(target_speed) > 0.001 and signf(prev_speed) != signf(target_speed):
+					connected_conflict_set[key_id] = true
+					component_drive_targets[key_id] = 0.0
+					continue
+				if absf(target_speed) > absf(prev_speed):
+					component_drive_targets[key_id] = target_speed
+
+			var source_conflicts := network_service.get_direction_conflicts(
+				_components_container,
+				source.global_position,
+				source_radius,
+				[],
+				connection_tolerance
+			)
+			for conflict_id_raw in source_conflicts:
+				connected_conflict_set[int(conflict_id_raw)] = true
+
+	for stalled_id_raw in isolated_stalled_components.keys():
+		var stalled_id := int(stalled_id_raw)
+		if component_drive_targets.has(stalled_id):
+			continue
+		component_drive_targets[stalled_id] = 0.0
+
+	for isolated_id_raw in isolated_component_targets.keys():
+		var isolated_id := int(isolated_id_raw)
+		if component_drive_targets.has(isolated_id):
+			continue
+		component_drive_targets[isolated_id] = float(isolated_component_targets[isolated_id_raw])
+
+	for conflict_id_raw in connected_conflict_set.keys():
+		var conflict_id := int(conflict_id_raw)
+		component_drive_targets[conflict_id] = 0.0
+
+	for isolated_conflict_raw in isolated_conflict_set.keys():
+		var isolated_conflict_id := int(isolated_conflict_raw)
+		connected_conflict_set[isolated_conflict_id] = true
+		if not component_drive_targets.has(isolated_conflict_id):
+			component_drive_targets[isolated_conflict_id] = 0.0
+
+	var per_component_torque := 0.0
+	if connected and not reachable_components.is_empty():
+		per_component_torque = delivered_torque / float(reachable_components.size())
+	_apply_component_torque(per_component_torque, network_spin_signs)
+	_apply_component_drive_targets(component_drive_targets)
+	_update_component_connection_state(reachable_components)
+	_update_component_stress_state(
+		reachable_components,
+		reachable_profiles,
+		drive_utilization,
+		is_underpowered,
+		isolated_stalled_components
+	)
+
+	# Direction conflict detection: components where two gear paths require opposite rotation.
+	var direction_conflict_ids: Array = connected_conflict_set.keys()
 	_apply_direction_conflicts(direction_conflict_ids)
 
 	# Condition system: accumulate per-component heat/cold/dust stress each tick.
-	var condition_tick_delta := 1.0 / maxf(1.0, simulation_tick_hz)
 	var per_component_load_ratios := _build_component_load_ratios(reachable_profiles, available_torque)
 	condition_service.update(
 		reachable_components,
 		_get_zone_condition_at,
-		condition_tick_delta,
+		tick_delta,
 		per_component_load_ratios
 	)
 
@@ -327,15 +399,43 @@ func _recalculate_and_publish_state() -> void:
 		is_underpowered,
 		network_spin_signs,
 		network_drive_multipliers,
+		component_drive_targets,
 		source_drive_speed,
 		local_source_drive_speeds,
 		engine_drive_multiplier
 	)
 	var engine_rpm := _to_rpm(source_drive_speed * engine_drive_multiplier if connected else 0.0)
+	# Apply gear ratio: RPM scales by multiplier, torque scales by inverse.
+	# This preserves power (HP) across ideal gear trains while correctly
+	# representing the tradeoff: speed-increasing gear trains raise RPM and
+	# lower torque at the engine; torque-increasing trains do the reverse.
+	var ratio_magnitude := maxf(absf(engine_drive_multiplier), 0.001) if connected else 1.0
+	var engine_torque := delivered_torque / ratio_magnitude
+	if connected:
+		horsepower = torque_system.compute_output_horsepower(engine_torque, engine_rpm, efficiency_for_engine)
+	_ui_component_profiles = _build_component_profile_lookup(reachable_profiles)
+	_ui_component_load_ratios = per_component_load_ratios.duplicate()
+	_ui_connected_component_ids = _build_component_id_lookup(reachable_components)
+	_ui_overlay_snapshot = {
+		"connected": connected,
+		"horsepower": horsepower,
+		"delivered_torque": engine_torque,
+		"free_torque": free_torque,
+		"engine_rpm": engine_rpm,
+		"efficiency": efficiency_for_engine,
+		"friction_load": friction_load,
+		"reachable_count": reachable_components.size(),
+		"connection_count": reachable_connection_count,
+		"connected_source_count": power_sources.size(),
+		"total_source_count": all_power_sources.size(),
+		"underpowered": is_underpowered,
+		"bottleneck_name": _get_profile_display_name(bottleneck_profile),
+		"bottleneck_loss": float(bottleneck_profile.get("friction", 0.0)),
+		"bottleneck_id": int((bottleneck_profile.get("node", null) as Node2D).get_instance_id()) if bottleneck_profile.get("node", null) is Node2D else -1
+	}
 	hud_state.set_values(horsepower, free_torque, efficiency_for_engine, engine_rpm, friction_load, free_torque)
 
 	if _game_state:
-		var tick_delta := 1.0 / maxf(1.0, simulation_tick_hz)
 		_game_state.set_state(horsepower, free_torque, efficiency_for_engine, engine_rpm, tick_delta)
 
 	if _signal_bus:
@@ -349,6 +449,59 @@ func _recalculate_and_publish_state() -> void:
 	else:
 		_perf_avg_recalc_ms = lerpf(_perf_avg_recalc_ms, perf_elapsed_ms, 0.18)
 	_perf_peak_recalc_ms = maxf(_perf_peak_recalc_ms * 0.96, perf_elapsed_ms)
+
+
+func _apply_flywheel_buffer(
+	available_torque: float,
+	friction_load: float,
+	profiles: Array,
+	tick_delta: float
+) -> float:
+	if profiles.is_empty() or tick_delta <= 0.0:
+		return available_torque
+
+	var flywheels: Array = []
+	for profile_raw in profiles:
+		if not profile_raw is Dictionary:
+			continue
+		var profile := profile_raw as Dictionary
+		if str(profile.get("type", "")) != PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
+			continue
+		var node := profile.get("node", null) as Node
+		if node == null:
+			continue
+		if not node.has_method("draw_discharge") or not node.has_method("absorb_surplus"):
+			continue
+		flywheels.append(node)
+
+	if flywheels.is_empty():
+		return available_torque
+
+	var adjusted_torque: float = available_torque
+	var deficit: float = maxf(friction_load - adjusted_torque, 0.0)
+	if deficit > 0.0:
+		for flywheel_raw in flywheels:
+			var flywheel := flywheel_raw as Node
+			if flywheel == null:
+				continue
+			var released: float = float(flywheel.call("draw_discharge", deficit, tick_delta))
+			if released <= 0.0:
+				continue
+			adjusted_torque += released
+			deficit = maxf(deficit - released, 0.0)
+			if deficit <= 0.0:
+				break
+	else:
+		var surplus: float = maxf(adjusted_torque - friction_load, 0.0)
+		if surplus > 0.0:
+			var per_flywheel: float = surplus / float(flywheels.size())
+			for flywheel_raw in flywheels:
+				var flywheel := flywheel_raw as Node
+				if flywheel == null:
+					continue
+				flywheel.call("absorb_surplus", per_flywheel, tick_delta)
+
+	return adjusted_torque
 
 
 func _apply_zone_effects_to_profiles(profiles: Array) -> Dictionary:
@@ -506,7 +659,13 @@ func _update_component_connection_state(reachable_components: Array) -> void:
 			child.set_engine_route_state(is_engine_route)
 
 
-func _update_component_stress_state(reachable_components: Array, reachable_profiles: Array, drive_utilization: float, is_underpowered: bool) -> void:
+func _update_component_stress_state(
+	reachable_components: Array,
+	reachable_profiles: Array,
+	drive_utilization: float,
+	is_underpowered: bool,
+	isolated_stalled_components: Dictionary = {}
+) -> void:
 	var reachable_ids: Dictionary = {}
 	for component_raw in reachable_components:
 		var component := component_raw as Node2D
@@ -518,8 +677,11 @@ func _update_component_stress_state(reachable_components: Array, reachable_profi
 		for child in _components_container.get_children():
 			if not child.has_method("set_stress_state"):
 				continue
-			var stalled_connected := reachable_ids.has(child.get_instance_id())
-			child.set_stress_state(1.0 if stalled_connected else 0.0, stalled_connected)
+			var child_id := child.get_instance_id()
+			var stalled_connected := reachable_ids.has(child_id)
+			var stalled_isolated := isolated_stalled_components.has(child_id)
+			var stalled_any := stalled_connected or stalled_isolated
+			child.set_stress_state(1.0 if stalled_any else 0.0, stalled_any)
 		return
 
 	var stress_level := clampf(1.0 - drive_utilization, 0.0, 1.0)
@@ -537,25 +699,32 @@ func _update_component_stress_state(reachable_components: Array, reachable_profi
 		if not child.has_method("set_stress_state"):
 			continue
 
-		var component_connected := reachable_ids.has(child.get_instance_id())
-		var stalled := component_connected and is_underpowered
+		var child_id := child.get_instance_id()
+		var component_connected := reachable_ids.has(child_id)
+		var stalled := isolated_stalled_components.has(child_id)
 		var child_stress := 0.0
 		if component_connected:
 			child_stress = stress_level
-			var profile: Dictionary = profile_by_id.get(child.get_instance_id(), {}) as Dictionary
+			var profile: Dictionary = profile_by_id.get(child_id, {}) as Dictionary
 			if not profile.is_empty():
 				var friction := float(profile.get("friction", 0.0))
 				var max_torque := float(profile.get("max_torque", 1.0))
 				var local_load_ratio := clampf(friction / maxf(max_torque, 0.001), 0.0, 1.0)
 				# Blend global strain with local bottleneck strain so overloaded pieces stand out.
 				child_stress = clampf(maxf(stress_level, local_load_ratio * 0.85), 0.0, 1.0)
+		elif stalled:
+			child_stress = 1.0
 		child.set_stress_state(child_stress, stalled)
 
 
 func _apply_component_torque(per_component_torque: float, spin_signs: Dictionary) -> void:
 	for child in _components_container.get_children():
 		if child.has_method("set_torque"):
-			var spin_direction := float(spin_signs.get(child.get_instance_id(), 1.0))
+			var child_id := child.get_instance_id()
+			if not spin_signs.has(child_id):
+				child.set_torque(0.0)
+				continue
+			var spin_direction := float(spin_signs.get(child_id, 1.0))
 			child.set_torque(per_component_torque * spin_direction)
 
 
@@ -583,6 +752,7 @@ func _update_anchor_rotors(
 	is_underpowered: bool,
 	network_spin_signs: Dictionary,
 	network_drive_multipliers: Dictionary,
+	component_drive_targets: Dictionary,
 	source_drive_speed: float,
 	local_source_drive_speeds: Dictionary,
 	engine_drive_multiplier: float
@@ -606,6 +776,11 @@ func _update_anchor_rotors(
 		elif is_source_local:
 			source_drive = float(local_source_drive_speeds.get(source.get_instance_id(), 0.0))
 
+		if is_source_local:
+			var synced_source_drive := _derive_anchor_drive_speed(source, component_drive_targets)
+			if absf(synced_source_drive) > 0.001:
+				source_drive = synced_source_drive
+
 		if is_source_local and source.has_method("set_target_angular_speed"):
 			source.set_target_angular_speed(source_drive, is_source_local)
 		elif source.has_method("set_network_torque"):
@@ -623,6 +798,10 @@ func _update_anchor_rotors(
 	# Engine speed is now derived from the actual drive chain ratio, not hardcoded from source.
 	if _central_engine and _central_engine.has_method("set_target_angular_speed"):
 		var engine_drive := source_drive_speed * engine_drive_multiplier if connected else 0.0
+		if connected:
+			var synced_engine_drive := _derive_anchor_drive_speed(_central_engine, component_drive_targets)
+			if absf(synced_engine_drive) > 0.001:
+				engine_drive = synced_engine_drive
 		_central_engine.set_target_angular_speed(engine_drive, connected)
 	elif _central_engine and _central_engine.has_method("set_network_torque"):
 		_central_engine.set_network_torque(delivered_torque, connected)
@@ -630,6 +809,43 @@ func _update_anchor_rotors(
 		_central_engine.set_underpowered_state(false)
 	if _central_engine and _central_engine.has_method("set_connection_state"):
 		_central_engine.set_connection_state(connected)
+
+
+func _derive_anchor_drive_speed(anchor_node: Node2D, drive_targets: Dictionary) -> float:
+	if anchor_node == null or drive_targets.is_empty():
+		return 0.0
+
+	var anchor_radius := _get_node_connection_radius(anchor_node)
+	var anchor_drive_radius := _get_node_outer_radius(anchor_node)
+	var anchor_drive_teeth := _get_node_tooth_count(anchor_node)
+	var anchor_multipliers := network_service.get_network_drive_multipliers(
+		_components_container,
+		anchor_node.global_position,
+		anchor_radius,
+		anchor_drive_radius,
+		anchor_drive_teeth,
+		[],
+		connection_tolerance
+	)
+
+	var resolved_anchor_speed := 0.0
+	var resolved_component_speed := 0.0
+	for component_id_raw in anchor_multipliers.keys():
+		var component_id := int(component_id_raw)
+		if not drive_targets.has(component_id):
+			continue
+
+		var component_speed := float(drive_targets.get(component_id, 0.0))
+		var multiplier := float(anchor_multipliers.get(component_id_raw, 0.0))
+		if absf(component_speed) <= 0.001 or absf(multiplier) <= 0.0001:
+			continue
+
+		var anchor_speed := component_speed / multiplier
+		if absf(component_speed) > absf(resolved_component_speed):
+			resolved_component_speed = component_speed
+			resolved_anchor_speed = anchor_speed
+
+	return resolved_anchor_speed
 
 
 ## Compute the effective drive multiplier for the central engine by finding the
@@ -656,9 +872,16 @@ func _compute_engine_drive_multiplier(
 			continue
 		# Found a gear directly driving the engine.
 		var comp_mult := float(drive_multipliers.get(component.get_instance_id(), 0.0))
-		var comp_outer := _get_node_outer_radius(component)
+		var comp_teeth := _get_node_tooth_count(component)
+		var engine_teeth := _get_node_tooth_count(_central_engine)
+		var edge_ratio := 1.0
+		if comp_teeth > 0 and engine_teeth > 0:
+			edge_ratio = float(comp_teeth) / float(engine_teeth)
+		else:
+			var comp_outer := _get_node_outer_radius(component)
+			edge_ratio = comp_outer / maxf(engine_outer, 0.001)
 		# Meshing gears reverse direction; chain preserves it (handled by sign).
-		return comp_mult * (comp_outer / maxf(engine_outer, 0.001)) * -1.0
+		return comp_mult * edge_ratio * -1.0
 
 	# Fallback: use the simple source-to-engine ratio if no direct driver found.
 	return 0.0
@@ -762,6 +985,90 @@ func get_perf_stats() -> Dictionary:
 	}
 
 
+func get_ui_overlay_snapshot() -> Dictionary:
+	return _ui_overlay_snapshot.duplicate()
+
+
+func get_component_ui_snapshot(component: Node2D) -> Dictionary:
+	if component == null:
+		return {}
+
+	var cid := component.get_instance_id()
+	var profile := _ui_component_profiles.get(cid, {}) as Dictionary
+	var zone := _get_zone_condition_at(component.global_position)
+	return {
+		"connected": _ui_connected_component_ids.has(cid),
+		"friction": float(profile.get("friction", 0.0)),
+		"load_ratio": float(_ui_component_load_ratios.get(cid, 0.0)),
+		"component_type": str(profile.get("type", str(component.get_meta("component_type", "")))),
+		"tooth_count": int(profile.get("tooth_count", 0)),
+		"outer_radius": float(profile.get("outer_radius", _get_node_outer_radius(component))),
+		"bottleneck": cid == int(_ui_overlay_snapshot.get("bottleneck_id", -1)),
+		"zone_type": str(zone.get("zone_type", "")),
+		"zone_intensity": float(zone.get("intensity", 0.0))
+	}
+
+
+func _build_component_profile_lookup(reachable_profiles: Array) -> Dictionary:
+	var lookup: Dictionary = {}
+	for profile_raw in reachable_profiles:
+		if not profile_raw is Dictionary:
+			continue
+		var profile := profile_raw as Dictionary
+		var cid := int(profile.get("id", 0))
+		if cid == 0:
+			continue
+		lookup[cid] = profile.duplicate()
+	return lookup
+
+
+func _build_component_id_lookup(components: Array) -> Dictionary:
+	var lookup: Dictionary = {}
+	for component_raw in components:
+		var component := component_raw as Node2D
+		if component == null:
+			continue
+		lookup[component.get_instance_id()] = true
+	return lookup
+
+
+func _get_bottleneck_profile(reachable_profiles: Array) -> Dictionary:
+	var bottleneck: Dictionary = {}
+	var highest_friction := -INF
+	for profile_raw in reachable_profiles:
+		if not profile_raw is Dictionary:
+			continue
+		var profile := profile_raw as Dictionary
+		var friction := float(profile.get("friction", 0.0))
+		if friction <= highest_friction:
+			continue
+		highest_friction = friction
+		bottleneck = profile
+	return bottleneck
+
+
+func _get_profile_display_name(profile: Dictionary) -> String:
+	match str(profile.get("type", "")):
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL:
+			return "Small Gear"
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM:
+			return "Medium Gear"
+		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE:
+			return "Large Gear"
+		PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
+			return "Shaft"
+		PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
+			return "Chain"
+		PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
+			return "Flywheel"
+		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
+			return "Clutch"
+		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
+			return "Differential"
+		_:
+			return ""
+
+
 func _get_node_outer_radius(node: Node2D) -> float:
 	if node == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
@@ -851,6 +1158,37 @@ func _compute_network_mix_efficiency_bonus(reachable_profiles: Array) -> float:
 		return 1.0 + PROJECT_PATHS_SCRIPT.MIXED_NETWORK_EFFICIENCY_BONUS
 
 	return 1.0
+
+
+func _compute_compound_stack_efficiency_multiplier(reachable_profiles: Array) -> float:
+	if reachable_profiles.is_empty():
+		return 1.0
+
+	var added_layer_total := 0
+	var counted_roots: Dictionary = {}
+	for profile_raw in reachable_profiles:
+		if not profile_raw is Dictionary:
+			continue
+		var profile := profile_raw as Dictionary
+		var node := profile.get("node", null) as Node2D
+		if node == null:
+			continue
+
+		var root_id := int(node.get_meta("stack_root_id", node.get_instance_id()))
+		if counted_roots.has(root_id):
+			continue
+		counted_roots[root_id] = true
+
+		var added_layers := int(profile.get("compound_added_layers", 0))
+		if added_layers <= 0:
+			continue
+		added_layer_total += added_layers
+
+	if added_layer_total <= 0:
+		return 1.0
+
+	var per_layer_loss := clampf(PROJECT_PATHS_SCRIPT.COMPOUND_LAYER_EFFICIENCY_PENALTY, 0.0, 0.95)
+	return pow(1.0 - per_layer_loss, float(added_layer_total))
 
 
 func _compute_shaft_joint_penalty(reachable_profiles: Array) -> float:

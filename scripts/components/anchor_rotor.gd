@@ -76,19 +76,26 @@ func _apply_type_defaults() -> void:
 	match power_node_type:
 		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
 			rated_torque_output = PROJECT_PATHS_SCRIPT.TORQUE_NODE_OUTPUT
-			base_spin_speed = 1.15
+			base_spin_speed = 0.85
+			torque_spin_factor = 0.01
 			min_output_ratio = 0.76
 			output_droop_strength = 0.3
 		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
 			rated_torque_output = PROJECT_PATHS_SCRIPT.SPEED_NODE_OUTPUT
-			base_spin_speed = 1.9
-			min_output_ratio = 0.58
-			output_droop_strength = 0.62
+			base_spin_speed = 3.2
+			torque_spin_factor = 0.045
+			min_output_ratio = 0.66
+			output_droop_strength = 0.5
 		_:
 			rated_torque_output = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
 			base_spin_speed = 1.45
+			torque_spin_factor = 0.02
 			min_output_ratio = 0.7
 			output_droop_strength = 0.45
+
+
+func get_angular_velocity() -> float:
+	return _angular_velocity
 
 func _process(delta: float) -> void:
 	var target_speed := 0.0

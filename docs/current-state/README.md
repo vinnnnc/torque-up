@@ -15,7 +15,7 @@ It is not a pure pitch document. It describes implemented systems, current behav
 
 - `chain` is the canonical connector name. `belt` remains as a legacy alias in code and save compatibility paths.
 - Engine output is sink-based. Only power sources connected to the central engine contribute to delivered torque, horsepower, and engine RPM.
-- Power nodes still simulate local subnetworks when disconnected from the engine, so isolated builds can visibly spin, stall, jam, or conflict.
+- Disconnected power nodes use a simplified local torque-budget visual pass: isolated islands spin when budget allows and stall when overloaded.
 - Flywheel, clutch, and differential are implemented as distinct components with port-limited snapping/connectivity.
 - Clutch and differential visuals use a static housing with internal spin visuals rather than rotating the full shell.
 - HUD currently exposes Horsepower, Torque, Efficiency, and RPM.

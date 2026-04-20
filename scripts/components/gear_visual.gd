@@ -1,6 +1,7 @@
 @tool
 extends Node2D
 class_name GearVisual
+const VisualUtilsScript = preload("res://scripts/components/visual_utils.gd")
 
 const DEFAULT_GEAR_MODULE: float = 2.0
 const DEFAULT_GEAR_ADDENDUM: float = DEFAULT_GEAR_MODULE * 0.80
@@ -27,8 +28,10 @@ const DEFAULT_GEAR_TOOTH_WIDTH_RATIO: float = 0.45
 @export var shaft_body_thickness: float = 8.0
 @export var shaft_coupler_radius: float = 8.2
 @export var shaft_bevel_length: float = 7.0
+@export var flywheel_shaft_half_length: float = 18.0
 @export var belt_module_size: float = 1.8
 @export var is_stacked_top: bool = false
+@export var flywheel_color: Color = Color(0.35, 0.65, 0.92, 1.0)
 
 var _shaft_spin_speed: float = 0.0
 var _shaft_phase: float = 0.0
@@ -43,7 +46,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
+		# Keep inspector edits live in the 2D editor by forcing redraw
 		_sync_module_profile(false)
+		queue_redraw()
 		return
 
 	if visual_mode == "shaft":
@@ -138,37 +143,29 @@ func _draw() -> void:
 
 
 func _draw_flywheel() -> void:
-	var ring_outer := maxf(outer_radius, 10.0)
-	var ring_inner := maxf(hub_radius + 4.0, ring_outer * 0.72)
-	var core_radius := maxf(hub_radius, ring_outer * 0.24)
-
-	# Dense outer mass ring conveys inertia.
-	draw_arc(Vector2.ZERO, ring_outer, 0.0, TAU, 96, tooth_color, 7.5)
-	draw_arc(Vector2.ZERO, ring_inner, 0.0, TAU, 96, body_color, 3.2)
-	var sweep_angle := _mode_phase * 1.35
-	_draw_arc_segment(
-		Vector2.ZERO,
-		ring_outer + 0.2,
-		sweep_angle - 0.32,
-		sweep_angle + 0.32,
-		true,
-		Color(0.9, 0.95, 1.0, 0.32),
-		2.2
+	var shaft_module := maxf(0.8, shaft_module_size)
+	var half_length := maxf(flywheel_shaft_half_length, outer_radius + 10.0)
+	var shaft_thickness := maxf(maxf(3.0, shaft_body_thickness), shaft_module * 3.2)
+	var half_thickness := shaft_thickness * 0.5
+	var coupler_radius := maxf(maxf(shaft_coupler_radius, shaft_module * 3.5), shaft_thickness * 0.72)
+	var coupler_inset := clampf(maxf(shaft_bevel_length, shaft_module * 2.8), 2.0, half_length * 0.35)
+	var rod_half_length := maxf(6.0, half_length - coupler_inset)
+	var rod_rect := Rect2(
+		Vector2(-rod_half_length, -half_thickness),
+		Vector2(rod_half_length * 2.0, shaft_thickness)
 	)
+	var ring_outer := maxf(outer_radius, shaft_thickness + 6.0)
+	var _ring_inner := maxf(hub_radius + 4.0, ring_outer * 0.72)
+	var _core_radius := maxf(hub_radius, ring_outer * 0.24)
 
-	# Spokes from core to ring.
-	for spoke in range(8):
-		var angle := float(spoke) * (TAU / 8.0)
-		var inner := Vector2.RIGHT.rotated(angle) * (core_radius + 1.0)
-		var outer := Vector2.RIGHT.rotated(angle) * (ring_inner - 1.4)
-		draw_line(inner, outer, outline_color, 2.2)
-
-	draw_circle(Vector2.ZERO, core_radius, Color(0.2, 0.22, 0.24, 1.0))
-	draw_arc(Vector2.ZERO, core_radius, 0.0, TAU, 48, outline_color, 1.3)
-	_draw_port_gears([
-		-PI * 0.5,
-		PI * 0.5
-	], ["input", "output"], ring_outer + 5.8, 3.8)
+	# Simplified flywheel: just a shaft visual using the exported color
+	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	draw_rect(rod_rect, flywheel_color, true)
+	draw_rect(rod_rect, outline_color, false, 1.4)
+	_draw_shaft_rotation_bands(rod_rect, half_thickness)
+	_draw_shaft_end_coupler(-half_length, -1.0, rod_half_length, half_thickness, coupler_radius)
+	_draw_shaft_end_coupler(half_length, 1.0, rod_half_length, half_thickness, coupler_radius)
+	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE) # Reset transform
 
 
 func _draw_clutch() -> void:
@@ -182,10 +179,9 @@ func _draw_clutch() -> void:
 	_draw_internal_rotor(rotor_outer, rotor_inner, 18, _mode_phase, true)
 	_draw_clutch_disc_pack(rotor_outer * 0.92, rotor_inner + 1.6)
 	_draw_hub_face(hub_radius)
-	_draw_shell_port_gear(-PI * 0.5, clutch_outer, 6.3, 10, "input")
-	_draw_shell_port_gear(PI * 0.5, clutch_outer, 6.3, 10, "output")
-	_draw_port_arrow(-PI * 0.5, clutch_outer + 9.6, "input")
-	_draw_port_arrow(PI * 0.5, clutch_outer + 9.6, "output")
+	# Shaft ports: top port visible, rear port hidden by construction
+	_draw_shaft_port_collar(0.0, hub_radius + 0.5, "input")
+	_draw_shaft_port_collar(PI, hub_radius + 0.5, "output")
 
 
 func _draw_differential() -> void:
@@ -199,10 +195,10 @@ func _draw_differential() -> void:
 	_draw_windowed_housing(diff_outer, shell_inner, shell_color, 3, 0.28, 0.04)
 	_draw_differential_carrier(carrier_radius, core, carrier_phase)
 	_draw_hub_face(core)
-	var diff_ports: Array = [-2.35, -0.79, PI * 0.5]
-	for port_angle in diff_ports:
-		_draw_shell_port_gear(port_angle, diff_outer, 5.8, 9, "io")
-		_draw_dual_port_arrows(port_angle, diff_outer + 9.2)
+	# Shaft ports: input on top, outputs on left and right sides
+	_draw_shaft_port_collar(0.0, core + 1.2, "input")
+	_draw_shaft_port_collar(PI * 0.5, core + 1.2, "output")
+	_draw_shaft_port_collar(-PI * 0.5, core + 1.2, "output")
 
 
 func _draw_stacked_ring() -> void:
@@ -257,6 +253,10 @@ func set_shaft_spin_speed(speed: float) -> void:
 func set_visual_spin_speed(speed: float) -> void:
 	_mode_spin_speed = speed
 
+func set_flywheel_color(c: Color) -> void:
+	flywheel_color = c
+	queue_redraw()
+
 
 func _draw_shaft_end_coupler(
 	outer_x: float,
@@ -265,44 +265,11 @@ func _draw_shaft_end_coupler(
 	rod_half_thickness: float,
 	coupler_radius: float
 ) -> void:
-	var inner_x := direction * rod_half_length
-	var safe_radius := maxf(coupler_radius, 2.0)
-	var collar_rect := Rect2(
-		Vector2(minf(inner_x, outer_x), -safe_radius * 0.58),
-		Vector2(absf(outer_x - inner_x), safe_radius * 1.16)
-	)
-	draw_rect(collar_rect, tooth_color, true)
-	draw_rect(collar_rect, outline_color, false, 1.0)
-
-	# End hub face where shaft meets gear axle zone.
-	var face_center := Vector2(outer_x, 0.0)
-	draw_circle(face_center, safe_radius * 0.56, Color(0.24, 0.27, 0.31, 1.0))
-	draw_arc(face_center, safe_radius * 0.56, 0.0, TAU, 24, outline_color, 1.1)
-	draw_circle(face_center, safe_radius * 0.2, Color(0.78, 0.82, 0.88, 0.95))
-
-	# Keyway indicator rotates with shaft speed to show motion.
-	var key_angle := _shaft_phase * 1.65
-	var key_dir := Vector2.RIGHT.rotated(key_angle)
-	draw_line(
-		face_center + (key_dir * (safe_radius * 0.22)),
-		face_center + (key_dir * (safe_radius * 0.48)),
-		Color(0.86, 0.9, 0.96, 0.95),
-		1.6
-	)
+	VisualUtilsScript.draw_shaft_end_coupler(self, outer_x, direction, rod_half_length, rod_half_thickness, coupler_radius, tooth_color, outline_color, _shaft_phase)
 
 
 func _draw_shaft_rotation_bands(rod_rect: Rect2, half_thickness: float) -> void:
-	var spacing := maxf(6.0, rod_rect.size.x / 7.5)
-	var travel := fposmod(_shaft_phase * 22.0, spacing)
-	var band_color := Color(0.9, 0.95, 1.0, 0.36)
-	var shadow_color := Color(0.12, 0.14, 0.18, 0.25)
-	var start_x := rod_rect.position.x - spacing
-	var end_x := rod_rect.position.x + rod_rect.size.x + spacing
-	var x := start_x + travel
-	while x <= end_x:
-		draw_line(Vector2(x, -half_thickness), Vector2(x, half_thickness), band_color, 1.2)
-		draw_line(Vector2(x + 1.0, -half_thickness), Vector2(x + 1.0, half_thickness), shadow_color, 0.9)
-		x += spacing
+	VisualUtilsScript.draw_shaft_rotation_bands(self, rod_rect, half_thickness, _shaft_phase)
 
 
 func _draw_arc_segment(
@@ -314,23 +281,11 @@ func _draw_arc_segment(
 	color: Color,
 	width: float
 ) -> void:
-	var delta := _signed_angle_delta(start_angle, end_angle, ccw)
-	var steps := maxi(8, int(ceil(absf(delta) * radius / 7.0)))
-	var points := PackedVector2Array()
-	for i in range(steps + 1):
-		var t := float(i) / float(steps)
-		var angle := start_angle + (delta * t)
-		points.append(center + Vector2.RIGHT.rotated(angle) * radius)
-	draw_polyline(points, color, width)
+	VisualUtilsScript.draw_arc_segment(self, center, radius, start_angle, end_angle, ccw, color, width)
 
 
 func _signed_angle_delta(from_angle: float, to_angle: float, ccw: bool) -> float:
-	var delta := wrapf(to_angle - from_angle, -PI, PI)
-	if ccw and delta < 0.0:
-		delta += TAU
-	elif not ccw and delta > 0.0:
-		delta -= TAU
-	return delta
+	return VisualUtilsScript.signed_angle_delta(from_angle, to_angle, ccw)
 
 
 func _draw_port_gears(port_angles: Array, port_roles: Array, orbit_radius: float, gear_radius: float) -> void:
@@ -346,15 +301,15 @@ func _draw_mini_gear(center: Vector2, radius: float, role: String) -> void:
 	if role == "io":
 		ring_color = Color(0.9, 0.9, 0.95, 0.95)
 	var fill_color := Color(0.21, 0.24, 0.28, 1.0)
-	var tooth_count := 8
+	var mini_tooth_count := 8
 	var tooth_len := radius * 0.42
 	var phase := _mode_phase if role == "input" else -_mode_phase
 
 	draw_circle(center, radius, fill_color)
 	draw_arc(center, radius, 0.0, TAU, 24, outline_color, 1.0)
 
-	for tooth in range(tooth_count):
-		var angle := phase + (float(tooth) * (TAU / float(tooth_count)))
+	for tooth in range(mini_tooth_count):
+		var angle := phase + (float(tooth) * (TAU / float(mini_tooth_count)))
 		var inner := center + (Vector2.RIGHT.rotated(angle) * radius)
 		var outer := center + (Vector2.RIGHT.rotated(angle) * (radius + tooth_len))
 		draw_line(inner, outer, ring_color, 1.4)
@@ -366,6 +321,10 @@ func _draw_mini_gear(center: Vector2, radius: float, role: String) -> void:
 	draw_circle(center + Vector2(0.0, -radius * 0.2), maxf(1.3, radius * 0.24), role_dot)
 
 
+func _draw_shaft_port_collar(port_angle: float, port_inner_radius: float, role: String) -> void:
+	VisualUtilsScript.draw_shaft_port_collar(self, port_angle, port_inner_radius, role, outline_color)
+
+
 func _draw_windowed_housing(
 	outer: float,
 	inner: float,
@@ -374,51 +333,19 @@ func _draw_windowed_housing(
 	window_width: float,
 	phase_offset: float
 ) -> void:
-	draw_circle(Vector2.ZERO, outer, shell_color)
-	draw_circle(Vector2.ZERO, inner, Color(0.14, 0.16, 0.19, 1.0))
-	draw_arc(Vector2.ZERO, outer, 0.0, TAU, 96, outline_color, 1.3)
-	draw_arc(Vector2.ZERO, inner, 0.0, TAU, 96, outline_color, 1.0)
-	var stride := TAU / float(max(window_count, 1))
-	for idx in range(window_count):
-		var angle := phase_offset + (float(idx) * stride)
-		_draw_shell_window(angle, inner + 1.0, outer - 2.0, window_width)
+	VisualUtilsScript.draw_windowed_housing(self, outer, inner, shell_color, window_count, window_width, phase_offset, outline_color)
 
 
-func _draw_shell_window(center_angle: float, inner_radius: float, outer_radius_value: float, half_width: float) -> void:
-	var points := PackedVector2Array()
-	points.append(Vector2.RIGHT.rotated(center_angle - half_width) * inner_radius)
-	points.append(Vector2.RIGHT.rotated(center_angle - half_width * 0.72) * outer_radius_value)
-	points.append(Vector2.RIGHT.rotated(center_angle + half_width * 0.72) * outer_radius_value)
-	points.append(Vector2.RIGHT.rotated(center_angle + half_width) * inner_radius)
-	draw_colored_polygon(points, Color(0.09, 0.11, 0.14, 0.88))
-	draw_polyline(PackedVector2Array([
-		points[0], points[1], points[2], points[3], points[0]
-	]), outline_color, 1.0)
+func _draw_shell_window(center_angle: float, shell_inner_radius: float, outer_radius_value: float, half_width: float) -> void:
+	VisualUtilsScript.draw_shell_window(self, center_angle, shell_inner_radius, outer_radius_value, half_width, outline_color)
 
 
 func _draw_internal_rotor(outer: float, inner: float, teeth: int, phase: float, clockwise: bool) -> void:
-	var tooth_steps: int = maxi(teeth, 8)
-	var step: float = TAU / float(tooth_steps)
-	var tooth_half: float = step * 0.22
-	var dir: float = -1.0 if clockwise else 1.0
-	draw_circle(Vector2.ZERO, outer - 1.2, Color(0.27, 0.3, 0.35, 1.0))
-	for idx in range(tooth_steps):
-		var center_angle: float = phase * dir + (float(idx) * step)
-		var a: Vector2 = Vector2.RIGHT.rotated(center_angle - tooth_half) * (outer - 2.2)
-		var b: Vector2 = Vector2.RIGHT.rotated(center_angle - tooth_half * 0.78) * outer
-		var c: Vector2 = Vector2.RIGHT.rotated(center_angle + tooth_half * 0.78) * outer
-		var d: Vector2 = Vector2.RIGHT.rotated(center_angle + tooth_half) * (outer - 2.2)
-		draw_colored_polygon(PackedVector2Array([a, b, c, d]), tooth_color)
-	draw_circle(Vector2.ZERO, inner, Color(0.12, 0.14, 0.18, 1.0))
-	draw_arc(Vector2.ZERO, outer, 0.0, TAU, 84, outline_color, 1.0)
-	draw_arc(Vector2.ZERO, inner, 0.0, TAU, 64, outline_color, 1.0)
+	VisualUtilsScript.draw_internal_rotor(self, outer, inner, teeth, phase, clockwise, tooth_color, outline_color)
 
 
 func _draw_clutch_disc_pack(outer: float, inner: float) -> void:
-	for idx in range(3):
-		var radius := lerpf(inner, outer, float(idx + 1) / 4.0)
-		var flash := 0.66 + (0.22 * maxf(0.0, sin(_mode_pulse + (float(idx) * 0.8))))
-		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 72, Color(0.9, 0.94, 0.98, flash), 2.0)
+	VisualUtilsScript.draw_clutch_disc_pack(self, outer, inner, _mode_pulse)
 
 
 func _draw_differential_carrier(carrier_radius: float, core: float, phase: float) -> void:
@@ -445,9 +372,7 @@ func _draw_internal_pinion(center: Vector2, radius: float, phase: float) -> void
 
 
 func _draw_hub_face(radius: float) -> void:
-	draw_circle(Vector2.ZERO, radius, Color(0.18, 0.2, 0.24, 1.0))
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 36, outline_color, 1.1)
-	draw_circle(Vector2.ZERO, maxf(1.2, radius * 0.28), Color(0.84, 0.88, 0.93, 0.94))
+	VisualUtilsScript.draw_hub_face(self, radius, outline_color)
 
 
 func _draw_shell_port_gear(angle: float, shell_radius: float, gear_radius: float, exposed_teeth: int, role: String) -> void:
