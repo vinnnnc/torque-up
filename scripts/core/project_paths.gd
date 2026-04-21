@@ -98,6 +98,16 @@ const FRICTION_DEFAULT_COMPONENT: float = FRICTION_MEDIUM_GEAR
 const BASE_POWER_NODE_OUTPUT: float = 50.0
 const TORQUE_NODE_OUTPUT: float = 85.0
 const SPEED_NODE_OUTPUT: float = 45.0
+
+# World bounds and viewport
+const VIEWPORT_WIDTH: float = 1152.0
+const VIEWPORT_HEIGHT: float = 646.0
+const VIEWPORT_CENTER_X: float = 576.0
+const VIEWPORT_CENTER_Y: float = 323.0
+const ENGINE_WORLD_Y: float = 520.0
+const BLOCKADE_HALF_HEIGHT: float = 323.0
+const CAMERA_MIN_Y: float = 280.0
+const CAMERA_MAX_Y: float = 550.0
 const EFFICIENCY_LOSS_PER_CONNECTION: float = 0.03
 const MIN_EFFICIENCY: float = 0.10
 const SHAFT_JOINT_FRICTION: float = 0.55

@@ -1,5 +1,7 @@
 extends Camera2D
 class_name GameCamera2D
+const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+
 
 @export var pan_speed: float = 500.0
 @export var drag_button: MouseButton = MOUSE_BUTTON_MIDDLE
@@ -9,6 +11,14 @@ class_name GameCamera2D
 
 var _is_dragging: bool = false
 
+var _camera_min_y: float = 0.0
+var _camera_max_y: float = 0.0
+
+
+func _ready() -> void:
+	_camera_min_y = PROJECT_PATHS_SCRIPT.CAMERA_MIN_Y
+	_camera_max_y = PROJECT_PATHS_SCRIPT.CAMERA_MAX_Y
+
 func _process(delta: float) -> void:
 	var input_dir := Vector2.ZERO
 	input_dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
@@ -16,6 +26,9 @@ func _process(delta: float) -> void:
 
 	if input_dir.length_squared() > 0.0:
 		position += input_dir.normalized() * pan_speed * delta * zoom.x
+	
+	# Constrain camera position
+	position.y = clampf(position.y, _camera_min_y, _camera_max_y)
 
 
 func _input(event: InputEvent) -> void:
@@ -34,6 +47,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _is_dragging:
 		var motion := event as InputEventMouseMotion
 		position -= motion.relative * zoom.x
+		# Constrain camera position after drag
+		position.y = clampf(position.y, _camera_min_y, _camera_max_y)
 
 
 func _apply_zoom(next_zoom: float) -> void:

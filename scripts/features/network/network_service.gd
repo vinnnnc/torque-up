@@ -125,7 +125,8 @@ func is_path_connected(
 	_connection_distance: float,
 	connection_tolerance: float = 8.0,
 	source_radius: float = COMPONENT_RADIUS,
-	engine_radius: float = COMPONENT_RADIUS
+	engine_radius: float = COMPONENT_RADIUS,
+	relay_nodes: Array = []
 ) -> bool:
 	if components_container == null:
 		return false
@@ -135,7 +136,8 @@ func is_path_connected(
 		source_world_pos,
 		engine_world_pos,
 		source_radius,
-		engine_radius
+		engine_radius,
+		relay_nodes
 	)
 	if nodes.size() < 2:
 		return false
@@ -415,6 +417,137 @@ func get_network_drive_multipliers(
 	return multipliers
 
 
+## Extract the speed ratio for one directed edge (current → neighbor).
+## Returns the scalar by which current's angular speed maps to neighbor's
+## angular speed (sign handled separately by _get_connection_sign_multiplier).
+func _compute_edge_ratio(current: Dictionary, neighbor: Dictionary) -> float:
+	var current_node_ref := current.get("node", null) as Node2D
+	var neighbor_node_ref := neighbor.get("node", null) as Node2D
+	var current_component_type := str(current.get("component_type", _get_component_type(current_node_ref)))
+	var neighbor_component_type := str(neighbor.get("component_type", _get_component_type(neighbor_node_ref)))
+	var current_is_connector := current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
+	var neighbor_is_connector := neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
+	if current_node_ref and neighbor_node_ref and _stack_links_nodes(current_node_ref, neighbor_node_ref):
+		return 1.0
+	if current_is_connector and not neighbor_is_connector:
+		return _get_connector_to_pulley_ratio(current_node_ref, neighbor_node_ref)
+	if neighbor_is_connector or current_is_connector:
+		return 1.0
+	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
+		return 1.0
+	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
+		return 1.0
+	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
+		return 1.0
+	var current_drive_teeth := int(current.get("drive_teeth", 0))
+	var neighbor_drive_teeth := int(neighbor.get("drive_teeth", 0))
+	if current_drive_teeth > 0 and neighbor_drive_teeth > 0:
+		return float(current_drive_teeth) / float(neighbor_drive_teeth)
+	var current_drive_radius := float(current.get("drive_radius", current.get("radius", COMPONENT_RADIUS)))
+	var neighbor_drive_radius := float(neighbor.get("drive_radius", neighbor.get("radius", COMPONENT_RADIUS)))
+	if neighbor_drive_radius > 0.0001:
+		return current_drive_radius / neighbor_drive_radius
+	return 1.0
+
+
+## After a multi-source fastest-wins merge, individual components in the same
+## connected gear subgraph may have geometrically inconsistent speeds (one
+## source won component X, a different source won adjacent component Y, but
+## X_speed * ratio ≠ Y_speed).  This re-propagates speeds from the
+## highest-speed seed in each subgraph so the entire graph is consistent.
+## Conflict/stall entries (speed == 0) are treated as passthrough; the caller
+## should re-apply conflict overrides afterward.
+func propagate_speeds_from_settled(
+	components_container: Node,
+	drive_targets: Dictionary,
+	connection_tolerance: float,
+	relay_nodes: Array = []
+) -> Dictionary:
+	if components_container == null or drive_targets.is_empty():
+		return drive_targets.duplicate()
+
+	var all_nodes: Array = []
+	for child in components_container.get_children():
+		var gear := child as Node2D
+		if not gear:
+			continue
+		all_nodes.append({
+			"key": gear.get_instance_id(),
+			"node": gear,
+			"position": gear.global_position,
+			"radius": _get_node_connection_radius(gear),
+			"drive_radius": _get_node_outer_radius(gear),
+			"drive_teeth": _get_node_tooth_count(gear),
+			"component_type": _get_component_type(gear)
+		})
+
+	# Include relay nodes (power sources, engine) so BFS can bridge segments
+	# whose only path passes through a node outside components_container.
+	# Their computed speeds land in resolved but are harmless — _apply_component_drive_targets
+	# only iterates components_container children, so relay IDs are never acted on.
+	for relay_raw in relay_nodes:
+		var relay := relay_raw as Node2D
+		if relay == null:
+			continue
+		all_nodes.append({
+			"key": relay.get_instance_id(),
+			"node": relay,
+			"position": relay.global_position,
+			"radius": _get_node_connection_radius(relay),
+			"drive_radius": _get_node_outer_radius(relay),
+			"drive_teeth": _get_node_tooth_count(relay),
+			"component_type": _get_component_type(relay)
+		})
+
+	var resolved: Dictionary = drive_targets.duplicate()
+	var visited: Dictionary = {}
+
+	# Sort seeds fastest-first so the highest-speed component wins each subgraph.
+	var seed_ids: Array = resolved.keys()
+	seed_ids.sort_custom(func(a: Variant, b: Variant) -> bool:
+		return absf(float(resolved.get(a, 0.0))) > absf(float(resolved.get(b, 0.0)))
+	)
+
+	for seed_id_raw in seed_ids:
+		var seed_id := int(seed_id_raw)
+		if visited.has(seed_id):
+			continue
+		var seed_speed := float(resolved.get(seed_id, 0.0))
+		if absf(seed_speed) < 0.001:
+			continue
+
+		var seed_data: Dictionary = {}
+		for node_raw in all_nodes:
+			if int(node_raw.get("key", -1)) == seed_id:
+				seed_data = node_raw as Dictionary
+				break
+		if seed_data.is_empty():
+			continue
+
+		visited[seed_id] = true
+		var queue: Array = [seed_data]
+		while not queue.is_empty():
+			var current: Dictionary = queue.pop_front() as Dictionary
+			var current_id := int(current.get("key", -1))
+			var current_speed := float(resolved.get(current_id, 0.0))
+
+			for neighbor_raw in all_nodes:
+				var neighbor: Dictionary = neighbor_raw as Dictionary
+				var neighbor_id := int(neighbor.get("key", -1))
+				if visited.has(neighbor_id):
+					continue
+				if not _nodes_are_connected(current, neighbor, connection_tolerance):
+					continue
+
+				var sign_mult := _get_connection_sign_multiplier(current, neighbor)
+				var ratio := _compute_edge_ratio(current, neighbor)
+				resolved[neighbor_id] = current_speed * sign_mult * ratio
+				visited[neighbor_id] = true
+				queue.push_back(neighbor)
+
+	return resolved
+
+
 func _get_connector_to_pulley_ratio(connector_node: Node2D, target_pulley: Node2D) -> float:
 	if connector_node == null or target_pulley == null:
 		return 1.0
@@ -515,7 +648,8 @@ func _build_network_nodes(
 	source_world_pos: Vector2,
 	engine_world_pos: Vector2,
 	source_radius: float,
-	engine_radius: float
+	engine_radius: float,
+	relay_nodes: Array = []
 ) -> Array:
 	var nodes: Array = [
 		{"position": source_world_pos, "radius": source_radius},
@@ -530,6 +664,22 @@ func _build_network_nodes(
 			"node": placed_component,
 			"position": placed_component.global_position,
 			"radius": _get_node_connection_radius(placed_component)
+		})
+
+	# Other power sources and scene nodes (not in components_container) can
+	# relay torque flow between gear segments they are meshed with. Include
+	# them as passthrough nodes so the path BFS can traverse through them.
+	for relay_raw in relay_nodes:
+		var relay := relay_raw as Node2D
+		if relay == null:
+			continue
+		# Skip the source itself — it is already index 0.
+		if relay.global_position.is_equal_approx(source_world_pos):
+			continue
+		nodes.append({
+			"node": relay,
+			"position": relay.global_position,
+			"radius": _get_node_connection_radius(relay)
 		})
 
 	return nodes
@@ -563,6 +713,34 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 	var edge_distance := pos_a.distance_to(pos_b)
 	if absf(edge_distance - (radius_a + radius_b)) > tolerance:
 		return false
+
+	# Cross-compound compound-layer conflict check.
+	# When two compound stacks are placed such that (L1-A + L2-B) and (L2-A + L1-B)
+	# satisfy the same tangent-distance condition simultaneously (same physical tangent
+	# point, symmetric radii), both pairs fire and produce contradictory speed ratios.
+	# Rule: keep the L2→L1 direction (the foreground gear of each compound connects to
+	# the base gear of the other). Block the mirrored L1→L2 connection.
+	if node_a_ref != null and node_b_ref != null:
+		var layer_a := _get_node_compound_layer(node_a_ref)
+		var layer_b := _get_node_compound_layer(node_b_ref)
+		var root_a := int(node_a_ref.get_meta("stack_root_id", node_a_ref.get_instance_id()))
+		var root_b := int(node_b_ref.get_meta("stack_root_id", node_b_ref.get_instance_id()))
+		if root_a != root_b:
+			if layer_a == 2 and layer_b == 2:
+				return false
+			if layer_a != layer_b:
+				# Mixed L1+L2 cross-compound: check for symmetric phantom.
+				var partner_a := _find_compound_partner_node(node_a_ref)
+				var partner_b := _find_compound_partner_node(node_b_ref)
+				if partner_a != null and partner_b != null:
+					var r_pa := _get_node_connection_radius(partner_a)
+					var r_pb := _get_node_connection_radius(partner_b)
+					var dist_partners := partner_a.global_position.distance_to(partner_b.global_position)
+					if absf(dist_partners - (r_pa + r_pb)) <= tolerance:
+						# Symmetric phantom: both L1+L2 and L2+L1 satisfy the distance.
+						# Block the L1-A→L2-B direction; keep L2-A→L1-B.
+						if layer_a == 1:
+							return false
 
 	if node_a_ref and _is_port_limited_component(type_a):
 		if not _neighbor_matches_component_ports(node_a_ref, node_b_ref, type_a):
@@ -622,6 +800,44 @@ func _neighbor_matches_component_ports(component_node: Node2D, neighbor_node: No
 			return true
 
 	return false
+
+
+func _get_node_compound_layer(node: Node2D) -> int:
+	if node == null:
+		return 1
+	if node.has_meta("compound_layer"):
+		return clampi(int(node.get_meta("compound_layer")), 1, 2)
+	if int(node.get_meta("stack_parent_id", -1)) >= 0:
+		return 2
+	return 1
+
+
+## Returns the other gear node in the same compound stack, or null if none.
+func _find_compound_partner_node(node: Node2D) -> Node2D:
+	if node == null:
+		return null
+	var parent := node.get_parent()
+	if parent == null:
+		return null
+	var layer := _get_node_compound_layer(node)
+	if layer == 2:
+		# Layer-2 gear knows its layer-1 partner via stack_parent_id.
+		var parent_id := int(node.get_meta("stack_parent_id", -1))
+		if parent_id < 0:
+			return null
+		for sibling in parent.get_children():
+			var s := sibling as Node2D
+			if s != null and s.get_instance_id() == parent_id:
+				return s
+	else:
+		# Layer-1 gear: find the sibling that has this node as its stack_parent.
+		var node_id := node.get_instance_id()
+		for sibling in parent.get_children():
+			var s := sibling as Node2D
+			if s != null and s != node:
+				if int(s.get_meta("stack_parent_id", -1)) == node_id:
+					return s
+	return null
 
 
 func _get_component_local_ports(component_type: String) -> Array:

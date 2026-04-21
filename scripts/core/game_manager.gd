@@ -35,6 +35,9 @@ var _ui_overlay_snapshot: Dictionary = {}
 var _ui_component_profiles: Dictionary = {}
 var _ui_component_load_ratios: Dictionary = {}
 var _ui_connected_component_ids: Dictionary = {}
+var _ui_component_torque_by_id: Dictionary = {}
+var _ui_source_budget_by_id: Dictionary = {}
+var _ui_source_available_by_id: Dictionary = {}
 
 @onready var _components_container: Node = get_node(components_container_path)
 
@@ -86,6 +89,16 @@ func _get_power_sources_connected_to_engine() -> Array:
 		if power_source == null:
 			continue
 		var source_radius := _get_node_connection_radius(power_source)
+		# Pass ALL other power sources as relay nodes so a source whose gear path
+		# runs through another power node (meshed in the middle of the chain) can
+		# still be detected as engine-connected.
+		var relay_sources: Array = []
+		for relay_raw in all_power_sources:
+			var relay := relay_raw as Node2D
+			if relay != null and relay != power_source:
+				relay_sources.append(relay)
+		if _central_engine != null:
+			relay_sources.append(_central_engine)
 		if not network_service.is_path_connected(
 			_components_container,
 			power_source.global_position,
@@ -93,7 +106,8 @@ func _get_power_sources_connected_to_engine() -> Array:
 			connection_distance,
 			connection_tolerance,
 			source_radius,
-			engine_radius
+			engine_radius,
+			relay_sources
 		):
 			continue
 		connected_sources.append(power_source)
@@ -135,27 +149,29 @@ func _recalculate_and_publish_state() -> void:
 	var reachable_profiles := network_service.get_component_profiles_from_list(reachable_components)
 	_perf_last_reachable_count = reachable_components.size()
 	_perf_last_profile_count = reachable_profiles.size()
+	var reflected_load_factor := _compute_network_reflected_load_factor(power_sources, reachable_components)
 	var zone_result := _apply_zone_effects_to_profiles(reachable_profiles)
 	reachable_profiles = zone_result.get("profiles", reachable_profiles)
 	var zone_efficiency_multiplier := float(zone_result.get("efficiency_multiplier", 1.0))
 
 	var friction_load := network_service.get_friction_load_for_profiles(reachable_profiles)
 	friction_load += _compute_shaft_joint_penalty(reachable_profiles)
+	var reflected_friction_load := friction_load * reflected_load_factor
 	if not power_sources.is_empty():
 		var preliminary_load_ratio := 0.0
 		if available_torque > 0.001:
-			preliminary_load_ratio = clampf(friction_load / available_torque, 0.0, 1.0)
+			preliminary_load_ratio = clampf(reflected_friction_load / available_torque, 0.0, 1.0)
 		available_torque = _compute_available_torque_from_sources(power_sources, preliminary_load_ratio)
-	available_torque = _apply_flywheel_buffer(available_torque, friction_load, reachable_profiles, tick_delta)
+	available_torque = _apply_flywheel_buffer(available_torque, reflected_friction_load, reachable_profiles, tick_delta)
 
-	var free_torque := available_torque - friction_load
+	var free_torque := available_torque - reflected_friction_load
 	var is_underpowered := free_torque < 0.0
 	_perf_last_underpowered = is_underpowered
 
 	var reachable_count: int = reachable_components.size()
 	var reachable_connection_count: int = max(reachable_count - 1, 0)
 	# Stage power flow: friction load consumes available drive budget before delivery.
-	var effective_drive_torque := maxf(available_torque - friction_load, 0.0)
+	var effective_drive_torque := maxf(available_torque - reflected_friction_load, 0.0)
 	var efficiency_for_engine := network_service.compute_efficiency(reachable_connection_count) * zone_efficiency_multiplier
 	efficiency_for_engine *= _compute_network_mix_efficiency_bonus(reachable_profiles)
 	efficiency_for_engine *= _compute_compound_stack_efficiency_multiplier(reachable_profiles)
@@ -173,11 +189,14 @@ func _recalculate_and_publish_state() -> void:
 		if connected:
 			delivered_torque = effective_drive_torque
 
-	var drive_utilization := _get_drive_utilization(available_torque, friction_load)
+	var drive_utilization := _get_drive_utilization(available_torque, reflected_friction_load)
 	var source_drive_speed := _get_source_drive_speed(power_sources, is_underpowered)
 	var bottleneck_profile := _get_bottleneck_profile(reachable_profiles)
+	var iso_collect: Array = []
 	var local_source_drive_speeds: Dictionary = {}
 	var local_source_underpowered: Dictionary = {}
+	var source_remaining_budget_by_id: Dictionary = {}
+	var source_available_torque_by_id: Dictionary = {}
 	var component_drive_targets: Dictionary = {}
 	var isolated_component_targets: Dictionary = {}
 	var isolated_stalled_components: Dictionary = {}
@@ -201,83 +220,160 @@ func _recalculate_and_publish_state() -> void:
 		local_profiles = local_zone_result.get("profiles", local_profiles)
 		var local_friction_load := network_service.get_friction_load_for_profiles(local_profiles)
 		local_friction_load += _compute_shaft_joint_penalty(local_profiles)
+		var local_source_id := local_source.get_instance_id()
 
+		if not power_sources.has(local_source):
+			# Isolated source: defer underpowered/budget/speed/target decisions to
+			# the group pass below so torques from co-connected sources pool together.
+			var raw_torque := _get_power_source_output(local_source, 0.0)
+			source_available_torque_by_id[local_source_id] = raw_torque
+			iso_collect.append({
+				"node": local_source,
+				"id": local_source_id,
+				"friction": local_friction_load,
+				"reachable": local_reachable,
+				"profiles": local_profiles,
+				"available_torque_raw": raw_torque,
+			})
+			continue
+
+		var local_reflected_friction_load := local_friction_load * _compute_reflected_load_factor_from_multiplier(
+			_compute_source_engine_drive_multiplier(local_source, reachable_components))
 		var local_available_torque := _get_power_source_output(local_source, 0.0)
 		if local_available_torque > 0.001:
-			var local_load_ratio := clampf(local_friction_load / local_available_torque, 0.0, 1.0)
+			var local_load_ratio := clampf(local_reflected_friction_load / local_available_torque, 0.0, 1.0)
 			local_available_torque = _get_power_source_output(local_source, local_load_ratio)
-		local_available_torque = _apply_flywheel_buffer(local_available_torque, local_friction_load, local_profiles, tick_delta)
+		local_available_torque = _apply_flywheel_buffer(local_available_torque, local_reflected_friction_load, local_profiles, tick_delta)
+		source_available_torque_by_id[local_source_id] = local_available_torque
 
-		var local_is_underpowered := local_available_torque <= local_friction_load
-		var local_source_id := local_source.get_instance_id()
-		local_source_underpowered[local_source_id] = local_is_underpowered
+		# Engine-connected sources pool their torques; the global is_underpowered
+		# flag already reflects the combined output of all connected sources vs
+		# total friction. Never mark a connected source as stalled individually —
+		# a weak source stays spinning as long as the pool is sufficient.
+		local_source_underpowered[local_source_id] = is_underpowered
+		source_remaining_budget_by_id[local_source_id] = maxf(local_available_torque - local_reflected_friction_load, 0.0)
 
 		var local_source_speed := 0.0
-		if not local_is_underpowered:
-			var local_utilization := _get_drive_utilization(local_available_torque, local_friction_load)
+		if not is_underpowered:
+			var local_utilization := _get_drive_utilization(available_torque, reflected_friction_load)
 			# Keep source identity visible under load. Fully linear damping made
 			# speed nodes look too similar to torque nodes in practical builds.
 			var speed_utilization := lerpf(0.35, 1.0, local_utilization)
 			local_source_speed = _get_source_drive_speed([local_source], false) * speed_utilization
 		local_source_drive_speeds[local_source_id] = local_source_speed
 
-		# Simplified isolated island behavior for jam scope:
-		# disconnected subnetworks still need torque-budget spin/stall plus
-		# correct direction/ratio from local graph multipliers.
-		if power_sources.has(local_source):
+	# ── Isolated source group processing ────────────────────────────────────
+	# Group isolated (non-engine) sources by connected subgraph so their
+	# torques pool together. Two motors on the same gear train add torques;
+	# neither stalls as long as combined output covers the shared friction load.
+	var iso_groups: Array = _group_isolated_sources(iso_collect)
+	for iso_group_raw in iso_groups:
+		var iso_group: Array = iso_group_raw as Array
+
+		# Step 1: sum raw (no-load) torques and find group friction.
+		var group_raw_torque := 0.0
+		var group_friction := 0.0
+		for src_raw in iso_group:
+			var src: Dictionary = src_raw as Dictionary
+			group_raw_torque += float(src.get("available_torque_raw", 0.0))
+			group_friction = maxf(group_friction, float(src.get("friction", 0.0)))
+
+		# Step 2: recompute drooped torques using group-level load ratio, then
+		# apply flywheel buffer once for the whole group (shared components).
+		var group_load_ratio := clampf(group_friction / group_raw_torque, 0.0, 1.0) if group_raw_torque > 0.001 else 1.0
+		var group_torque := 0.0
+		var group_profiles: Array = []
+		for src_raw in iso_group:
+			var src: Dictionary = src_raw as Dictionary
+			var src_node := src.get("node") as Node2D
+			if src_node == null:
+				continue
+			var src_torque := _get_power_source_output(src_node, group_load_ratio)
+			group_torque += src_torque
+			source_available_torque_by_id[int(src.get("id", 0))] = src_torque
+			if group_profiles.is_empty():
+				group_profiles = src.get("profiles", []) as Array
+		group_torque = _apply_flywheel_buffer(group_torque, group_friction, group_profiles, tick_delta)
+
+		var group_underpowered := group_torque <= group_friction
+		var group_budget := maxf(group_torque - group_friction, 0.0)
+
+		for src_raw in iso_group:
+			var src: Dictionary = src_raw as Dictionary
+			var src_id := int(src.get("id", 0))
+			local_source_underpowered[src_id] = group_underpowered
+			source_remaining_budget_by_id[src_id] = group_budget
+
+			var src_speed := 0.0
+			if not group_underpowered:
+				var utilization := _get_drive_utilization(group_torque, group_friction)
+				var speed_utilization := lerpf(0.35, 1.0, utilization)
+				src_speed = _get_source_drive_speed([src.get("node") as Node2D], false) * speed_utilization
+			local_source_drive_speeds[src_id] = src_speed
+
+		if group_underpowered:
+			for src_raw in iso_group:
+				var src: Dictionary = src_raw as Dictionary
+				for comp_raw in (src.get("reachable", []) as Array):
+					var comp := comp_raw as Node2D
+					if comp == null:
+						continue
+					var comp_id := comp.get_instance_id()
+					isolated_stalled_components[comp_id] = true
+					isolated_component_targets[comp_id] = 0.0
 			continue
 
-		var local_source_drive_radius := _get_node_outer_radius(local_source)
-		var local_source_drive_teeth := _get_node_tooth_count(local_source)
-		var local_multipliers := network_service.get_network_drive_multipliers(
-			_components_container,
-			local_source.global_position,
-			local_source_radius,
-			local_source_drive_radius,
-			local_source_drive_teeth,
-			[],
-			connection_tolerance
-		)
-		var local_conflicts_arr := network_service.get_direction_conflicts(
-			_components_container,
-			local_source.global_position,
-			local_source_radius,
-			[],
-			connection_tolerance
-		)
-		var local_conflicts: Dictionary = {}
-		for local_conflict_raw in local_conflicts_arr:
-			local_conflicts[int(local_conflict_raw)] = true
-
-		for local_component_raw in local_reachable:
-			var local_component := local_component_raw as Node2D
-			if local_component == null:
+		for src_raw in iso_group:
+			var src: Dictionary = src_raw as Dictionary
+			var src_node := src.get("node") as Node2D
+			if src_node == null:
 				continue
+			var src_id := int(src.get("id", 0))
+			var src_radius := _get_node_connection_radius(src_node)
+			var src_drive_radius := _get_node_outer_radius(src_node)
+			var src_drive_teeth := _get_node_tooth_count(src_node)
+			var src_multipliers := network_service.get_network_drive_multipliers(
+				_components_container,
+				src_node.global_position,
+				src_radius,
+				src_drive_radius,
+				src_drive_teeth,
+				[],
+				connection_tolerance
+			)
+			var src_conflicts_arr := network_service.get_direction_conflicts(
+				_components_container,
+				src_node.global_position,
+				src_radius,
+				[],
+				connection_tolerance
+			)
+			var src_conflicts: Dictionary = {}
+			for c in src_conflicts_arr:
+				src_conflicts[int(c)] = true
 
-			var local_component_id := local_component.get_instance_id()
-			if local_is_underpowered:
-				isolated_stalled_components[local_component_id] = true
-				isolated_component_targets[local_component_id] = 0.0
-				continue
+			var src_speed := float(local_source_drive_speeds.get(src_id, 0.0))
 
-			if isolated_stalled_components.has(local_component_id):
-				continue
-
-			if local_conflicts.has(local_component_id):
-				isolated_conflict_set[local_component_id] = true
-				isolated_component_targets[local_component_id] = 0.0
-				continue
-
-			var local_multiplier := float(local_multipliers.get(local_component_id, 0.0))
-			var local_target := local_source_speed * local_multiplier
-
-			var prev_local_target := float(isolated_component_targets.get(local_component_id, 0.0))
-			if absf(prev_local_target) > 0.001 and absf(local_target) > 0.001 and signf(prev_local_target) != signf(local_target):
-				isolated_conflict_set[local_component_id] = true
-				isolated_component_targets[local_component_id] = 0.0
-				continue
-			if absf(local_target) > absf(prev_local_target):
-				isolated_component_targets[local_component_id] = local_target
+			for comp_raw in (src.get("reachable", []) as Array):
+				var comp := comp_raw as Node2D
+				if comp == null:
+					continue
+				var comp_id := comp.get_instance_id()
+				if isolated_stalled_components.has(comp_id):
+					continue
+				if src_conflicts.has(comp_id):
+					isolated_conflict_set[comp_id] = true
+					isolated_component_targets[comp_id] = 0.0
+					continue
+				var mult := float(src_multipliers.get(comp_id, 0.0))
+				var target := src_speed * mult
+				var prev := float(isolated_component_targets.get(comp_id, 0.0))
+				if absf(prev) > 0.001 and absf(target) > 0.001 and signf(prev) != signf(target):
+					isolated_conflict_set[comp_id] = true
+					isolated_component_targets[comp_id] = 0.0
+					continue
+				if absf(target) > absf(prev):
+					isolated_component_targets[comp_id] = target
 	if not power_sources.is_empty():
 		for source_raw in power_sources:
 			var source := source_raw as Node2D
@@ -346,6 +442,25 @@ func _recalculate_and_publish_state() -> void:
 			continue
 		component_drive_targets[isolated_id] = float(isolated_component_targets[isolated_id_raw])
 
+	# Re-propagate speeds so the whole connected gear graph is geometrically
+	# consistent. Without this pass, two sources with different base speeds can
+	# each win different components via the fastest-wins merge but leave adjacent
+	# components at mutually inconsistent angular velocities (visible as one side
+	# spinning fast while the other side spins slow despite being meshed).
+	# Relay nodes (power sources + engine) are passed so the BFS can bridge
+	# gear segments whose only path runs through a node outside components_container.
+	var _relay_nodes_for_propagation: Array = []
+	for _relay_source_raw in local_power_sources:
+		var _relay_source := _relay_source_raw as Node2D
+		if _relay_source != null:
+			_relay_nodes_for_propagation.append(_relay_source)
+	if _central_engine != null:
+		_relay_nodes_for_propagation.append(_central_engine)
+	component_drive_targets = network_service.propagate_speeds_from_settled(
+		_components_container, component_drive_targets, connection_tolerance, _relay_nodes_for_propagation
+	)
+
+	# Conflict overrides run after propagation so conflicted nodes end up at 0.
 	for conflict_id_raw in connected_conflict_set.keys():
 		var conflict_id := int(conflict_id_raw)
 		component_drive_targets[conflict_id] = 0.0
@@ -359,6 +474,17 @@ func _recalculate_and_publish_state() -> void:
 	var per_component_torque := 0.0
 	if connected and not reachable_components.is_empty():
 		per_component_torque = delivered_torque / float(reachable_components.size())
+	var component_torque_by_id: Dictionary = {}
+	for reachable_raw in reachable_components:
+		var reachable_component := reachable_raw as Node2D
+		if reachable_component == null:
+			continue
+		var reachable_id := reachable_component.get_instance_id()
+		var drive_target := float(component_drive_targets.get(reachable_id, 0.0))
+		var sign_source := signf(drive_target)
+		if absf(sign_source) <= 0.001:
+			sign_source = float(network_spin_signs.get(reachable_id, 1.0))
+		component_torque_by_id[reachable_id] = per_component_torque * sign_source
 	_apply_component_torque(per_component_torque, network_spin_signs)
 	_apply_component_drive_targets(component_drive_targets)
 	_update_component_connection_state(reachable_components)
@@ -404,18 +530,30 @@ func _recalculate_and_publish_state() -> void:
 		local_source_drive_speeds,
 		engine_drive_multiplier
 	)
-	var engine_rpm := _to_rpm(source_drive_speed * engine_drive_multiplier if connected else 0.0)
-	# Apply gear ratio: RPM scales by multiplier, torque scales by inverse.
-	# This preserves power (HP) across ideal gear trains while correctly
-	# representing the tradeoff: speed-increasing gear trains raise RPM and
-	# lower torque at the engine; torque-increasing trains do the reverse.
-	var ratio_magnitude := maxf(absf(engine_drive_multiplier), 0.001) if connected else 1.0
+	# Derive the engine's actual angular velocity using the same settled
+	# component_drive_targets that drive the visual. This ensures scoring RPM
+	# matches what is rendered, even when multiple sources with different gear
+	# ratios feed into the network.
+	var engine_angular_velocity := 0.0
+	if connected and _central_engine != null:
+		engine_angular_velocity = _derive_anchor_drive_speed(_central_engine, component_drive_targets)
+	var engine_rpm := _to_rpm(engine_angular_velocity)
+	# Torque scales inverse to speed (power conservation). Use the resolved
+	# engine angular speed vs source speed to get the true effective ratio.
+	var ratio_magnitude := 1.0
+	if connected and absf(source_drive_speed) > 0.001:
+		ratio_magnitude = maxf(absf(engine_angular_velocity) / absf(source_drive_speed), 0.001)
+	elif connected:
+		ratio_magnitude = maxf(absf(engine_drive_multiplier), 0.001)
 	var engine_torque := delivered_torque / ratio_magnitude
 	if connected:
 		horsepower = torque_system.compute_output_horsepower(engine_torque, engine_rpm, efficiency_for_engine)
 	_ui_component_profiles = _build_component_profile_lookup(reachable_profiles)
 	_ui_component_load_ratios = per_component_load_ratios.duplicate()
 	_ui_connected_component_ids = _build_component_id_lookup(reachable_components)
+	_ui_component_torque_by_id = component_torque_by_id.duplicate()
+	_ui_source_budget_by_id = source_remaining_budget_by_id.duplicate()
+	_ui_source_available_by_id = source_available_torque_by_id.duplicate()
 	_ui_overlay_snapshot = {
 		"connected": connected,
 		"horsepower": horsepower,
@@ -887,6 +1025,97 @@ func _compute_engine_drive_multiplier(
 	return 0.0
 
 
+## Group isolated sources by connected subgraph using union-find on their
+## reachable component sets. Sources that share any component are in the same
+## group so their torques can be pooled for the underpowered decision.
+func _group_isolated_sources(iso_data: Array) -> Array:
+	var n := iso_data.size()
+	if n == 0:
+		return []
+	var parent: Array = []
+	for i in range(n):
+		parent.append(i)
+	for i in range(n):
+		var reachable_i: Array = iso_data[i].get("reachable", []) as Array
+		var ids_i: Dictionary = {}
+		for c in reachable_i:
+			if c is Node2D:
+				ids_i[(c as Node2D).get_instance_id()] = true
+		for j in range(i + 1, n):
+			var reachable_j: Array = iso_data[j].get("reachable", []) as Array
+			var overlaps := false
+			for c in reachable_j:
+				if c is Node2D and ids_i.has((c as Node2D).get_instance_id()):
+					overlaps = true
+					break
+			if overlaps:
+				var ri := _uf_find(parent, i)
+				var rj := _uf_find(parent, j)
+				if ri != rj:
+					parent[ri] = rj
+	var groups: Dictionary = {}
+	for i in range(n):
+		var root := _uf_find(parent, i)
+		if not groups.has(root):
+			groups[root] = []
+		groups[root].append(iso_data[i])
+	return groups.values()
+
+
+func _uf_find(parent: Array, i: int) -> int:
+	while parent[i] != i:
+		parent[i] = parent[parent[i]]
+		i = parent[i]
+	return i
+
+
+func _compute_source_engine_drive_multiplier(source: Node2D, reachable_components: Array) -> float:
+	if source == null or reachable_components.is_empty():
+		return 1.0
+	var source_radius := _get_node_connection_radius(source)
+	var source_drive_radius := _get_node_outer_radius(source)
+	var source_drive_teeth := _get_node_tooth_count(source)
+	var source_multipliers := network_service.get_network_drive_multipliers(
+		_components_container,
+		source.global_position,
+		source_radius,
+		source_drive_radius,
+		source_drive_teeth,
+		[],
+		connection_tolerance
+	)
+	var multiplier := _compute_engine_drive_multiplier(reachable_components, source_multipliers, {}, true)
+	if absf(multiplier) <= 0.0001:
+		return 1.0
+	return multiplier
+
+
+func _compute_reflected_load_factor_from_multiplier(engine_drive_multiplier: float) -> float:
+	var ratio_magnitude := maxf(absf(engine_drive_multiplier), 0.001)
+	# ratio < 1.0 (reduction) lowers reflected source-side load,
+	# ratio > 1.0 (overdrive) raises reflected source-side load.
+	return clampf(ratio_magnitude, 0.25, 4.0)
+
+
+func _compute_network_reflected_load_factor(power_sources: Array, reachable_components: Array) -> float:
+	if power_sources.is_empty() or reachable_components.is_empty() or _central_engine == null:
+		return 1.0
+	var weighted_factor_sum := 0.0
+	var total_weight := 0.0
+	for source_raw in power_sources:
+		var source := source_raw as Node2D
+		if source == null:
+			continue
+		var source_output := maxf(_get_power_source_output(source, 0.0), 0.001)
+		var source_engine_multiplier := _compute_source_engine_drive_multiplier(source, reachable_components)
+		var source_factor := _compute_reflected_load_factor_from_multiplier(source_engine_multiplier)
+		weighted_factor_sum += source_factor * source_output
+		total_weight += source_output
+	if total_weight <= 0.001:
+		return 1.0
+	return weighted_factor_sum / total_weight
+
+
 ## Mark components with conflicting rotation requirements so they can show
 ## a visual indicator and stall their motion.
 func _apply_direction_conflicts(conflict_ids: Array) -> void:
@@ -996,10 +1225,11 @@ func get_component_ui_snapshot(component: Node2D) -> Dictionary:
 	var cid := component.get_instance_id()
 	var profile := _ui_component_profiles.get(cid, {}) as Dictionary
 	var zone := _get_zone_condition_at(component.global_position)
-	return {
+	var snapshot := {
 		"connected": _ui_connected_component_ids.has(cid),
 		"friction": float(profile.get("friction", 0.0)),
 		"load_ratio": float(_ui_component_load_ratios.get(cid, 0.0)),
+		"torque": float(_ui_component_torque_by_id.get(cid, 0.0)),
 		"component_type": str(profile.get("type", str(component.get_meta("component_type", "")))),
 		"tooth_count": int(profile.get("tooth_count", 0)),
 		"outer_radius": float(profile.get("outer_radius", _get_node_outer_radius(component))),
@@ -1007,6 +1237,10 @@ func get_component_ui_snapshot(component: Node2D) -> Dictionary:
 		"zone_type": str(zone.get("zone_type", "")),
 		"zone_intensity": float(zone.get("intensity", 0.0))
 	}
+	if component.name.begins_with("Power"):
+		snapshot["source_remaining_budget"] = float(_ui_source_budget_by_id.get(cid, 0.0))
+		snapshot["source_available_torque"] = float(_ui_source_available_by_id.get(cid, 0.0))
+	return snapshot
 
 
 func _build_component_profile_lookup(reachable_profiles: Array) -> Dictionary:

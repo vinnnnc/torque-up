@@ -14,6 +14,8 @@ const INVALID_PREVIEW_COLOR := Color(1.0, 0.35, 0.35, 0.65)
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
 const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
+const MODE_MESH := "mesh"
+const MODE_COMPOUND := "compound"
 
 ## Set by PlacementController when this handler is activated (e.g. "gear_small").
 var component_id: String = ""
@@ -26,6 +28,12 @@ var _has_auto_place_anchor: bool = false
 var _auto_place_anchor: Vector2 = Vector2.ZERO
 var _last_auto_place_msec: int = 0
 var _bulk_gear_place_pending_recalc: bool = false
+var _focused_mesh_origin_id: int = -1
+var _focused_mesh_root_id: int = -1
+## Nearest snap-origin node detected during the current preview frame.
+## Used by _should_block_mesh_collision to pass through layer-2 gears that
+## belong only to the stack being approached, not to other stacks.
+var _active_snap_origin_node: Node2D = null
 
 # -- Lifecycle -----------------------------------------------------------------
 
@@ -41,6 +49,8 @@ func _reset_drag() -> void:
 	_gear_drag_has_direction_lock = false
 	_has_auto_place_anchor = false
 	_bulk_gear_place_pending_recalc = false
+	_active_snap_origin_node = null
+	_clear_mesh_focus()
 
 # -- Per-frame -----------------------------------------------------------------
 
@@ -49,28 +59,36 @@ func _reset_drag() -> void:
 func update_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 	if preview_node == null:
 		return
-
-	var stack_eval := _evaluate_stack_candidate(mouse_pos)
-	var stack_target := stack_eval.get("target", null) as Node2D
-	if stack_target:
-		preview_node.global_position = stack_target.global_position
-		preview_node.rotation = stack_target.rotation
-		var stack_valid := bool(stack_eval.get("valid", false))
-		preview_node.modulate = VALID_PREVIEW_COLOR if stack_valid else INVALID_PREVIEW_COLOR
-		ctx.socket_markers = [stack_target.global_position]
-		ctx.active_socket_position = stack_target.global_position
-		ctx.has_active_socket = true
-		ctx.active_socket_valid = stack_valid
+	if ctx.active_mode == MODE_COMPOUND:
+		_update_compound_preview(mouse_pos, preview_node)
 		return
+	_update_mesh_preview(mouse_pos, preview_node)
 
+
+func _update_mesh_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
+	_ensure_mesh_focus_is_valid(mouse_pos)
 	var selected_radius := get_connection_radius()
 	var blocked_positions := ctx.get_cached_blocked_positions()
+	var origin_filter := Callable(self, "_is_mesh_origin_compatible")
+	var collision_filter := Callable(self, "_should_block_mesh_collision")
+	# Pre-resolve the nearest snap origin so the collision filter knows which
+	# compound stack is being approached this frame.
+	var nearest_origin_raw = ctx.placement_rules.get_nearest_snap_origin(
+		mouse_pos, ctx.components_container, ctx.get_cached_seed_positions(),
+		blocked_positions, selected_radius, origin_filter, collision_filter
+	)
+	if nearest_origin_raw is Dictionary:
+		_active_snap_origin_node = (nearest_origin_raw as Dictionary).get("node", null) as Node2D
+	else:
+		_active_snap_origin_node = null
 	var snap_result: Dictionary = ctx.placement_rules.get_snap_result(
 		mouse_pos,
 		ctx.components_container,
 		ctx.get_cached_seed_positions(),
 		blocked_positions,
-		selected_radius
+		selected_radius,
+		origin_filter,
+		collision_filter
 	)
 	var snapped_pos: Vector2 = snap_result.get("position", mouse_pos)
 	var use_snap := bool(snap_result.get("valid", false))
@@ -80,15 +98,10 @@ func update_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 		preview_node.global_position,
 		ctx.components_container,
 		blocked_positions,
-		selected_radius
+		selected_radius,
+		collision_filter
 	)
-	ctx.socket_markers = ctx.placement_rules.get_nearest_available_socket_positions(
-		mouse_pos,
-		ctx.components_container,
-		ctx.get_cached_seed_positions(),
-		blocked_positions,
-		selected_radius
-	)
+	ctx.socket_markers = _build_mesh_arc_markers(mouse_pos, blocked_positions, selected_radius)
 	ctx.active_socket_position = snapped_pos
 	ctx.has_active_socket = use_snap and snap_result.get("origin", null) != null
 
@@ -98,6 +111,25 @@ func update_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 	else:
 		preview_node.modulate = INVALID_PREVIEW_COLOR
 		ctx.active_socket_valid = false
+
+
+func _update_compound_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
+	var stack_eval := _evaluate_stack_candidate(mouse_pos)
+	var stack_target := stack_eval.get("target", null) as Node2D
+	ctx.socket_markers = _build_compound_markers()
+	if stack_target:
+		preview_node.global_position = stack_target.global_position
+		preview_node.rotation = stack_target.rotation
+		var stack_valid := bool(stack_eval.get("valid", false))
+		preview_node.modulate = VALID_PREVIEW_COLOR if stack_valid else INVALID_PREVIEW_COLOR
+		ctx.active_socket_position = stack_target.global_position
+		ctx.has_active_socket = true
+		ctx.active_socket_valid = stack_valid
+		return
+	preview_node.global_position = mouse_pos
+	preview_node.modulate = INVALID_PREVIEW_COLOR
+	ctx.has_active_socket = false
+	ctx.active_socket_valid = false
 
 ## Called every frame (un-throttled) to drive drag auto-place logic.
 ## PlacementController must NOT call this when gui_get_hovered_control() != null.
@@ -156,6 +188,13 @@ func configure_instance(instance: Node2D) -> void:
 # -- Placement -----------------------------------------------------------------
 
 func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
+	if ctx.active_mode == MODE_COMPOUND:
+		_place_compound_gear(pos, emit_network_update)
+		return
+	_place_meshed_gear(pos, emit_network_update)
+
+
+func _place_compound_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	var stack_eval := _evaluate_stack_candidate(pos)
 	var stack_target := stack_eval.get("target", null) as Node2D
 	if stack_target:
@@ -173,29 +212,43 @@ func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 		stacked_gear.rotation = stack_target.rotation
 		stacked_gear.set_meta("stack_parent_id", stack_target.get_instance_id())
 		stacked_gear.set_meta("stack_root_id", _get_stack_root_id(stack_target))
+		stacked_gear.set_meta("compound_layer", 2)
 		stacked_gear.set_meta("compound_added_layers", 1)
+		stack_target.set_meta("compound_layer", 1)
 		stack_target.set_meta("compound_added_layers", 1)
+		if bool(stack_eval.get("behind", false)):
+			stacked_gear.z_index = stack_target.z_index - 1
 		ctx.components_container.add_child(stacked_gear)
-		if stacked_gear.has_method("set_stacked_top"):
+		if stacked_gear.has_method("set_stacked_top") and not bool(stack_eval.get("behind", false)):
 			stacked_gear.call("set_stacked_top", true)
 		if emit_network_update:
 			ctx.emit_gear_placed(stacked_gear)
 			ctx.mark_dirty()
+		# Return to mesh mode after a successful compound placement.
+		if ctx.signal_bus and ctx.signal_bus.has_signal("placement_mode_changed"):
+			ctx.signal_bus.placement_mode_changed.emit(MODE_MESH)
 		return
+
+
+func _place_meshed_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 
 	var selected_radius := get_connection_radius()
 	var blocked_positions := ctx.get_cached_blocked_positions()
+	var origin_filter := Callable(self, "_is_mesh_origin_compatible")
+	var collision_filter := Callable(self, "_should_block_mesh_collision")
 	var snap_result: Dictionary = ctx.placement_rules.get_snap_result(
 		pos,
 		ctx.components_container,
 		ctx.get_cached_seed_positions(),
 		blocked_positions,
-		selected_radius
+		selected_radius,
+		origin_filter,
+		collision_filter
 	)
 	var use_snap := bool(snap_result.get("valid", false))
 	var snapped_pos: Vector2 = snap_result.get("position", pos)
 	var target_pos := snapped_pos if use_snap else pos
-	if not ctx.placement_rules.can_place_at(target_pos, ctx.components_container, blocked_positions, selected_radius):
+	if not ctx.placement_rules.can_place_at(target_pos, ctx.components_container, blocked_positions, selected_radius, collision_filter):
 		return
 
 	var chosen_scene := ctx.get_scene(component_id)
@@ -203,10 +256,12 @@ func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 		return
 	var gear := chosen_scene.instantiate() as Node2D
 	configure_instance(gear)
+	gear.set_meta("compound_layer", 1)
 	if use_snap:
 		align_instance_with_origin(gear, target_pos, snap_result.get("origin", {}))
 	gear.global_position = target_pos
 	ctx.components_container.add_child(gear)
+	_clear_mesh_focus()
 
 	if emit_network_update:
 		ctx.emit_gear_placed(gear)
@@ -273,6 +328,8 @@ func _handle_drag_auto_place(mouse_world_pos: Vector2) -> void:
 # -- Stack helpers -------------------------------------------------------------
 
 func _evaluate_stack_candidate(world_pos: Vector2) -> Dictionary:
+	if ctx.active_mode != MODE_COMPOUND:
+		return {}
 	var selected_rank := _get_size_rank(component_id)
 	if selected_rank < 0:
 		return {}
@@ -282,6 +339,8 @@ func _evaluate_stack_candidate(world_pos: Vector2) -> Dictionary:
 	for child in ctx.components_container.get_children():
 		var candidate := child as Node2D
 		if candidate == null or not _is_standard_gear(candidate):
+			continue
+		if _get_node_layer(candidate) != 1:
 			continue
 		var distance := candidate.global_position.distance_to(world_pos)
 		if distance > nearest_distance:
@@ -311,10 +370,11 @@ func _evaluate_stack_candidate(world_pos: Vector2) -> Dictionary:
 		return {}
 
 	if selected_rank > candidate_rank:
+		# Any larger gear may go behind any smaller gear.
 		return {
 			"target": nearest_target,
-			"valid": false,
-			"reason": "Cannot stack larger gear inside smaller gear."
+			"valid": true,
+			"behind": true
 		}
 
 	if selected_rank < candidate_rank:
@@ -359,6 +419,253 @@ func _is_standard_gear(node: Node2D) -> bool:
 		return false
 	var ctype := str(node.get_meta("component_type", ""))
 	return ctype == COMPONENT_GEAR_SMALL or ctype == COMPONENT_GEAR_MEDIUM or ctype == COMPONENT_GEAR_LARGE
+
+
+func _get_node_layer(node: Node2D) -> int:
+	if node == null:
+		return 1
+	if node.has_meta("compound_layer"):
+		return clampi(int(node.get_meta("compound_layer")), 1, 2)
+	if int(node.get_meta("stack_parent_id", -1)) >= 0:
+		return 2
+	return 1
+
+
+func _is_mesh_origin_compatible(origin: Dictionary) -> bool:
+	var origin_node := origin.get("node", null) as Node2D
+	if origin_node == null:
+		return _focused_mesh_origin_id < 0
+	if not _is_standard_gear(origin_node):
+		return _focused_mesh_origin_id < 0
+	if _focused_mesh_origin_id < 0:
+		# Only layer-1 gears are default snap origins; layer-2 (compound behind) are skipped.
+		return _get_node_layer(origin_node) == 1
+	return origin_node.get_instance_id() == _focused_mesh_origin_id
+
+
+func _build_mesh_arc_markers(mouse_pos: Vector2, blocked_positions: Array, selected_radius: float) -> Array:
+	var origin_filter := Callable(self, "_is_mesh_origin_compatible")
+	var collision_filter := Callable(self, "_should_block_mesh_collision")
+	var nearest_origin = ctx.placement_rules.get_nearest_snap_origin(
+		mouse_pos,
+		ctx.components_container,
+		ctx.get_cached_seed_positions(),
+		blocked_positions,
+		selected_radius,
+		origin_filter,
+		collision_filter
+	)
+	if nearest_origin == null:
+		return []
+	var origin := nearest_origin as Dictionary
+	if origin.is_empty():
+		return []
+	return _build_origin_arc_markers(origin, blocked_positions, selected_radius)
+
+
+func _build_origin_arc_markers(origin: Dictionary, blocked_positions: Array, selected_radius: float) -> Array:
+	var markers: Array = []
+	if origin.has("fixed_direction"):
+		var fixed_direction := origin.get("fixed_direction", Vector2.RIGHT) as Vector2
+		if fixed_direction.length_squared() <= 0.0001:
+			fixed_direction = Vector2.RIGHT
+		else:
+			fixed_direction = fixed_direction.normalized()
+		var base_angle := fixed_direction.angle()
+		markers.append({
+			"kind": "arc_segment",
+			"center": origin.get("position", Vector2.ZERO),
+			"radius": float(origin.get("radius", 0.0)) + selected_radius,
+			"start_angle": base_angle - 0.26,
+			"end_angle": base_angle + 0.26
+		})
+		return markers
+
+	var origin_pos: Vector2 = origin.get("position", Vector2.ZERO)
+	var origin_radius: float = float(origin.get("radius", 0.0))
+	var marker_radius := origin_radius + selected_radius
+	var sample_count: int = maxi(12, int(ctx.placement_rules.marker_samples))
+	var open_start := -INF
+	var previous_open := false
+	for sample_index in range(sample_count + 1):
+		var angle := TAU * (float(sample_index) / float(sample_count))
+		var candidate := origin_pos + Vector2.RIGHT.rotated(angle) * marker_radius
+		var is_open: bool = not bool(ctx.placement_rules._is_too_close(candidate, ctx.components_container, blocked_positions, selected_radius, Callable(self, "_should_block_mesh_collision")))
+		if is_open and not previous_open:
+			open_start = angle
+		elif previous_open and not is_open:
+			markers.append({
+				"kind": "arc_segment",
+				"center": origin_pos,
+				"radius": marker_radius,
+				"start_angle": open_start,
+				"end_angle": angle - (TAU / float(sample_count)) * 0.2
+			})
+			open_start = -INF
+		previous_open = is_open
+	if previous_open and open_start > -INF:
+		markers.append({
+			"kind": "arc_segment",
+			"center": origin_pos,
+			"radius": marker_radius,
+			"start_angle": open_start,
+			"end_angle": TAU
+		})
+	return markers
+
+
+func _build_compound_markers() -> Array:
+	var markers: Array = []
+	for child in ctx.components_container.get_children():
+		var candidate := child as Node2D
+		if candidate == null or not _is_standard_gear(candidate):
+			continue
+		if _get_node_layer(candidate) != 1:
+			continue
+		var eval := _evaluate_stack_candidate(candidate.global_position)
+		if not bool(eval.get("valid", false)):
+			continue
+		markers.append({
+			"kind": "ring",
+			"center": candidate.global_position,
+			"radius": maxf(ctx.get_node_outer_radius(candidate), get_outer_radius()) + 4.0
+		})
+	return markers
+
+
+func _should_block_mesh_collision(node: Node2D) -> bool:
+	if node == null:
+		return true
+	if not _is_standard_gear(node):
+		return true
+
+	var origin_node: Node2D = null
+	if _focused_mesh_origin_id >= 0:
+		origin_node = _find_standard_gear_by_id(_focused_mesh_origin_id)
+	elif _active_snap_origin_node != null:
+		origin_node = _active_snap_origin_node
+
+	if origin_node != null:
+		# The origin itself always blocks to prevent placing directly on top of it.
+		if node.get_instance_id() == origin_node.get_instance_id():
+			return true
+		# Same-stack partners are transparent regardless of layer.
+		# This covers both the normal case (layer-2 behind-gear transparent while
+		# layer-1 is the origin) and the Z-focus case (layer-1 front-gear transparent
+		# while layer-2 is the Z-focused origin, so its orbit is not blocked).
+		if _get_stack_root_id(node) == _get_stack_root_id(origin_node):
+			return false
+		# Different compound stacks are always solid.
+		return true
+
+	# No active snap origin: layer-1 foreground gears block, layer-2 behind-gears
+	# are transparent (they are always physically inside their layer-1 partner).
+	return _get_node_layer(node) == 1
+
+
+func cycle_mesh_origin_focus(mouse_pos: Vector2) -> String:
+	if ctx.active_mode != MODE_MESH:
+		return "Origin cycling is only available in Mesh mode."
+	var cycle_data := _get_cycle_candidates(mouse_pos)
+	var candidates := cycle_data.get("candidates", []) as Array
+	if candidates.is_empty():
+		_clear_mesh_focus()
+		return "No compound gear under cursor to cycle."
+	var root_id := int(cycle_data.get("root_id", -1))
+	var next_index := 1
+	if _focused_mesh_root_id == root_id and _focused_mesh_origin_id >= 0:
+		for idx in range(candidates.size()):
+			var node := candidates[idx] as Node2D
+			if node == null:
+				continue
+			if node.get_instance_id() == _focused_mesh_origin_id:
+				next_index = (idx + 1) % candidates.size()
+				break
+	elif candidates.size() <= 1:
+		next_index = 0
+	if next_index < 0 or next_index >= candidates.size():
+		next_index = 0
+	var next_node := candidates[next_index] as Node2D
+	if next_node == null:
+		_clear_mesh_focus()
+		return "No valid cycle target."
+	_focused_mesh_origin_id = next_node.get_instance_id()
+	_focused_mesh_root_id = root_id
+	var ctype := str(next_node.get_meta("component_type", ""))
+	var label := "Gear"
+	if ctype == COMPONENT_GEAR_SMALL:
+		label = "Small Gear"
+	elif ctype == COMPONENT_GEAR_MEDIUM:
+		label = "Medium Gear"
+	elif ctype == COMPONENT_GEAR_LARGE:
+		label = "Large Gear"
+	return "Mesh focus: %s (%d/%d)" % [label, next_index + 1, candidates.size()]
+
+
+func _get_cycle_candidates(mouse_pos: Vector2) -> Dictionary:
+	var best_root_id := -1
+	var best_root_distance := INF
+	var grouped: Dictionary = {}
+	for child in ctx.components_container.get_children():
+		var node := child as Node2D
+		if node == null or not _is_standard_gear(node):
+			continue
+		var root_id := _get_stack_root_id(node)
+		if root_id < 0:
+			continue
+		if not grouped.has(root_id):
+			grouped[root_id] = []
+		(grouped[root_id] as Array).append(node)
+		var d := node.global_position.distance_to(mouse_pos)
+		if d < best_root_distance:
+			best_root_distance = d
+			best_root_id = root_id
+	if best_root_id < 0 or not grouped.has(best_root_id):
+		return {"root_id": -1, "candidates": []}
+	var candidates := grouped[best_root_id] as Array
+	if candidates.size() <= 1:
+		return {"root_id": -1, "candidates": []}
+	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+		if a == null:
+			return false
+		if b == null:
+			return true
+		var la := _get_node_layer(a)
+		var lb := _get_node_layer(b)
+		if la != lb:
+			return la < lb
+		return ctx.get_node_outer_radius(a) > ctx.get_node_outer_radius(b)
+	)
+	return {"root_id": best_root_id, "candidates": candidates}
+
+
+func _find_standard_gear_by_id(instance_id: int) -> Node2D:
+	if instance_id < 0:
+		return null
+	for child in ctx.components_container.get_children():
+		var node := child as Node2D
+		if node == null or not _is_standard_gear(node):
+			continue
+		if node.get_instance_id() == instance_id:
+			return node
+	return null
+
+
+func _ensure_mesh_focus_is_valid(mouse_pos: Vector2 = Vector2.ZERO) -> void:
+	if _focused_mesh_origin_id < 0:
+		return
+	var node := _find_standard_gear_by_id(_focused_mesh_origin_id)
+	if node == null:
+		_clear_mesh_focus()
+		return
+	# Auto-clear when the cursor has moved away from the focused compound stack.
+	if mouse_pos != Vector2.ZERO and node.global_position.distance_to(mouse_pos) > PROJECT_PATHS_SCRIPT.STACK_PICK_DISTANCE * 2.0:
+		_clear_mesh_focus()
+
+
+func _clear_mesh_focus() -> void:
+	_focused_mesh_origin_id = -1
+	_focused_mesh_root_id = -1
 
 func _is_sprocket_mode(node: Node2D) -> bool:
 	if node == null:

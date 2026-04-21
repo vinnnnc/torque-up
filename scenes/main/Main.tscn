@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://cualn1v811xrv" path="res://scripts/components/anchor_rotor.gd" id="7_h01f3"]
 [ext_resource type="Script" uid="uid://ds2x7pbd4ge5l" path="res://scripts/features/editor/dev_level_editor.gd" id="10_21m0i"]
 [ext_resource type="Script" uid="uid://cwshcm08vs022" path="res://scripts/features/debug/perf_overlay.gd" id="11_71kjp"]
+[ext_resource type="Script" uid="uid://dtgk8en18xkjn" path="res://scripts/features/world/blockade_visual.gd" id="12_blockade"]
 [ext_resource type="PackedScene" path="res://scenes/components/SmallGear.tscn" id="12_smallgear"]
 [ext_resource type="PackedScene" path="res://scenes/components/MediumGear.tscn" id="13_mediumgear"]
 [ext_resource type="PackedScene" path="res://scenes/components/LargeGear.tscn" id="14_largegear"]
@@ -32,7 +33,7 @@ script = ExtResource("1_glv2v")
 [node name="Network" type="Node2D" parent="." unique_id=1857059566]
 
 [node name="CentralEngine" type="Node2D" parent="Network" unique_id=159928825]
-position = Vector2(576, 550)
+position = Vector2(576, 520)
 script = ExtResource("7_h01f3")
 base_spin_speed = 0.7
 
@@ -99,5 +100,8 @@ chain_scene = ExtResource("19_chain")
 
 [node name="PerfOverlay" type="CanvasLayer" parent="." unique_id=987640122]
 script = ExtResource("11_71kjp")
+
+[node name="Blockade" type="Node2D" parent="." unique_id=1234567890]
+script = ExtResource("12_blockade")
 
 [node name="UI" parent="." unique_id=1047276783 instance=ExtResource("5_a8t5x")]

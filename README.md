@@ -9,7 +9,6 @@ The project currently focuses on readable top-down mechanical construction, engi
 Implemented systems currently include:
 
 - standard gears in three sizes
-- shafts
 - chain connectors
 - flywheel
 - clutch
@@ -86,14 +85,11 @@ The build hotbar currently exposes:
 - Gear S (key 1)
 - Gear M (key 2)
 - Gear L (key 3)
-- Shaft (key 4)
-- Chain (key 5)
-- Flywheel (key 6)
-- Clutch (key 7)
-- Differential (key 8)
+- Chain (key 4)
+- Flywheel (key 5)
+- Clutch (key 6)
+- Differential (key 7)
 - Delete mode (key X)
-- Differential
-- Delete
 
 ## Repository Structure
 
@@ -106,5 +102,6 @@ The build hotbar currently exposes:
 ## Notes
 
 - `chain` is the canonical term. `belt` remains only as a compatibility alias in some code paths and save handling.
+- shaft placement is deprecated for new builds; legacy shaft data is still supported for compatibility.
 - clutch and differential visuals now use static housings with visible internal motion.
 - flywheel, clutch, and differential use port-limited snapping rather than generic perimeter snapping.

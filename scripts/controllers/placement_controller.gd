@@ -88,6 +88,8 @@ func _ready() -> void:
 		_signal_bus.gear_placed.connect(_on_layout_changed)
 	if _signal_bus and not _signal_bus.component_removed.is_connected(_on_layout_changed):
 		_signal_bus.component_removed.connect(_on_layout_changed)
+	if _signal_bus and _signal_bus.has_signal("placement_mode_changed") and not _signal_bus.placement_mode_changed.is_connected(_on_placement_mode_changed):
+		_signal_bus.placement_mode_changed.connect(_on_placement_mode_changed)
 	_update_preview_visibility()
 
 
@@ -130,9 +132,6 @@ func _setup_handlers() -> void:
 	gear_large_handler.init(_handler_ctx)
 	gear_large_handler.component_id = COMPONENT_GEAR_LARGE
 
-	var shaft_handler := ShaftPlacementHandler.new()
-	shaft_handler.init(_handler_ctx)
-
 	var chain_handler := ChainPlacementHandler.new()
 	chain_handler.init(_handler_ctx)
 
@@ -149,7 +148,6 @@ func _setup_handlers() -> void:
 		COMPONENT_GEAR_SMALL: gear_small_handler,
 		COMPONENT_GEAR_MEDIUM: gear_medium_handler,
 		COMPONENT_GEAR_LARGE: gear_large_handler,
-		COMPONENT_SHAFT: shaft_handler,
 		COMPONENT_CHAIN: chain_handler,
 		COMPONENT_FLYWHEEL: flywheel_handler,
 		COMPONENT_CLUTCH: clutch_handler,
@@ -201,11 +199,29 @@ func _draw() -> void:
 	if _handler_ctx == null:
 		return
 	for marker_world_pos in _handler_ctx.socket_markers:
+		if marker_world_pos is Dictionary:
+			var marker := marker_world_pos as Dictionary
+			var kind := str(marker.get("kind", ""))
+			var center_world := marker.get("center", Vector2.ZERO) as Vector2
+			var center_local := to_local(center_world)
+			var radius := float(marker.get("radius", 0.0))
+			if kind == "arc_segment":
+				var start_angle := float(marker.get("start_angle", 0.0))
+				var end_angle := float(marker.get("end_angle", 0.0))
+				draw_arc(center_local, radius, start_angle, end_angle, 18, SOCKET_MARKER_COLOR, 3.0)
+				draw_arc(center_local, radius, start_angle, end_angle, 18, SOCKET_MARKER_OUTLINE, 1.6)
+			elif kind == "ring":
+				draw_arc(center_local, radius, 0.0, TAU, 36, SOCKET_MARKER_COLOR, 3.0)
+				draw_arc(center_local, radius, 0.0, TAU, 36, SOCKET_MARKER_OUTLINE, 1.6)
+			continue
 		if not marker_world_pos is Vector2:
 			continue
-		var marker_local := to_local(marker_world_pos)
-		draw_circle(marker_local, 4.5, SOCKET_MARKER_COLOR)
-		draw_arc(marker_local, 4.5, 0.0, TAU, 20, SOCKET_MARKER_OUTLINE, 1.6)
+		var marker_world: Vector2 = marker_world_pos
+		var marker_local: Vector2 = to_local(marker_world)
+		var p0: Vector2 = marker_local + Vector2(-5.2, 0.0)
+		var p1: Vector2 = marker_local + Vector2(5.2, 0.0)
+		draw_line(p0, p1, SOCKET_MARKER_COLOR, 3.0)
+		draw_line(p0, p1, SOCKET_MARKER_OUTLINE, 1.6)
 
 	if _handler_ctx.has_active_socket:
 		var active_local := to_local(_handler_ctx.active_socket_position)
@@ -349,6 +365,10 @@ func _on_component_selected(component_id: String) -> void:
 		old_handler.deactivate()
 
 	_selected_component = component_id
+	if _selected_component == COMPONENT_SHAFT:
+		_selected_component = COMPONENT_CHAIN
+		if _signal_bus and _signal_bus.has_signal("placement_feedback"):
+			_signal_bus.placement_feedback.emit("Shaft placement is deprecated. Switched to Chain.")
 	_handler_ctx.socket_markers.clear()
 	_handler_ctx.has_active_socket = false
 	_handler_ctx.active_socket_valid = false
@@ -366,6 +386,30 @@ func _on_component_selected(component_id: String) -> void:
 	queue_redraw()
 
 
+func get_handler_context() -> PlacementHandlerContext:
+	return _handler_ctx
+
+
+func cycle_mesh_origin_focus() -> String:
+	var handler := _get_active_handler()
+	if handler == null:
+		return "Select a gear first."
+	if not handler.has_method("cycle_mesh_origin_focus"):
+		return "Origin cycling is only supported for gear placement."
+	var message := str(handler.call("cycle_mesh_origin_focus", get_global_mouse_position()))
+	_has_last_preview_mouse = false
+	queue_redraw()
+	return message
+
+
+func _on_placement_mode_changed(mode: String) -> void:
+	if _handler_ctx == null:
+		return
+	_handler_ctx.set_active_mode(mode)
+	_has_last_preview_mouse = false
+	queue_redraw()
+
+
 func _on_layout_changed(_component: Node2D = null) -> void:
 	_placement_context_dirty = true
 	_has_last_preview_mouse = false
@@ -373,7 +417,7 @@ func _on_layout_changed(_component: Node2D = null) -> void:
 
 func _update_preview_visibility() -> void:
 	if _preview_gear:
-		_preview_gear.visible = _is_selected_placeable_component() and _selected_component != COMPONENT_SHAFT and _selected_component != COMPONENT_CHAIN
+		_preview_gear.visible = _is_selected_placeable_component() and _selected_component != COMPONENT_CHAIN
 
 func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	var handler := _handlers.get(_selected_component, null) as GearPlacementHandler
@@ -637,13 +681,11 @@ func _get_node_tooth_count(node: Node2D) -> int:
 
 
 func _is_selected_placeable_component() -> bool:
-	return _selected_component == COMPONENT_GEAR_SMALL or _selected_component == COMPONENT_GEAR_MEDIUM or _selected_component == COMPONENT_GEAR_LARGE or _selected_component == COMPONENT_SHAFT or _selected_component == COMPONENT_CHAIN or _selected_component == COMPONENT_FLYWHEEL or _selected_component == COMPONENT_CLUTCH or _selected_component == COMPONENT_DIFFERENTIAL
+	return _selected_component == COMPONENT_GEAR_SMALL or _selected_component == COMPONENT_GEAR_MEDIUM or _selected_component == COMPONENT_GEAR_LARGE or _selected_component == COMPONENT_CHAIN or _selected_component == COMPONENT_FLYWHEEL or _selected_component == COMPONENT_CLUTCH or _selected_component == COMPONENT_DIFFERENTIAL
 
 
 func place_shaft(world_pos: Vector2) -> void:
-	var handler := _handlers.get(COMPONENT_SHAFT, null) as ShaftPlacementHandler
-	if handler != null:
-		handler.place_from_origin(world_pos)
+	place_chain_step(world_pos)
 
 
 func _cancel_active_drags() -> void:
@@ -661,9 +703,7 @@ func place_flywheel_between_gears(first_gear: GearComponent, second_gear: GearCo
 
 
 func place_shaft_between_gears(first_gear: GearComponent, second_gear: GearComponent) -> void:
-	var handler := _handlers.get(COMPONENT_SHAFT, null) as ShaftPlacementHandler
-	if handler != null:
-		handler.place_between_gears(first_gear, second_gear)
+	place_chain(first_gear, second_gear)
 
 
 func place_chain_step(world_pos: Vector2) -> void:

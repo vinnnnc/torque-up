@@ -36,6 +36,8 @@ const COMPONENT_CLUTCH := PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH
 const COMPONENT_DIFFERENTIAL := PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL
 
 @export var overlay_toggle_key: Key = KEY_Q
+@export var mesh_origin_cycle_key: Key = KEY_Z
+@export var placement_mode_toggle_key: Key = KEY_C
 
 var _selected_component: String = COMPONENT_NONE
 var _tooltip_panel: PanelContainer = null
@@ -48,6 +50,8 @@ var _overlay_visible: bool = false
 var _overlay_refresh_accum: float = 0.0
 var _feedback_label: Label = null
 var _feedback_timer: float = 0.0
+var _layer_indicator_label: Label = null
+var _placement_mode: String = "mesh"
 
 
 func _ready() -> void:
@@ -61,7 +65,9 @@ func _ready() -> void:
 	_small_gear_button.pressed.connect(_on_small_gear_button_pressed)
 	_medium_gear_button.pressed.connect(_on_medium_gear_button_pressed)
 	_large_gear_button.pressed.connect(_on_large_gear_button_pressed)
-	_shaft_button.pressed.connect(_on_shaft_button_pressed)
+	if _shaft_button:
+		_shaft_button.visible = false
+		_shaft_button.disabled = true
 	if _chain_button:
 		_chain_button.pressed.connect(_on_chain_button_pressed)
 	_delete_button.pressed.connect(_on_delete_button_pressed)
@@ -76,12 +82,17 @@ func _ready() -> void:
 	_build_hover_tooltip()
 	_build_network_overlay()
 	_build_feedback_toast()
+	_build_layer_indicator()
 
 	var signal_bus := get_node_or_null("/root/SignalBus")
 	if signal_bus and not signal_bus.network_changed.is_connected(_on_network_changed):
 		signal_bus.network_changed.connect(_on_network_changed)
 	if signal_bus and signal_bus.has_signal("placement_feedback") and not signal_bus.placement_feedback.is_connected(_on_placement_feedback):
 		signal_bus.placement_feedback.connect(_on_placement_feedback)
+	if signal_bus and signal_bus.has_signal("placement_mode_changed"):
+		signal_bus.placement_mode_changed.emit(_placement_mode)
+		if not signal_bus.placement_mode_changed.is_connected(_on_placement_mode_changed_by_system):
+			signal_bus.placement_mode_changed.connect(_on_placement_mode_changed_by_system)
 
 	_select_component(COMPONENT_NONE)
 	_update_network_overlay()
@@ -120,6 +131,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_overlay_panel.visible = _overlay_visible
 		if _overlay_visible:
 			_update_network_overlay()
+		return
+
+	if key_event.keycode == mesh_origin_cycle_key:
+		_cycle_mesh_origin_focus()
+		get_viewport().set_input_as_handled()
+		return
+
+	if key_event.keycode == placement_mode_toggle_key:
+		_toggle_placement_mode()
+		get_viewport().set_input_as_handled()
 		return
 
 	if _apply_hotbar_keybind(key_event.keycode):
@@ -224,16 +245,8 @@ func _configure_hotbar_tooltips() -> void:
 			"Best for: Heavy-load segments and low-speed torque delivery"
 		]
 	)
-	_set_button_tooltip(
-		_shaft_button,
-		"Shaft",
-		[
-			"Role: Rigid transfer between gears",
-			"Torque / RPM: Preserves direction rules; no ratio change by itself",
-			"Efficiency: Low transfer loss, affected by zone modifiers",
-			"Best for: Clean trunk lines and low-friction spans"
-		]
-	)
+	if _shaft_button:
+		_shaft_button.tooltip_text = ""
 	if _chain_button:
 		_set_button_tooltip(
 			_chain_button,
@@ -320,18 +333,15 @@ func _apply_hotbar_keybind(keycode: Key) -> bool:
 			_toggle_component_selection(COMPONENT_GEAR_LARGE)
 			return true
 		KEY_4:
-			_toggle_component_selection(COMPONENT_SHAFT)
-			return true
-		KEY_5:
 			_toggle_component_selection(COMPONENT_CHAIN)
 			return true
-		KEY_6:
+		KEY_5:
 			_toggle_component_selection(COMPONENT_FLYWHEEL)
 			return true
-		KEY_7:
+		KEY_6:
 			_toggle_component_selection(COMPONENT_CLUTCH)
 			return true
-		KEY_8:
+		KEY_7:
 			_toggle_component_selection(COMPONENT_DIFFERENTIAL)
 			return true
 		KEY_X:
@@ -449,6 +459,59 @@ func _build_feedback_toast() -> void:
 	_feedback_label.offset_bottom = 74.0
 	_feedback_label.modulate = Color(1.0, 0.86, 0.62, 1.0)
 	add_child(_feedback_label)
+
+
+func _build_layer_indicator() -> void:
+	_layer_indicator_label = Label.new()
+	_layer_indicator_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer_indicator_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_layer_indicator_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_layer_indicator_label.anchor_left = 0.0
+	_layer_indicator_label.anchor_right = 0.0
+	_layer_indicator_label.anchor_top = 0.0
+	_layer_indicator_label.anchor_bottom = 0.0
+	_layer_indicator_label.offset_left = 20.0
+	_layer_indicator_label.offset_top = 18.0
+	_layer_indicator_label.offset_right = 220.0
+	_layer_indicator_label.offset_bottom = 42.0
+	_layer_indicator_label.modulate = Color(0.86, 0.92, 1.0, 0.92)
+	add_child(_layer_indicator_label)
+	_update_layer_indicator()
+
+
+func _cycle_mesh_origin_focus() -> void:
+	if _placement_controller == null or not _placement_controller.has_method("cycle_mesh_origin_focus"):
+		return
+	var message := str(_placement_controller.call("cycle_mesh_origin_focus"))
+	if not message.is_empty():
+		_show_feedback(message)
+
+
+func _toggle_placement_mode() -> void:
+	_placement_mode = "compound" if _placement_mode == "mesh" else "mesh"
+	_update_layer_indicator()
+	var signal_bus := get_node_or_null("/root/SignalBus")
+	if signal_bus and signal_bus.has_signal("placement_mode_changed"):
+		signal_bus.placement_mode_changed.emit(_placement_mode)
+
+
+## Receives mode changes emitted by other systems (e.g., auto-return after compound placement).
+func _on_placement_mode_changed_by_system(mode: String) -> void:
+	if _placement_mode == mode:
+		return
+	_placement_mode = mode
+	_update_layer_indicator()
+
+
+func _update_layer_indicator() -> void:
+	if _layer_indicator_label == null:
+		return
+	var mode_label := "Compound" if _placement_mode == "compound" else "Mesh"
+	_layer_indicator_label.text = "%s [%s]  Origin Cycle [%s]" % [
+		mode_label,
+		OS.get_keycode_string(placement_mode_toggle_key),
+		OS.get_keycode_string(mesh_origin_cycle_key)
+	]
 
 
 func _show_feedback(message: String) -> void:
@@ -582,7 +645,7 @@ func _build_tooltip_text(component: Node2D, snapshot: Dictionary) -> String:
 	if rpm > 0.01 or is_node:
 		lines.append("RPM: %.0f" % rpm)
 
-	var torque := _get_component_torque(component)
+	var torque := _get_component_torque(component, snapshot)
 	if torque >= 0.0:
 		lines.append("Torque: %.1f" % torque)
 
@@ -637,6 +700,9 @@ func _append_type_specific_lines(lines: Array, component: Node2D, snapshot: Dict
 				var rated_output: Variant = component.get("rated_torque_output")
 				if rated_output != null:
 					lines.append("Rated Torque: %.1f" % float(rated_output))
+				var remaining_budget := float(snapshot.get("source_remaining_budget", -1.0))
+				if remaining_budget >= 0.0:
+					lines.append("Remaining Budget: %.1f" % remaining_budget)
 
 
 func _append_raw_detail_lines(lines: Array, component: Node2D, snapshot: Dictionary) -> void:
@@ -745,9 +811,11 @@ func _get_component_rpm(component: Node2D) -> float:
 	return _to_rpm(float(angular_velocity))
 
 
-func _get_component_torque(component: Node2D) -> float:
+func _get_component_torque(component: Node2D, snapshot: Dictionary = {}) -> float:
 	if component == null:
 		return -1.0
+	if not snapshot.is_empty() and snapshot.has("torque"):
+		return float(snapshot.get("torque", 0.0))
 	var torque: Variant = component.get("torque")
 	if torque == null:
 		return -1.0

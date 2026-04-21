@@ -23,6 +23,9 @@ Torque processing currently includes:
 - shaft joint penalties
 - zone-driven output modifiers and added load
 - source droop under load ratio
+- reflected source-side load scaling from source-to-engine ratio:
+    - reduction ($|ratio| < 1$) lowers reflected load at the source side
+    - overdrive ($|ratio| > 1$) raises reflected load at the source side
 
 ## Efficiency
 

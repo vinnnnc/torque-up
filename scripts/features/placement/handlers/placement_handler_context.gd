@@ -19,6 +19,8 @@ var scenes: Dictionary = {}
 # -- Runtime config ------------------------------------------------------------
 var snap_max_distance: float = PROJECT_PATHS_SCRIPT.DEFAULT_SNAP_MAX_DISTANCE
 var drag_release_deadzone: float = 14.0
+var max_layers: int = 2
+var active_mode: String = "mesh"
 
 # -- Preview state (handlers write; PlacementController reads for _draw) -------
 var socket_markers: Array = []
@@ -91,3 +93,7 @@ func emit_component_removed() -> void:
 func emit_feedback(message: String) -> void:
 	if signal_bus and signal_bus.has_signal("placement_feedback"):
 		signal_bus.placement_feedback.emit(message)
+
+
+func set_active_mode(mode: String) -> void:
+	active_mode = mode if mode == "compound" else "mesh"

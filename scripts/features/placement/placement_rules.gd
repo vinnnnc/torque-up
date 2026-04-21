@@ -24,7 +24,9 @@ func get_available_socket_positions(
 	components_container: Node,
 	seed_positions: Array = [],
 	blocked_positions: Array = [],
-	component_outer_radius: float = component_radius
+	component_outer_radius: float = component_radius,
+	origin_filter: Callable = Callable(),
+	collision_filter: Callable = Callable()
 ) -> Array:
 	if components_container == null:
 		return []
@@ -35,10 +37,12 @@ func get_available_socket_positions(
 		var origin_data := _to_origin_data(origin_raw)
 		if origin_data.is_empty():
 			continue
+		if origin_filter.is_valid() and not bool(origin_filter.call(origin_data)):
+			continue
 
 		if origin_data.has("fixed_direction"):
 			var fixed_candidate := _get_snap_candidate_for_origin(Vector2.ZERO, origin_data, component_outer_radius)
-			if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius):
+			if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 				positions.append(fixed_candidate)
 			continue
 
@@ -47,7 +51,7 @@ func get_available_socket_positions(
 		for sample_index in range(marker_samples):
 			var angle := TAU * (float(sample_index) / float(marker_samples))
 			var candidate := origin + Vector2.RIGHT.rotated(angle) * (origin_radius + component_outer_radius)
-			if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius):
+			if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 				continue
 			positions.append(candidate)
 
@@ -59,7 +63,9 @@ func get_nearest_available_socket_positions(
 	components_container: Node,
 	seed_positions: Array = [],
 	blocked_positions: Array = [],
-	component_outer_radius: float = component_radius
+	component_outer_radius: float = component_radius,
+	origin_filter: Callable = Callable(),
+	collision_filter: Callable = Callable()
 ) -> Array:
 	if components_container == null:
 		return []
@@ -73,7 +79,8 @@ func get_nearest_available_socket_positions(
 		components_container,
 		seed_positions,
 		blocked_positions,
-		component_outer_radius
+		component_outer_radius,
+		origin_filter
 	)
 	if origin == null:
 		return []
@@ -81,7 +88,7 @@ func get_nearest_available_socket_positions(
 	var positions: Array = []
 	if origin.has("fixed_direction"):
 		var fixed_candidate := _get_snap_candidate_for_origin(world_pos, origin, component_outer_radius)
-		if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius):
+		if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			positions.append(fixed_candidate)
 		return positions
 
@@ -94,7 +101,7 @@ func get_nearest_available_socket_positions(
 	for sample_index in range(local_marker_samples):
 		var angle := TAU * (float(sample_index) / float(local_marker_samples))
 		var candidate := origin_pos + Vector2.RIGHT.rotated(angle) * (origin_radius + component_outer_radius)
-		if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius):
+		if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			continue
 		positions.append(candidate)
 
@@ -106,7 +113,9 @@ func get_nearest_snap_origin(
 	components_container: Node,
 	seed_positions: Array = [],
 	blocked_positions: Array = [],
-	component_outer_radius: float = component_radius
+	component_outer_radius: float = component_radius,
+	origin_filter: Callable = Callable(),
+	collision_filter: Callable = Callable()
 ):
 	if components_container == null:
 		return null
@@ -119,6 +128,8 @@ func get_nearest_snap_origin(
 	for origin_raw in origins:
 		var origin_data := _to_origin_data(origin_raw)
 		if origin_data.is_empty():
+			continue
+		if origin_filter.is_valid() and not bool(origin_filter.call(origin_data)):
 			continue
 
 		var origin_pos: Vector2 = origin_data["position"]
@@ -136,7 +147,7 @@ func get_nearest_snap_origin(
 		var _candidate_origin_pos: Vector2 = candidate_origin["position"]
 		var _candidate_origin_radius: float = candidate_origin["radius"]
 		var edge_candidate := _get_snap_candidate_for_origin(world_pos, candidate_origin, component_outer_radius)
-		if not _is_too_close(edge_candidate, components_container, blocked_positions, component_outer_radius):
+		if not _is_too_close(edge_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			return candidate_origin
 
 	return null
@@ -146,7 +157,9 @@ func get_snap_result(
 	components_container: Node,
 	seed_positions: Array = [],
 	blocked_positions: Array = [],
-	component_outer_radius: float = component_radius
+	component_outer_radius: float = component_radius,
+	origin_filter: Callable = Callable(),
+	collision_filter: Callable = Callable()
 ) -> Dictionary:
 	if components_container == null:
 		return {"valid": false, "position": world_pos}
@@ -156,7 +169,9 @@ func get_snap_result(
 		components_container,
 		seed_positions,
 		blocked_positions,
-		component_outer_radius
+		component_outer_radius,
+		origin_filter,
+		collision_filter
 	)
 
 	var nearest_origin_raw = get_nearest_snap_origin(
@@ -164,7 +179,9 @@ func get_snap_result(
 		components_container,
 		seed_positions,
 		blocked_positions,
-		component_outer_radius
+		component_outer_radius,
+		origin_filter,
+		collision_filter
 	)
 	if nearest_origin_raw == null:
 		if bool(dual_candidate.get("valid", false)):
@@ -181,7 +198,7 @@ func get_snap_result(
 	var _origin_radius: float = nearest_origin["radius"]
 	var candidate := _get_snap_candidate_for_origin(world_pos, nearest_origin, component_outer_radius)
 	var is_close_enough := candidate.distance_to(world_pos) <= snap_max_distance
-	var is_clear := not _is_too_close(candidate, components_container, blocked_positions, component_outer_radius)
+	var is_clear := not _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter)
 	var single_candidate := {
 		"valid": is_close_enough and is_clear,
 		"position": candidate,
@@ -202,26 +219,17 @@ func can_place_at(
 	world_pos: Vector2,
 	components_container: Node,
 	blocked_positions: Array = [],
-	component_outer_radius: float = component_radius
+	component_outer_radius: float = component_radius,
+	collision_filter: Callable = Callable()
 ) -> bool:
 	if components_container == null:
 		return false
 
-	return not _is_too_close(world_pos, components_container, blocked_positions, component_outer_radius)
+	return not _is_too_close(world_pos, components_container, blocked_positions, component_outer_radius, collision_filter)
 
 
 func _get_snap_origins(components_container: Node, seed_positions: Array) -> Array:
 	var origins: Array = []
-	var stacked_parent_ids: Dictionary = {}
-
-	for child in components_container.get_children():
-		var stacked_node := child as Node2D
-		if stacked_node == null:
-			continue
-		if stacked_node.has_meta("stack_parent_id"):
-			var parent_id := int(stacked_node.get_meta("stack_parent_id", -1))
-			if parent_id >= 0:
-				stacked_parent_ids[parent_id] = true
 
 	for seed_pos in seed_positions:
 		var seed_data := _to_origin_data(seed_pos)
@@ -231,10 +239,6 @@ func _get_snap_origins(components_container: Node, seed_positions: Array) -> Arr
 	for child in components_container.get_children():
 		var placed_component := child as Node2D
 		if not placed_component:
-			continue
-
-		if stacked_parent_ids.has(placed_component.get_instance_id()):
-			# When a compound gear exists, snap to the top gear rather than the base gear.
 			continue
 
 		if _is_shaft_component(placed_component):
@@ -317,7 +321,9 @@ func _get_dual_snap_result(
 	components_container: Node,
 	seed_positions: Array,
 	blocked_positions: Array,
-	component_outer_radius: float
+	component_outer_radius: float,
+	origin_filter: Callable = Callable(),
+	collision_filter: Callable = Callable()
 ) -> Dictionary:
 	var origins := _get_snap_origins(components_container, seed_positions)
 	if origins.size() < 2:
@@ -327,6 +333,8 @@ func _get_dual_snap_result(
 	for origin_raw in origins:
 		var origin_data := _to_origin_data(origin_raw)
 		if origin_data.is_empty():
+			continue
+		if origin_filter.is_valid() and not bool(origin_filter.call(origin_data)):
 			continue
 		var distance_to_mouse := (origin_data.get("position", Vector2.ZERO) as Vector2).distance_to(world_pos)
 		_push_dual_origin_candidate(nearest_origins, origin_data, distance_to_mouse)
@@ -354,7 +362,7 @@ func _get_dual_snap_result(
 				var distance_to_mouse := point.distance_to(world_pos)
 				if distance_to_mouse > snap_max_distance:
 					continue
-				if _is_too_close(point, components_container, blocked_positions, component_outer_radius):
+				if _is_too_close(point, components_container, blocked_positions, component_outer_radius, collision_filter):
 					continue
 				if distance_to_mouse < best_distance:
 					best_distance = distance_to_mouse
@@ -420,10 +428,12 @@ func _circle_intersections(c1: Vector2, r1: float, c2: Vector2, r2: float) -> Ar
 	]
 
 
-func _is_too_close(candidate: Vector2, components_container: Node, blocked_positions: Array = [], component_outer_radius: float = component_radius) -> bool:
+func _is_too_close(candidate: Vector2, components_container: Node, blocked_positions: Array = [], component_outer_radius: float = component_radius, collision_filter: Callable = Callable()) -> bool:
 	for child in components_container.get_children():
 		var placed_component := child as Node2D
 		if not placed_component:
+			continue
+		if collision_filter.is_valid() and not bool(collision_filter.call(placed_component)):
 			continue
 		var placed_radius := _get_node_block_radius(placed_component)
 		# Use pairwise radius tangency for variable-size gears; a global clearance floor
