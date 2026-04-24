@@ -890,43 +890,12 @@ func get_component_count_from_container(components_container: Node) -> int:
 		return 0
 	return components_container.get_child_count()
 
-func get_available_torque_from_sources(power_sources: Array, load_ratio: float = 0.0) -> float:
-	var total_torque: float = 0.0
-	for source_raw in power_sources:
-		var power_source := source_raw as Node2D
-		if power_source == null:
-			continue
-
-		if power_source.has_method("get_power_output"):
-			total_torque += float(power_source.call("get_power_output", load_ratio))
-			continue
-
-		var rated_value: Variant = power_source.get("rated_torque_output")
-		if rated_value != null:
-			total_torque += float(rated_value)
-		else:
-			total_torque += PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
-	return total_torque
-
-func get_used_torque(component_count: int) -> float:
-	"""Returns torque spent on placed gears."""
-	return float(component_count) * PROJECT_PATHS_SCRIPT.FRICTION_DEFAULT_COMPONENT
-
-
-func get_used_torque_from_components(components_container: Node) -> float:
-	return get_friction_load_from_components(components_container)
-
-
 func get_friction_load_from_components(components_container: Node) -> float:
 	if components_container == null:
 		return 0.0
 
 	var profiles := get_component_profiles_from_container(components_container)
 	return get_friction_load_for_profiles(profiles)
-
-
-func get_used_torque_for_components(components: Array) -> float:
-	return get_friction_load_for_components(components)
 
 
 func get_friction_load_for_components(components: Array) -> float:
@@ -996,6 +965,66 @@ func get_component_profile(node: Node2D) -> Dictionary:
 func compute_efficiency(connection_count: int) -> float:
 	var loss := float(connection_count) * PROJECT_PATHS_SCRIPT.EFFICIENCY_LOSS_PER_CONNECTION
 	return clamp(1.0 - loss, PROJECT_PATHS_SCRIPT.MIN_EFFICIENCY, 1.0)
+
+
+func compute_efficiency_from_profiles(profiles: Array) -> float:
+	if profiles.is_empty():
+		return 1.0
+
+	var efficiency_sum := 0.0
+	var efficiency_count := 0
+	var gear_type_set: Dictionary = {}
+
+	for profile_raw in profiles:
+		if not profile_raw is Dictionary:
+			continue
+		var profile := profile_raw as Dictionary
+		var component_type := str(profile.get("type", ""))
+		efficiency_sum += _get_profile_efficiency_multiplier(profile)
+		efficiency_count += 1
+		if component_type == "gear_small" or component_type == "gear_medium" or component_type == "gear_large":
+			gear_type_set[component_type] = true
+
+	if efficiency_count <= 0:
+		return 1.0
+
+	var avg_efficiency := efficiency_sum / float(efficiency_count)
+	var gear_type_count := mini(gear_type_set.size(), PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_VARIATION_MAX_TYPES)
+	var bonus_steps := maxi(gear_type_count - 1, 0)
+	var variation_bonus := float(bonus_steps) * PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_VARIATION_BONUS_PER_TYPE
+	variation_bonus = minf(variation_bonus, PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_VARIATION_MAX_BONUS)
+
+	var aggregate_efficiency := avg_efficiency * (1.0 + variation_bonus)
+	return clampf(aggregate_efficiency, PROJECT_PATHS_SCRIPT.MIN_EFFICIENCY, 1.0)
+
+
+func _get_profile_efficiency_multiplier(profile: Dictionary) -> float:
+	var component_type := str(profile.get("type", ""))
+	var local_efficiency := clampf(float(profile.get("local_efficiency", 1.0)), 0.5, 1.0)
+	var base_efficiency := _get_component_efficiency_multiplier(component_type)
+	return base_efficiency * local_efficiency
+
+
+func _get_component_efficiency_multiplier(component_type: String) -> float:
+	match component_type:
+		"gear_small":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_SMALL
+		"gear_medium":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_MEDIUM
+		"gear_large":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_LARGE
+		"shaft":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_SHAFT
+		"chain", "belt":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_CHAIN
+		"flywheel":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_FLYWHEEL
+		"clutch":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_CLUTCH
+		"differential":
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_DIFFERENTIAL
+		_:
+			return PROJECT_PATHS_SCRIPT.EFFICIENCY_DEFAULT_COMPONENT
 
 
 func is_path_connected(

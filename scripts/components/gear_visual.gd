@@ -304,14 +304,8 @@ func _is_placed_component_visual() -> bool:
 	return parent_node.has_meta("component_type")
 
 
-func _should_draw_high_speed_gear(angular_speed: float, root_radius: float) -> bool:
-	if visual_mode != "gear":
-		return false
-	if not _is_placed_component_visual():
-		return false
-	if root_radius <= 0.0:
-		return false
-	return angular_speed >= PROJECT_PATHS_SCRIPT.DRIVETRAIN_HIGH_SPEED_VISUAL_ANGULAR_SPEED
+func _should_draw_high_speed_gear(_angular_speed: float, _root_radius: float) -> bool:
+	return false
 
 
 func _draw_high_speed_ring(root_radius: float) -> void:

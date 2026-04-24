@@ -150,13 +150,7 @@ func _draw_components(center_world: Vector2, map_radius_world: float, center_px:
 		if center_world.distance_to(node.global_position) > map_radius_world:
 			continue
 		var node_px := _world_to_map(node.global_position, center_world, center_px, scale)
-		var rpm := _get_component_rpm(node)
-		if rpm >= PROJECT_PATHS_SCRIPT.DRIVETRAIN_HIGH_SPEED_VISUAL_RPM:
-			draw_circle(node_px, 2.1, high_speed_component_color)
-			var pulse := 0.7 + (0.5 * (sin(_pulse_phase + (node_px.x * 0.02)) * 0.5 + 0.5))
-			draw_arc(node_px, 3.4 + pulse, 0.0, TAU, 20, high_speed_ring_color, 1.2, true)
-		else:
-			draw_circle(node_px, 1.6, component_color)
+		draw_circle(node_px, 1.6, component_color)
 
 
 func _get_component_rpm(component: Node2D) -> float:

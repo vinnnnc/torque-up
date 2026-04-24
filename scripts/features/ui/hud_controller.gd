@@ -233,7 +233,7 @@ func _configure_hotbar_tooltips() -> void:
 		[
 			"Mode: No placement",
 			"Use: Hover parts to inspect live torque, RPM, friction, and state",
-			"Efficiency: No direct effect"
+			"Efficiency: Aggregate drivetrain quality (component + zone weighted)"
 		]
 	)
 	_set_button_tooltip(
@@ -242,7 +242,7 @@ func _configure_hotbar_tooltips() -> void:
 		[
 			"Role: Ratio stage (compact)",
 			"Torque / RPM: Increases RPM when driving larger gears; trades torque",
-			"Efficiency: Adds connection loss to engine path",
+			"Efficiency: High component efficiency; boosts mixed-gear bonus when diversified",
 			"Best for: Speed-focused branches and fine ratio tuning"
 		]
 	)
@@ -252,7 +252,7 @@ func _configure_hotbar_tooltips() -> void:
 		[
 			"Role: Ratio stage (balanced)",
 			"Torque / RPM: Moderate conversion between torque and speed",
-			"Efficiency: Adds connection loss to engine path",
+			"Efficiency: Balanced component efficiency; stable core drivetrain element",
 			"Best for: General routing and stable mixed trains"
 		]
 	)
@@ -262,7 +262,7 @@ func _configure_hotbar_tooltips() -> void:
 		[
 			"Role: Ratio stage (high leverage)",
 			"Torque / RPM: Increases torque when driven by smaller gears; lowers RPM",
-			"Efficiency: Adds connection loss to engine path",
+			"Efficiency: Slightly lower component efficiency; optimized for torque-heavy paths",
 			"Best for: Heavy-load segments and low-speed torque delivery"
 		]
 	)
@@ -633,13 +633,10 @@ func _update_network_overlay() -> void:
 		return
 
 	var snapshot := _get_overlay_snapshot()
-	var high_speed_count := _count_high_speed_components()
 	var lines: Array = []
 	lines.append("Network Overlay [%s]" % OS.get_keycode_string(overlay_toggle_key))
 	if snapshot.is_empty() or not bool(snapshot.get("connected", false)):
 		lines.append("No engine-connected route")
-		if high_speed_count > 0:
-			lines.append("High-Speed Components: %d" % high_speed_count)
 		lines.append("Hover any part for local stats")
 		_overlay_label.text = _join_parts(lines, "\n")
 		return
@@ -655,7 +652,6 @@ func _update_network_overlay() -> void:
 	lines.append("Engine Input Torque: %.1f" % float(snapshot.get("delivered_torque", 0.0)))
 	lines.append("Efficiency: %.1f%%" % (float(snapshot.get("efficiency", 0.0)) * 100.0))
 	lines.append("Friction Load: %.1f" % float(snapshot.get("friction_load", 0.0)))
-	lines.append("High-Speed Components: %d" % high_speed_count)
 	lines.append(
 		"Sources: %d/%d  Reachable: %d" % [
 			int(snapshot.get("connected_source_count", 0)),
@@ -669,19 +665,6 @@ func _update_network_overlay() -> void:
 		lines.append("Bottleneck: %s (%.1f loss)" % [bottleneck_name, float(snapshot.get("bottleneck_loss", 0.0))])
 	lines.append("Hold Shift while hovering for raw values")
 	_overlay_label.text = _join_parts(lines, "\n")
-
-
-func _count_high_speed_components() -> int:
-	if _components_container == null:
-		return 0
-	var count := 0
-	for child in _components_container.get_children():
-		var component := child as Node2D
-		if component == null:
-			continue
-		if _get_component_rpm(component) >= PROJECT_PATHS_SCRIPT.DRIVETRAIN_HIGH_SPEED_VISUAL_RPM:
-			count += 1
-	return count
 
 
 func _get_hp_target_hint(horsepower: float, connected_source_count: int) -> String:

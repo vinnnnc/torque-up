@@ -47,7 +47,10 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventMouseMotion and _is_dragging:
 		var motion := event as InputEventMouseMotion
-		position -= motion.relative * zoom.x
+		var safe_zoom_x := maxf(zoom.x, 0.001)
+		var safe_zoom_y := maxf(zoom.y, 0.001)
+		var world_drag_delta := Vector2(motion.relative.x / safe_zoom_x, motion.relative.y / safe_zoom_y)
+		position -= world_drag_delta
 		_constrain_camera_position()
 
 

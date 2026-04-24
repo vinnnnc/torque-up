@@ -54,6 +54,8 @@ var _cumulative_score: float = 0.0
 var _last_tick_score_delta: float = 0.0
 var _generator_output_rpm: float = 0.0
 var _generator_output_angular_speed: float = 0.0
+var _generator_ramp_factor: float = 0.0
+var _generator_direction_conflict: bool = false
 
 var _isolated_detail_offset: int = 0
 var _condition_update_accum: float = 0.0
@@ -73,6 +75,9 @@ const DETAILED_ISOLATED_COMPONENT_LARGE := 420
 const DETAILED_ISOLATED_COMPONENT_HUGE := 700
 const CONDITION_UPDATE_DENSE_COMPONENT_THRESHOLD := 300
 const CONDITION_UPDATE_DENSE_INTERVAL := 0.22
+const DRIVE_SYNC_SAMPLE_EPS := 0.00005
+const DRIVE_SYNC_MULTIPLIER_EPS := 0.00001
+const DRIVE_SYNC_TOTAL_WEIGHT_EPS := 0.00005
 
 @onready var _components_container: Node = get_node(components_container_path)
 
@@ -450,14 +455,9 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	var reflected_load_factor := 1.0
 	var zone_result := _apply_zone_effects_to_profiles(reachable_profiles, zone_effects_by_component_id)
 	reachable_profiles = zone_result.get("profiles", reachable_profiles)
-	var zone_efficiency_multiplier := float(zone_result.get("efficiency_multiplier", 1.0))
 
 	var friction_load := network_service.get_friction_load_for_profiles(reachable_profiles)
-	var reflected_engine_load := 0.0
-	if not power_sources.is_empty():
-		# Reintroduce sink resistance from generator load curve at current shaft speed.
-		reflected_engine_load = torque_system.compute_engine_load_torque(_generator_output_angular_speed)
-	var reflected_friction_load := (friction_load * reflected_load_factor) + reflected_engine_load
+	var reflected_friction_load := friction_load * reflected_load_factor
 	if not power_sources.is_empty():
 		var preliminary_load_ratio := 0.0
 		if available_torque > 0.001:
@@ -472,7 +472,7 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	var reachable_connection_count: int = max(reachable_count - 1, 0)
 	# Stage power flow: friction load consumes available drive budget before delivery.
 	var effective_drive_torque := maxf(available_torque - reflected_friction_load, 0.0)
-	var efficiency_for_engine := network_service.compute_efficiency(reachable_connection_count) * zone_efficiency_multiplier
+	var efficiency_for_engine := network_service.compute_efficiency_from_profiles(reachable_profiles)
 	efficiency_for_engine = clampf(efficiency_for_engine, PROJECT_PATHS_SCRIPT.MIN_EFFICIENCY, 1.0)
 
 	var connected := false
@@ -782,6 +782,23 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 			continue
 		component_drive_targets[isolated_id] = float(isolated_component_targets[isolated_id_raw])
 
+	# Remove stale carry-over targets so disconnected branches stop spinning.
+	var active_drive_component_ids: Dictionary = {}
+	for source_reachable_raw in reachable_component_ids_by_source.values():
+		var source_reachable := source_reachable_raw as Array
+		for reachable_id_raw in source_reachable:
+			active_drive_component_ids[int(reachable_id_raw)] = true
+	for isolated_id_raw in isolated_component_targets.keys():
+		active_drive_component_ids[int(isolated_id_raw)] = true
+	for route_id_raw in engine_route_component_ids.keys():
+		active_drive_component_ids[int(route_id_raw)] = true
+	var pruned_drive_targets: Dictionary = {}
+	for active_id_raw in active_drive_component_ids.keys():
+		var active_id := int(active_id_raw)
+		if component_drive_targets.has(active_id):
+			pruned_drive_targets[active_id] = float(component_drive_targets[active_id])
+	component_drive_targets = pruned_drive_targets
+
 	# Re-propagate speeds so the whole connected gear graph is geometrically
 	# consistent. Without this pass, two sources with different base speeds can
 	# each win different components via the fastest-wins merge but leave adjacent
@@ -829,6 +846,14 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	# policy for the connected network is strict: stall the full engine route.
 	var direct_conflict_ids: Array = visual_conflict_set.keys()
 	var jam_stalled_components: Dictionary = {}
+	# Generator direction conflict: if the network would spin the engine backwards, jam the route.
+	_generator_direction_conflict = false
+	if connected and _central_engine != null and not component_drive_targets.is_empty():
+		var expected_engine_drive := _derive_anchor_drive_speed(_central_engine, component_drive_targets, anchor_multipliers_by_id)
+		if expected_engine_drive < -0.001:
+			_generator_direction_conflict = true
+			for route_id_raw in engine_route_component_ids.keys():
+				connected_route_conflict_set[int(route_id_raw)] = true
 	var jam_stalls_connected_network := connected and not connected_route_conflict_set.is_empty()
 	if jam_stalls_connected_network:
 		for route_id_raw in engine_route_component_ids.keys():
@@ -839,6 +864,30 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	for jam_id_raw in jam_stalled_components.keys():
 		var jam_id := int(jam_id_raw)
 		component_drive_targets[jam_id] = 0.0
+
+	# Throttle engine-route component speeds by generator ramp factor.
+	var generator_output_connected := connected and not jam_stalls_connected_network
+	var generator_output_torque := delivered_torque if generator_output_connected else 0.0
+	var engine_rpm := _compute_generator_output_rpm(generator_output_torque, tick_delta, generator_output_connected)
+	var generator_ramp_factor := clampf(
+		engine_rpm / maxf(PROJECT_PATHS_SCRIPT.GENERATOR_OUTPUT_MAX_RPM, 0.001),
+		0.0,
+		1.0
+	)
+	_generator_ramp_factor = generator_ramp_factor
+	var engine_anchor_multipliers := {} as Dictionary
+	if _central_engine != null:
+		engine_anchor_multipliers = anchor_multipliers_by_id.get(_central_engine.get_instance_id(), {}) as Dictionary
+	if connected:
+		for route_id_raw in engine_route_component_ids.keys():
+			var route_id := int(route_id_raw)
+			if jam_stalled_components.has(route_id) or not generator_output_connected:
+				component_drive_targets[route_id] = 0.0
+				continue
+			var route_multiplier := float(engine_anchor_multipliers.get(route_id_raw, 0.0))
+			if absf(route_multiplier) <= DRIVE_SYNC_MULTIPLIER_EPS:
+				continue
+			component_drive_targets[route_id] = _generator_output_angular_speed * route_multiplier
 
 	# Generator no longer applies sink resistance or acceptance damping.
 	var engine_drive_multiplier := _compute_engine_drive_multiplier(
@@ -913,24 +962,15 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 		jam_stalls_connected_network
 	)
 	_refresh_source_rpm_feedback(all_power_sources, component_drive_targets, anchor_multipliers_by_id)
-	var engine_rpm := _compute_generator_output_rpm(delivered_torque, tick_delta, connected)
 	var engine_angular_velocity := _generator_output_angular_speed
 	var generator_internal_rpm := _compute_generator_internal_rpm(engine_rpm)
-	var engine_torque := delivered_torque
-	var generator_ramp_factor := clampf(
-		engine_rpm / maxf(PROJECT_PATHS_SCRIPT.GENERATOR_OUTPUT_MAX_RPM, 0.001),
-		0.0,
-		1.0
-	)
+	var engine_torque := generator_output_torque
 	var engine_operating_state := "in_band"
-	if _central_engine and _central_engine.has_method("set_target_angular_speed"):
-		_central_engine.set_target_angular_speed(engine_angular_velocity, connected and engine_torque > 0.001)
-	if connected:
+	if _central_engine and _central_engine.has_method("set_direction_conflict"):
+		_central_engine.set_direction_conflict(_generator_direction_conflict)
+	if generator_output_connected:
 		input_horsepower = torque_system.compute_output_horsepower(engine_torque, generator_internal_rpm, efficiency_for_engine)
 		horsepower = input_horsepower
-		var coupled_hp_multiplier := _get_engine_coupled_hp_multiplier()
-		input_horsepower *= coupled_hp_multiplier
-		horsepower *= coupled_hp_multiplier
 	_last_engine_input_horsepower = input_horsepower
 	_ui_component_profiles = _build_component_profile_lookup(reachable_profiles)
 	_ui_component_load_ratios = per_component_load_ratios.duplicate()
@@ -965,7 +1005,7 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 		"kilowatts": kilowatts,
 		"generator_output_rpm": engine_rpm,
 		"generator_internal_rpm": generator_internal_rpm,
-		"generator_load_torque": reflected_engine_load,
+		"generator_load_torque": engine_torque,
 		"generator_ramp_factor": generator_ramp_factor
 	}
 	hud_state.set_values(horsepower, free_torque, efficiency_for_engine, engine_rpm, friction_load, free_torque)
@@ -1474,19 +1514,21 @@ func _update_anchor_rotors(
 		var source_sign := 1.0
 		source_sign = float(network_spin_signs.get(source.get_instance_id(), 1.0))
 		var source_drive := 0.0
+		var source_has_sync_samples := false
+		var source_drive_synced_from_network := false
 		if is_source_connected:
-			if network_drive_multipliers.has(source.get_instance_id()):
-				var multiplier := float(network_drive_multipliers.get(source.get_instance_id(), 0.0))
-				source_drive = source_drive_speed * multiplier
+			source_has_sync_samples = _anchor_has_drive_samples(source, component_drive_targets, anchor_multipliers_by_id)
+			if source_has_sync_samples:
+				source_drive = _derive_anchor_drive_speed(source, component_drive_targets, anchor_multipliers_by_id)
+				source_drive_synced_from_network = true
 			else:
-				source_drive = source_drive_speed
+				source_drive = 0.0
 		elif is_source_local:
 			source_drive = float(local_source_drive_speeds.get(source.get_instance_id(), 0.0))
-
-		if is_source_local:
-			var synced_source_drive := _derive_anchor_drive_speed(source, component_drive_targets, anchor_multipliers_by_id)
-			if absf(synced_source_drive) > 0.001:
-				source_drive = synced_source_drive
+			source_has_sync_samples = _anchor_has_drive_samples(source, component_drive_targets, anchor_multipliers_by_id)
+			if source_has_sync_samples:
+				source_drive = _derive_anchor_drive_speed(source, component_drive_targets, anchor_multipliers_by_id)
+				source_drive_synced_from_network = true
 
 		if jam_stalls_connected_network and is_source_connected:
 			source_drive = 0.0
@@ -1505,13 +1547,13 @@ func _update_anchor_rotors(
 		if source.has_method("set_engine_route_state"):
 			source.set_engine_route_state(is_source_connected)
 
-	# Engine speed is now derived from the actual drive chain ratio, not hardcoded from source.
+	# Engine speed strictly follows synchronized route samples when connected.
 	if _central_engine and _central_engine.has_method("set_target_angular_speed"):
-		var engine_drive := source_drive_speed * engine_drive_multiplier if connected else 0.0
+		var engine_drive := 0.0
 		if connected:
-			var synced_engine_drive := _derive_anchor_drive_speed(_central_engine, component_drive_targets, anchor_multipliers_by_id)
-			if absf(synced_engine_drive) > 0.001:
-				engine_drive = synced_engine_drive
+			var engine_has_sync_samples := _anchor_has_drive_samples(_central_engine, component_drive_targets, anchor_multipliers_by_id)
+			if engine_has_sync_samples:
+				engine_drive = _derive_anchor_drive_speed(_central_engine, component_drive_targets, anchor_multipliers_by_id)
 		if jam_stalls_connected_network:
 			engine_drive = 0.0
 		_central_engine.set_target_angular_speed(engine_drive, connected)
@@ -1535,7 +1577,7 @@ func _refresh_source_rpm_feedback(
 			continue
 
 		var source_speed := _derive_anchor_drive_speed(source, drive_targets, anchor_multipliers_by_id)
-		if absf(source_speed) <= 0.001 and source.has_method("get_angular_velocity"):
+		if absf(source_speed) <= DRIVE_SYNC_SAMPLE_EPS and source.has_method("get_angular_velocity"):
 			source_speed = float(source.call("get_angular_velocity"))
 
 		next_feedback[source.get_instance_id()] = _to_rpm(source_speed)
@@ -1567,6 +1609,20 @@ func _derive_anchor_drive_speed(
 			connection_tolerance
 		)
 
+	# Prefer direct-contact samples first so anchor presentation stays meshed with
+	# the adjacent gear teeth. Whole-network averaging can drift on large graphs.
+	var has_contact_samples := false
+	for component_id_raw in anchor_multipliers.keys():
+		var component_id := int(component_id_raw)
+		if not drive_targets.has(component_id):
+			continue
+		var component := _find_component_by_id(component_id)
+		if component == null:
+			continue
+		if _anchor_component_in_contact(anchor_node, component):
+			has_contact_samples = true
+			break
+
 	var weighted_speed_sum := 0.0
 	var total_weight := 0.0
 	var fallback_anchor_speed := 0.0
@@ -1576,9 +1632,14 @@ func _derive_anchor_drive_speed(
 		if not drive_targets.has(component_id):
 			continue
 
+		if has_contact_samples:
+			var contact_component := _find_component_by_id(component_id)
+			if contact_component == null or not _anchor_component_in_contact(anchor_node, contact_component):
+				continue
+
 		var component_speed := float(drive_targets.get(component_id, 0.0))
 		var multiplier := float(anchor_multipliers.get(component_id_raw, 0.0))
-		if absf(component_speed) <= 0.001 or absf(multiplier) <= 0.0001:
+		if absf(component_speed) <= DRIVE_SYNC_SAMPLE_EPS or absf(multiplier) <= DRIVE_SYNC_MULTIPLIER_EPS:
 			continue
 
 		var anchor_speed := component_speed / multiplier
@@ -1590,10 +1651,70 @@ func _derive_anchor_drive_speed(
 			fallback_component_speed = component_speed
 			fallback_anchor_speed = anchor_speed
 
-	if total_weight > 0.001:
+	if total_weight > DRIVE_SYNC_TOTAL_WEIGHT_EPS:
 		return weighted_speed_sum / total_weight
 
 	return fallback_anchor_speed
+
+
+func _find_component_by_id(component_id: int) -> Node2D:
+	if _components_container == null:
+		return null
+	for child in _components_container.get_children():
+		var node := child as Node2D
+		if node == null:
+			continue
+		if node.get_instance_id() == component_id:
+			return node
+	return null
+
+
+func _anchor_component_in_contact(anchor_node: Node2D, component: Node2D) -> bool:
+	if anchor_node == null or component == null:
+		return false
+	var anchor_radius := _get_node_connection_radius(anchor_node)
+	var component_radius := _get_node_connection_radius(component)
+	var center_dist := anchor_node.global_position.distance_to(component.global_position)
+	return absf(center_dist - (anchor_radius + component_radius)) <= connection_tolerance
+
+
+func _anchor_has_drive_samples(
+	anchor_node: Node2D,
+	drive_targets: Dictionary,
+	anchor_multipliers_by_id: Dictionary = {}
+) -> bool:
+	if anchor_node == null or drive_targets.is_empty():
+		return false
+
+	var anchor_id := anchor_node.get_instance_id()
+	var anchor_multipliers := anchor_multipliers_by_id.get(anchor_id, {}) as Dictionary
+	if anchor_multipliers.is_empty() and not anchor_multipliers_by_id.has(anchor_id):
+		var anchor_radius := _get_node_connection_radius(anchor_node)
+		var anchor_drive_radius := _get_node_outer_radius(anchor_node)
+		var anchor_drive_teeth := _get_node_tooth_count(anchor_node)
+		anchor_multipliers = network_service.get_network_drive_multipliers(
+			_components_container,
+			anchor_node.global_position,
+			anchor_radius,
+			anchor_drive_radius,
+			anchor_drive_teeth,
+			[],
+			connection_tolerance
+		)
+
+	for component_id_raw in anchor_multipliers.keys():
+		var component_id := int(component_id_raw)
+		if not drive_targets.has(component_id):
+			continue
+		var component_speed := float(drive_targets.get(component_id, 0.0))
+		var multiplier := float(anchor_multipliers.get(component_id_raw, 0.0))
+		if absf(component_speed) <= DRIVE_SYNC_SAMPLE_EPS:
+			continue
+		if absf(multiplier) <= DRIVE_SYNC_MULTIPLIER_EPS:
+			continue
+		return true
+
+	return false
 
 
 ## Compute the effective drive multiplier for the central engine by finding the
@@ -1932,13 +2053,6 @@ func _get_node_outer_radius(node: Node2D) -> float:
 	if node == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
-	if node.name == "CentralEngine" and PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
-		var engine_visual := node.get_node_or_null("Visual")
-		if engine_visual != null:
-			var engine_radius_value: Variant = engine_visual.get("outer_radius")
-			if engine_radius_value != null:
-				return maxf(2.0, float(engine_radius_value))
-
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
@@ -1969,10 +2083,6 @@ func _get_node_connection_radius(node: Node2D) -> float:
 func _get_node_tooth_count(node: Node2D) -> int:
 	if node == null:
 		return 0
-
-	if node.name == "CentralEngine" and PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
-		var engine_outer := _get_node_outer_radius(node)
-		return PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(engine_outer)
 
 	if node and node.get("source_outer_radius") != null:
 		return PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(_get_node_outer_radius(node))
@@ -2035,15 +2145,5 @@ func _get_isolated_detail_budget(component_count: int, isolated_source_count: in
 func _to_rpm(angular_speed: float) -> float:
 	return absf(angular_speed) * (60.0 / TAU)
 
-
-func _get_engine_coupled_hp_multiplier() -> float:
-	if not PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE or _central_engine == null:
-		return 1.0
-	var baseline_radius := maxf(PROJECT_PATHS_SCRIPT.ENGINE_COUPLED_BASELINE_RADIUS, 1.0)
-	var current_radius := _get_node_outer_radius(_central_engine)
-	var coupled_ratio := maxf(current_radius / baseline_radius, 1.0)
-	var exponent := clampf(PROJECT_PATHS_SCRIPT.ENGINE_COUPLED_HP_RETUNE_EXPONENT, 0.0, 1.0)
-	var multiplier := pow(coupled_ratio, exponent)
-	return clampf(multiplier, 1.0, PROJECT_PATHS_SCRIPT.ENGINE_COUPLED_HP_RETUNE_MAX)
 
 

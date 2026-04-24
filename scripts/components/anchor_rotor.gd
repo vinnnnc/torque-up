@@ -19,6 +19,7 @@ const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 @export var connected_tint: Color = Color(1.0, 1.0, 1.0, 1.0)
 @export var disconnected_tint: Color = Color(0.72, 0.72, 0.78, 1.0)
 @export var engine_route_tint: Color = Color(0.82, 0.94, 1.0, 1.0)
+@export var conflict_tint: Color = Color(1.0, 0.18, 0.18, 1.0)
 @export var tint_smoothing: float = 8.0
 @export var jitter_amount: float = 0.3
 @export var jitter_speed: float = 20.0
@@ -38,10 +39,12 @@ var _last_source_rpm: float = 0.0
 var _last_source_torque: float = 0.0
 var _source_status: String = "in_band"
 var _presentation_visible: bool = true
+var _is_direction_conflict: bool = false
 
 const SPIN_SMOOTHING: float = 6.0
 
 func _ready() -> void:
+	_apply_power_node_torque_profile()
 	_apply_engine_presentation_tunables()
 	_base_position = position
 	_jitter_phase = randf() * TAU
@@ -103,26 +106,18 @@ func set_engine_route_state(route_active: bool) -> void:
 	_is_on_engine_route = route_active
 
 
+func set_direction_conflict(state: bool) -> void:
+	_is_direction_conflict = state
+
+
 func get_power_output(load_ratio: float = 0.0) -> float:
 	var source_rpm := _to_rpm(_angular_velocity)
 	return get_source_torque_at_speed_rpm(source_rpm, load_ratio)
 
 
-func get_source_torque_at_speed_rpm(source_rpm: float, load_ratio: float = 0.0) -> float:
+func get_source_torque_at_speed_rpm(source_rpm: float, _load_ratio: float = 0.0) -> float:
 	_last_source_rpm = maxf(source_rpm, 0.0)
-	var safe_no_load := maxf(no_load_rpm, 1.0)
-	var safe_stall := maxf(stall_torque_output, 0.0)
-	var safe_brake_cap := maxf(brake_torque_cap, 0.0)
-
-	var torque_value := safe_stall * (1.0 - (_last_source_rpm / safe_no_load))
-	torque_value = clampf(torque_value, -safe_brake_cap, safe_stall)
-
-	if torque_value > 0.0:
-		var clamped_load := clampf(load_ratio, 0.0, 1.0)
-		var droop := output_droop_strength * clamped_load
-		var ratio := maxf(min_output_ratio, 1.0 - droop)
-		torque_value *= ratio
-
+	var torque_value := maxf(rated_torque_output, 0.0)
 	_last_source_torque = torque_value
 	_update_source_status()
 	return torque_value
@@ -183,6 +178,8 @@ func _process(delta: float) -> void:
 		target_tint = connected_tint if _is_connected_to_network else disconnected_tint
 		if _is_on_engine_route:
 			target_tint = target_tint.lerp(engine_route_tint, 0.45)
+	if _is_direction_conflict:
+		target_tint = conflict_tint
 	modulate = modulate.lerp(target_tint, min(delta * tint_smoothing, 1.0))
 
 	if _is_underpowered:
@@ -224,7 +221,10 @@ func _apply_engine_presentation_tunables() -> void:
 	visual.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX
 	_ensure_engine_art_node()
 
+	var configured_outer: Variant = visual.get("outer_radius")
 	var outer_radius := maxf(PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_OUTER_RADIUS, 8.0)
+	if configured_outer != null and float(configured_outer) > 0.0:
+		outer_radius = maxf(float(configured_outer), 8.0)
 	var inner_radius := maxf(outer_radius * PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_INNER_RADIUS_RATIO, 2.0)
 	var hub_radius := maxf(outer_radius * PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_HUB_RADIUS_RATIO, 2.0)
 	var auto_tooth_count := PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(outer_radius)
@@ -238,6 +238,15 @@ func _apply_engine_presentation_tunables() -> void:
 
 	if visual.has_method("queue_redraw"):
 		visual.call("queue_redraw")
+
+
+func _apply_power_node_torque_profile() -> void:
+	if name == "CentralEngine":
+		return
+	var rated := PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(source_outer_radius)
+	rated_torque_output = rated
+	stall_torque_output = rated * PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_RATIO
+	brake_torque_cap = rated * PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_CAP_RATIO
 
 
 func _ensure_engine_art_node() -> void:

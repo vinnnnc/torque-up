@@ -49,27 +49,34 @@ const CONDITION_THRESHOLD_UNSTABLE: float = 0.65
 const CONDITION_THRESHOLD_RISK: float = 0.85
 
 # Torque and friction model
-const TORQUE_COST_PER_GEAR: float = 5.0
-const TORQUE_COST_RADIUS_EXPONENT: float = 1.15
-const FRICTION_SMALL_GEAR: float = 3.2
-const FRICTION_MEDIUM_GEAR: float = 5.0
-const FRICTION_LARGE_GEAR: float = 12.0
+const TORQUE_COST_PER_GEAR: float = 0.08
+const TORQUE_COST_RADIUS_EXPONENT: float = 1.0
+const FRICTION_SMALL_GEAR: float = 0.05
+const FRICTION_MEDIUM_GEAR: float = 0.08
+const FRICTION_LARGE_GEAR: float = 0.16
 const FRICTION_DEFAULT_COMPONENT: float = FRICTION_MEDIUM_GEAR
-const BASE_POWER_NODE_OUTPUT: float = 68.0
+const BASE_POWER_NODE_OUTPUT: float = 1.0
 
 # Power node: all nodes share the same angular velocity; torque and size are randomized
 const POWER_NODE_NO_LOAD_RPM: float = 180.0
 const POWER_NODE_BASE_SPIN_SPEED: float = 1.45
 const POWER_NODE_TORQUE_SPIN_FACTOR: float = 0.02
-const POWER_NODE_STALL_RATIO: float = 1.35        # stall_torque = rated_torque * this
-const POWER_NODE_BRAKE_CAP_RATIO: float = 0.22    # brake_torque_cap = rated_torque * this
-const POWER_NODE_MIN_OUTPUT_RATIO: float = 0.72
-const POWER_NODE_OUTPUT_DROOP: float = 0.40
+const POWER_NODE_STALL_RATIO: float = 1.0
+const POWER_NODE_BRAKE_CAP_RATIO: float = 0.10
+const POWER_NODE_MIN_OUTPUT_RATIO: float = 1.0
+const POWER_NODE_OUTPUT_DROOP: float = 0.0
 const POWER_NODE_NEAR_LIMIT_RATIO: float = 0.90
 
-# Random torque range — all sizes draw from the same flat range
-const POWER_NODE_TORQUE_MIN: float = 25.0
-const POWER_NODE_TORQUE_MAX: float = 115.0
+# Simplified readable torque units by node tier.
+# Weighted procedural mix targets about 100 torque from roughly 100-120 nodes.
+const POWER_NODE_TIER_0_TORQUE: float = 0.5
+const POWER_NODE_TIER_1_TORQUE: float = 1.0
+const POWER_NODE_TIER_2_TORQUE: float = 1.5
+const POWER_NODE_TIER_3_TORQUE: float = 2.25
+const POWER_NODE_TIER_4_TORQUE: float = 3.0
+const POWER_NODE_TARGET_ROUTE_TORQUE: float = 100.0
+const POWER_NODE_TARGET_ROUTE_NODE_MIN: int = 100
+const POWER_NODE_TARGET_ROUTE_NODE_MAX: int = 120
 
 # 5 size tiers: 0 = smallest/most common → 4 = largest/rarest
 const POWER_NODE_TIER_0_RADIUS: float = 9.0
@@ -79,8 +86,8 @@ const POWER_NODE_TIER_3_RADIUS: float = 18.0
 const POWER_NODE_TIER_4_RADIUS: float = 22.0
 
 # Kept as generic defaults for AnchorRotor inspector values and fallback paths
-const POWER_NODE_STALL_TORQUE_BALANCED: float = 68.0
-const POWER_NODE_BRAKE_TORQUE_CAP_BALANCED: float = 18.0
+const POWER_NODE_STALL_TORQUE_BALANCED: float = POWER_NODE_TIER_1_TORQUE
+const POWER_NODE_BRAKE_TORQUE_CAP_BALANCED: float = POWER_NODE_TIER_1_TORQUE * POWER_NODE_BRAKE_CAP_RATIO
 const POWER_NODE_RADIUS_BALANCED: float = 11.5
 
 # Engine (generator) sink response
@@ -89,11 +96,11 @@ const ENGINE_LOAD_LINEAR_COEFF: float = 0.28
 const ENGINE_LOAD_QUADRATIC_COEFF: float = 0.05
 
 # Generator output-shaft ramp (visible) and internal gearbox equivalent (scoring)
-const GENERATOR_OUTPUT_MAX_RPM: float = 10.0
+const GENERATOR_OUTPUT_MAX_RPM: float = 15.0
 const GENERATOR_INTERNAL_MAX_RPM: float = 1500.0
-const GENERATOR_OUTPUT_TORQUE_FOR_MAX_RPM: float = 95.0
-const GENERATOR_BREAKAWAY_TORQUE: float = 1.5
-const GENERATOR_RPM_RESPONSE: float = 7.0
+const GENERATOR_OUTPUT_TORQUE_FOR_MAX_RPM: float = 100.0
+const GENERATOR_BREAKAWAY_TORQUE: float = 0.25
+const GENERATOR_RPM_RESPONSE: float = 5.5
 
 # Engine visual tuning (simple larger gear)
 const ENGINE_VISUAL_OUTER_RADIUS: float = 100.0
@@ -101,21 +108,6 @@ const ENGINE_VISUAL_TOOTH_COUNT: int = 64
 const ENGINE_VISUAL_INNER_RADIUS_RATIO: float = 0.92
 const ENGINE_VISUAL_HUB_RADIUS_RATIO: float = 0.28
 const ENGINE_VISUAL_TOOTH_DEPTH: float = 3.6
-
-# Coupled engine mode: central engine visual radius also drives mechanical ratio.
-# Auto-retune helps keep HP/frontier progression playable while preserving low early RPM.
-const ENGINE_MECHANICAL_COUPLED_MODE: bool = true
-const ENGINE_COUPLED_BASELINE_RADIUS: float = 17.0
-const ENGINE_COUPLED_HP_RETUNE_EXPONENT: float = 0.32
-const ENGINE_COUPLED_HP_RETUNE_MAX: float = 6.0
-const ENGINE_COUPLED_LOAD_EXPONENT: float = 0.80
-const ENGINE_COUPLED_LOAD_MAX: float = 40.0
-const FRONTIER_COUPLED_TORQUE_MULTIPLIER: float = 0.85
-const FRONTIER_COUPLED_HP_TO_TORQUE: float = 0.9
-
-# Drivetrain readability
-const DRIVETRAIN_HIGH_SPEED_VISUAL_RPM: float = 120.0
-const DRIVETRAIN_HIGH_SPEED_VISUAL_ANGULAR_SPEED: float = 12.57
 
 # World bounds and viewport
 const VIEWPORT_WIDTH: float = 1152.0
@@ -133,23 +125,23 @@ const ENGINE_FOREGROUND_Z_INDEX: int = 350
 const PLACEMENT_OVERLAY_Z_INDEX: int = 360
 
 # Torque frontier (fog progression)
-const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y + 300.0
+const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y
 const FRONTIER_SMOOTHING_ALPHA: float = 0.85
-const FRONTIER_RADIUS_SCALE_K: float = 120.0
-const FRONTIER_MIN_EXPANSION_STEP: float = 96.0
+const FRONTIER_RADIUS_SCALE_K: float = 500.0
+const FRONTIER_MIN_EXPANSION_STEP: float = 64.0
 # Set <= 0.0 to disable frontier radius clamping (endless progression mode).
-const FRONTIER_MAX_RADIUS_CLAMP: float = 0.0
+const FRONTIER_MAX_RADIUS_CLAMP: float = WORLD_HALF_WIDTH
 const FRONTIER_CONE_HALF_ANGLE_DEGREES: float = 15.0
 const FRONTIER_CONE_APEX_Y_OFFSET: float = 0.0
 const FRONTIER_VISUAL_RADIUS_SMOOTHING: float = 6.5
 const FRONTIER_FOG_FEATHER_WIDTH: float = 44.0
 const FRONTIER_FOG_FEATHER_STEPS: int = 4
 const FRONTIER_REQUIRE_RPM_RAMP: bool = true
-const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.8
-const FRONTIER_RPM_GATE_FULL: float = 10.0
+const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.0
+const FRONTIER_RPM_GATE_FULL: float = 5.0
 
 # Dev procedural map generation (frontier-start, spacing-first)
-const DEV_MAP_DEFAULT_NODE_COUNT: int = 1000
+const DEV_MAP_DEFAULT_NODE_COUNT: int = 200
 const DEV_MAP_NODE_START_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET
 const DEV_MAP_NODE_RADIUS_BUDGET: float = WORLD_VERTICAL_EXTENT
 const DEV_MAP_NODE_SPACING: float = 172.0
@@ -166,10 +158,20 @@ const EARLY_ROUTE_HP_TARGET_MIN: float = 5.0
 const EARLY_ROUTE_HP_TARGET_MAX: float = 10.0
 const EARLY_OPTIMIZED_HP_TARGET_MIN: float = 10.0
 const EARLY_OPTIMIZED_HP_TARGET_MAX: float = 20.0
-const HP_DISPLAY_SCALE: float = 1.0
-
 const EFFICIENCY_LOSS_PER_CONNECTION: float = 0.005
 const MIN_EFFICIENCY: float = 0.10
+const EFFICIENCY_GEAR_SMALL: float = 0.998
+const EFFICIENCY_GEAR_MEDIUM: float = 0.996
+const EFFICIENCY_GEAR_LARGE: float = 0.994
+const EFFICIENCY_SHAFT: float = 0.999
+const EFFICIENCY_CHAIN: float = 0.992
+const EFFICIENCY_FLYWHEEL: float = 0.995
+const EFFICIENCY_CLUTCH: float = 0.993
+const EFFICIENCY_DIFFERENTIAL: float = 0.993
+const EFFICIENCY_DEFAULT_COMPONENT: float = 0.995
+const EFFICIENCY_GEAR_VARIATION_BONUS_PER_TYPE: float = 0.006
+const EFFICIENCY_GEAR_VARIATION_MAX_TYPES: int = 3
+const EFFICIENCY_GEAR_VARIATION_MAX_BONUS: float = 0.015
 
 
 static func compute_tooth_count_from_outer_radius(outer_radius: float) -> int:
@@ -187,3 +189,34 @@ static func get_power_node_tier_radius(tier: int) -> float:
 		2: return POWER_NODE_TIER_2_RADIUS
 		3: return POWER_NODE_TIER_3_RADIUS
 		_: return POWER_NODE_TIER_4_RADIUS
+
+
+static func get_power_node_tier_from_radius(radius: float) -> int:
+	var tiers := [
+		POWER_NODE_TIER_0_RADIUS,
+		POWER_NODE_TIER_1_RADIUS,
+		POWER_NODE_TIER_2_RADIUS,
+		POWER_NODE_TIER_3_RADIUS,
+		POWER_NODE_TIER_4_RADIUS
+	]
+	var best_tier := 0
+	var best_distance := INF
+	for tier in range(tiers.size()):
+		var distance := absf(radius - float(tiers[tier]))
+		if distance < best_distance:
+			best_distance = distance
+			best_tier = tier
+	return best_tier
+
+
+static func get_power_node_torque_for_tier(tier: int) -> float:
+	match tier:
+		0: return POWER_NODE_TIER_0_TORQUE
+		1: return POWER_NODE_TIER_1_TORQUE
+		2: return POWER_NODE_TIER_2_TORQUE
+		3: return POWER_NODE_TIER_3_TORQUE
+		_: return POWER_NODE_TIER_4_TORQUE
+
+
+static func get_power_node_torque_from_radius(radius: float) -> float:
+	return get_power_node_torque_for_tier(get_power_node_tier_from_radius(radius))

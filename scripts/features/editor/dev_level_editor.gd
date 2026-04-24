@@ -265,7 +265,7 @@ func _is_too_close_to_positions(world_pos: Vector2, placed_positions: Array, min
 
 func _pick_procedural_power_overrides(rng: RandomNumberGenerator) -> Dictionary:
 	var radius := _random_power_node_radius(rng)
-	var rated := rng.randf_range(PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MIN, PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MAX)
+	var rated := PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)
 	return { "source_outer_radius": radius, "rated_torque_output": rated }
 
 
@@ -583,7 +583,7 @@ func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> void:
 	rng.randomize()
 	var radius := float(overrides.get("source_outer_radius", _random_power_node_radius(rng)))
 	var rated := float(overrides.get("rated_torque_output",
-			rng.randf_range(PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MIN, PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MAX)))
+			PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)))
 	var stall := float(overrides.get("stall_torque_output", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_RATIO))
 	var brake := float(overrides.get("brake_torque_cap", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_CAP_RATIO))
 

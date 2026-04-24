@@ -24,7 +24,8 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var require_rpm_ramp: bool = PROJECT_PATHS_SCRIPT.FRONTIER_REQUIRE_RPM_RAMP
 @export var rpm_gate_soft_min: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_SOFT_MIN
 @export var rpm_gate_full: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_FULL
-@export var rpm_gate_min_factor: float = 0.1
+@export var rpm_gate_min_factor: float = 0.2
+@export var frontier_update_hz: float = 14.0
 
 @export var live_tuning_enabled: bool = false
 @export var live_tuning_poll_interval: float = 0.25
@@ -35,6 +36,9 @@ var _cone_apex: Vector2 = Vector2(PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_X, PROJEC
 var _smoothed_torque: float = 0.0
 var _unlocked_radius: float = PROJECT_PATHS_SCRIPT.FRONTIER_BASE_RADIUS
 var _visual_unlocked_radius: float = PROJECT_PATHS_SCRIPT.FRONTIER_BASE_RADIUS
+var _latest_available_torque: float = 0.0
+var _latest_rpm: float = 0.0
+var _frontier_tick_accum: float = 0.0
 var _live_tuning_poll_accum: float = 0.0
 var _live_tuning_last_modified_time: int = -1
 
@@ -59,12 +63,16 @@ func _ready() -> void:
 		if not _game_state.state_changed.is_connected(_on_state_changed):
 			_game_state.state_changed.connect(_on_state_changed)
 		_on_state_changed(_game_state.horsepower, _game_state.available_torque, _game_state.efficiency, _game_state.total_score, _game_state.lifetime_hp, _game_state.reliability_multiplier)
+	elif _game_state != null:
+		_latest_available_torque = maxf(0.0, _game_state.available_torque)
+		_latest_rpm = maxf(0.0, _game_state.rpm)
 
 	queue_redraw()
 
 
 func _process(delta: float) -> void:
 	_poll_live_tuning(delta)
+	_advance_frontier_simulation(delta)
 	var smoothing := maxf(visual_radius_smoothing, 0.1)
 	var next_visual := lerpf(_visual_unlocked_radius, _unlocked_radius, min(delta * smoothing, 1.0))
 	if absf(next_visual - _visual_unlocked_radius) > 0.01:
@@ -73,24 +81,13 @@ func _process(delta: float) -> void:
 
 
 func _on_state_changed(horsepower: float, available_torque: float, _efficiency: float, _total_score: float, _lifetime_hp: float, _reliability_multiplier: float) -> void:
-	var delivered_torque := maxf(0.0, available_torque)
-	if PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
-		delivered_torque = (
-			delivered_torque * PROJECT_PATHS_SCRIPT.FRONTIER_COUPLED_TORQUE_MULTIPLIER
-		) + (
-			maxf(0.0, horsepower) * PROJECT_PATHS_SCRIPT.FRONTIER_COUPLED_HP_TO_TORQUE
-		)
-	if require_rpm_ramp and _game_state != null:
-		var current_rpm : Variant = _game_state.rpm
-		delivered_torque *= _compute_rpm_gate_factor(current_rpm)
-	_smoothed_torque = (alpha * delivered_torque) + ((1.0 - alpha) * _smoothed_torque)
-
-	var candidate_radius := base_radius + (radius_scale_k * sqrt(_smoothed_torque))
-	candidate_radius = _apply_frontier_cap(candidate_radius)
-	if candidate_radius >= (_unlocked_radius + min_expansion_step):
-		_unlocked_radius = candidate_radius
-
-	queue_redraw()
+	_latest_available_torque = maxf(0.0, available_torque)
+	if _game_state != null:
+		_latest_rpm = maxf(0.0, _game_state.rpm)
+	else:
+		_latest_rpm = 0.0
+	if _advance_frontier_step():
+		queue_redraw()
 
 
 func get_unlocked_radius() -> float:
@@ -105,7 +102,44 @@ func reset_frontier() -> void:
 	_smoothed_torque = 0.0
 	_unlocked_radius = _apply_frontier_cap(base_radius)
 	_visual_unlocked_radius = _unlocked_radius
+	_frontier_tick_accum = 0.0
 	queue_redraw()
+
+
+func _advance_frontier_simulation(delta: float) -> void:
+	var safe_hz := maxf(frontier_update_hz, 1.0)
+	var tick_interval := 1.0 / safe_hz
+	_frontier_tick_accum += maxf(delta, 0.0)
+	while _frontier_tick_accum >= tick_interval:
+		_frontier_tick_accum -= tick_interval
+		if _advance_frontier_step():
+			queue_redraw()
+
+
+func _advance_frontier_step() -> bool:
+	var delivered_torque := maxf(0.0, _latest_available_torque)
+	if require_rpm_ramp:
+		delivered_torque *= _compute_rpm_gate_factor(_latest_rpm)
+	_smoothed_torque = (alpha * delivered_torque) + ((1.0 - alpha) * _smoothed_torque)
+
+	var candidate_radius := base_radius + (radius_scale_k * sqrt(_smoothed_torque))
+	candidate_radius = _apply_frontier_cap(candidate_radius)
+	if candidate_radius <= _unlocked_radius:
+		return false
+
+	var previous_radius := _unlocked_radius
+	var required_step := maxf(min_expansion_step, 0.0)
+	if required_step <= 0.001:
+		_unlocked_radius = candidate_radius
+	elif candidate_radius >= (_unlocked_radius + required_step):
+		_unlocked_radius = candidate_radius
+	else:
+		var step_progress := clampf((candidate_radius - _unlocked_radius) / required_step, 0.0, 1.0)
+		if step_progress > 0.0:
+			var creep_step := required_step * 0.15 * step_progress
+			_unlocked_radius = minf(candidate_radius, _unlocked_radius + creep_step)
+
+	return _unlocked_radius > previous_radius
 
 
 func _apply_frontier_cap(radius_value: float) -> float:

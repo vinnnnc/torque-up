@@ -578,13 +578,6 @@ func _get_node_outer_radius(node: Node2D) -> float:
 	if node == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
-	if node.name == "CentralEngine" and PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
-		var engine_visual := node.get_node_or_null("Visual")
-		if engine_visual != null:
-			var engine_radius_value: Variant = engine_visual.get("outer_radius")
-			if engine_radius_value != null:
-				return maxf(2.0, float(engine_radius_value))
-
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
