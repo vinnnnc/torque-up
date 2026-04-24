@@ -80,8 +80,6 @@ func _ready() -> void:
 		_signal_bus.gear_placed.connect(_on_layout_changed)
 	if _signal_bus and not _signal_bus.component_removed.is_connected(_on_layout_changed):
 		_signal_bus.component_removed.connect(_on_layout_changed)
-	if _signal_bus and _signal_bus.has_signal("placement_mode_changed") and not _signal_bus.placement_mode_changed.is_connected(_on_placement_mode_changed):
-		_signal_bus.placement_mode_changed.connect(_on_placement_mode_changed)
 	_update_preview_visibility()
 
 
@@ -287,7 +285,7 @@ func _should_refresh_preview(mouse_world_pos: Vector2) -> bool:
 
 	# In very dense layouts mesh preview calculations are expensive. Throttle
 	# refreshes to a fixed interval to keep cursor movement smooth.
-	if _handler_ctx != null and _handler_ctx.active_mode == "mesh" and _components_container != null:
+	if _components_container != null:
 		if _components_container.get_child_count() >= DENSE_MESH_PREVIEW_COMPONENT_THRESHOLD:
 			if not _has_last_preview_mouse:
 				return true
@@ -374,26 +372,6 @@ func _on_component_selected(component_id: String) -> void:
 
 func get_handler_context() -> PlacementHandlerContext:
 	return _handler_ctx
-
-
-func cycle_mesh_origin_focus() -> String:
-	var handler := _get_active_handler()
-	if handler == null:
-		return "Select a gear first."
-	if not handler.has_method("cycle_mesh_origin_focus"):
-		return "Origin cycling is only supported for gear placement."
-	var message := str(handler.call("cycle_mesh_origin_focus", get_global_mouse_position()))
-	_has_last_preview_mouse = false
-	queue_redraw()
-	return message
-
-
-func _on_placement_mode_changed(mode: String) -> void:
-	if _handler_ctx == null:
-		return
-	_handler_ctx.set_active_mode(mode)
-	_has_last_preview_mouse = false
-	queue_redraw()
 
 
 func _on_layout_changed(_component: Node2D = null) -> void:

@@ -43,8 +43,6 @@ const COMPONENT_CLUTCH := "clutch"
 const COMPONENT_DIFFERENTIAL := "differential"
 
 @export var overlay_toggle_key: Key = KEY_Q
-@export var mesh_origin_cycle_key: Key = KEY_Z
-@export var placement_mode_toggle_key: Key = KEY_C
 
 var _selected_component: String = COMPONENT_NONE
 var _tooltip_panel: PanelContainer = null
@@ -60,7 +58,6 @@ var _feedback_timer: float = 0.0
 var _layer_indicator_label: Label = null
 var _minimap_panel: PanelContainer = null
 var _minimap_view: Control = null
-var _placement_mode: String = "mesh"
 
 
 func _ready() -> void:
@@ -102,10 +99,6 @@ func _ready() -> void:
 		signal_bus.network_changed.connect(_on_network_changed)
 	if signal_bus and signal_bus.has_signal("placement_feedback") and not signal_bus.placement_feedback.is_connected(_on_placement_feedback):
 		signal_bus.placement_feedback.connect(_on_placement_feedback)
-	if signal_bus and signal_bus.has_signal("placement_mode_changed"):
-		signal_bus.placement_mode_changed.emit(_placement_mode)
-		if not signal_bus.placement_mode_changed.is_connected(_on_placement_mode_changed_by_system):
-			signal_bus.placement_mode_changed.connect(_on_placement_mode_changed_by_system)
 
 	_select_component(COMPONENT_NONE)
 	_update_network_overlay()
@@ -144,16 +137,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			_overlay_panel.visible = _overlay_visible
 		if _overlay_visible:
 			_update_network_overlay()
-		return
-
-	if key_event.keycode == mesh_origin_cycle_key:
-		_cycle_mesh_origin_focus()
-		get_viewport().set_input_as_handled()
-		return
-
-	if key_event.keycode == placement_mode_toggle_key:
-		_toggle_placement_mode()
-		get_viewport().set_input_as_handled()
 		return
 
 	if _apply_hotbar_keybind(key_event.keycode):
@@ -552,39 +535,10 @@ func _build_minimap() -> void:
 		)
 
 
-func _cycle_mesh_origin_focus() -> void:
-	if _placement_controller == null or not _placement_controller.has_method("cycle_mesh_origin_focus"):
-		return
-	var message := str(_placement_controller.call("cycle_mesh_origin_focus"))
-	if not message.is_empty():
-		_show_feedback(message)
-
-
-func _toggle_placement_mode() -> void:
-	_placement_mode = "mesh"
-	_update_layer_indicator()
-	var signal_bus := get_node_or_null("/root/SignalBus")
-	if signal_bus and signal_bus.has_signal("placement_mode_changed"):
-		signal_bus.placement_mode_changed.emit(_placement_mode)
-
-
-## Receives mode changes emitted by other systems.
-func _on_placement_mode_changed_by_system(mode: String) -> void:
-	if _placement_mode == "mesh" and mode == "mesh":
-		return
-	_placement_mode = "mesh"
-	_update_layer_indicator()
-
-
 func _update_layer_indicator() -> void:
 	if _layer_indicator_label == null:
 		return
-	var mode_label := "Mesh"
-	_layer_indicator_label.text = "%s [%s]  Origin Cycle [%s]" % [
-		mode_label,
-		OS.get_keycode_string(placement_mode_toggle_key),
-		OS.get_keycode_string(mesh_origin_cycle_key)
-	]
+	_layer_indicator_label.text = "Mesh"
 
 
 func _show_feedback(message: String) -> void:

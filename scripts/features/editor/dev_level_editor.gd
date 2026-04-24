@@ -14,7 +14,6 @@ const TOOL_NONE := "none"
 const TOOL_POWER_NODE := "power_node"
 const TOOL_ZONE_HEAT := "zone_heat"
 const TOOL_ZONE_COLD := "zone_cold"
-const TOOL_ZONE_DUST := "zone_dust"
 const TOOL_BARRIER := "barrier"
 const TOOL_DELETE_DEV := "delete_dev"
 
@@ -50,12 +49,15 @@ var _tool_status_label: Label = null
 func _ready() -> void:
 	_build_menu()
 	_set_active_tool(TOOL_NONE)
+	if _menu_root:
+		_menu_root.visible = _menu_visible
 	print("DevLevelEditor hotkeys: F5=menu F6=save F7=load F8=clear")
-	
-	# Auto-generate procedural map on first run if no save exists.
-	if not FileAccess.file_exists(SAVE_PATH):
-		print("DevLevelEditor: first run detected, auto-generating procedural map...")
-		await generate_procedural_map(-1, -1, 42)
+
+
+func start_new_run(seed: int = -1) -> void:
+	if _blockade_node != null and _blockade_node.has_method("reset_frontier"):
+		_blockade_node.call("reset_frontier")
+	await generate_procedural_map(-1, -1, seed)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -176,8 +178,9 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: i
 	await get_tree().process_frame
 
 	var rng := RandomNumberGenerator.new()
-	if seed >= 0:
-		rng.seed = seed
+	var actual_seed := seed if seed >= 0 else PROJECT_PATHS_SCRIPT.DEFAULT_RUN_SEED
+	if actual_seed >= 0:
+		rng.seed = actual_seed
 	else:
 		rng.randomize()
 
@@ -237,7 +240,7 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: i
 	var requested_zone_count := zone_count
 	if requested_zone_count <= 0:
 		requested_zone_count = PROJECT_PATHS_SCRIPT.DEV_MAP_DEFAULT_ZONE_COUNT
-	var zone_types := ["heat", "cold", "dust"]
+	var zone_types := ["heat", "cold"]
 	var zones_placed := 0
 	var zone_attempts := 0
 	var zone_max_radius := minf(max_radius + PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_RADIUS_EXTRA, world_max_radius)
@@ -440,6 +443,7 @@ func _build_menu() -> void:
 	panel.offset_bottom = 408.0
 	_menu_layer.add_child(panel)
 	_menu_root = panel
+	_menu_root.visible = _menu_visible
 
 	var layout := VBoxContainer.new()
 	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -465,7 +469,6 @@ func _build_menu() -> void:
 	_add_tool_button(layout, "Power Node", TOOL_POWER_NODE)
 	_add_tool_button(layout, "Zone: Heat", TOOL_ZONE_HEAT)
 	_add_tool_button(layout, "Zone: Cold", TOOL_ZONE_COLD)
-	_add_tool_button(layout, "Zone: Dust", TOOL_ZONE_DUST)
 	_add_tool_button(layout, "Barrier", TOOL_BARRIER)
 	_add_tool_button(layout, "Delete Dev Node", TOOL_DELETE_DEV)
 
@@ -539,8 +542,6 @@ func _describe_tool(tool_id: String) -> String:
 			return "Zone Heat"
 		TOOL_ZONE_COLD:
 			return "Zone Cold"
-		TOOL_ZONE_DUST:
-			return "Zone Dust"
 		TOOL_BARRIER:
 			return "Barrier"
 		TOOL_DELETE_DEV:
@@ -557,8 +558,6 @@ func _place_with_active_tool(world_pos: Vector2) -> void:
 			_create_zone(world_pos, "heat")
 		TOOL_ZONE_COLD:
 			_create_zone(world_pos, "cold")
-		TOOL_ZONE_DUST:
-			_create_zone(world_pos, "dust")
 		TOOL_BARRIER:
 			_create_barrier(world_pos)
 		TOOL_DELETE_DEV:
@@ -664,20 +663,11 @@ func _apply_zone_defaults(zone: Node2D, zone_type: String) -> void:
 			zone.set("zone_type", "cold")
 			zone.set("radius", 165.0)
 			zone.set("friction_multiplier", 0.92)
-			zone.set("efficiency_multiplier", 0.99)
+			zone.set("efficiency_multiplier", 1.10)
 			zone.set("torque_load_add", 0.0)
 			zone.set("power_output_multiplier", 1.03)
 			zone.set("power_output_add", 0.5)
 			zone.set("gizmo_color", Color(0.35, 0.6, 1.0, 0.2))
-		"dust":
-			zone.set("zone_type", "dust")
-			zone.set("radius", 145.0)
-			zone.set("friction_multiplier", 1.08)
-			zone.set("efficiency_multiplier", 0.97)
-			zone.set("torque_load_add", 0.1)
-			zone.set("power_output_multiplier", 0.99)
-			zone.set("power_output_add", -0.2)
-			zone.set("gizmo_color", Color(0.84, 0.74, 0.48, 0.2))
 		_:
 			zone.set("zone_type", "heat")
 			zone.set("radius", 180.0)

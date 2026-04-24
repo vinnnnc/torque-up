@@ -39,8 +39,6 @@ const CONDITION_HEAT_GAIN_LOAD: float = 0.004
 const CONDITION_HEAT_LOSS_BASE: float = 0.008
 const CONDITION_COLD_GAIN_COLD: float = 0.010
 const CONDITION_COLD_LOSS_BASE: float = 0.008
-const CONDITION_DUST_GAIN_DUSTY: float = 0.006
-const CONDITION_DUST_LOSS_BASE: float = 0.002
 const CONDITION_STRAIN_SECONDS_TO_JAM: float = 8.0
 const CONDITION_JAM_RECOVER_SECONDS: float = 5.0
 const CONDITION_WEAR_JAM_THRESHOLD: int = 3
@@ -114,7 +112,7 @@ const VIEWPORT_WIDTH: float = 1152.0
 const VIEWPORT_HEIGHT: float = 646.0
 const VIEWPORT_CENTER_X: float = 576.0
 const VIEWPORT_CENTER_Y: float = 323.0
-const ENGINE_WORLD_Y: float = ENGINE_VISUAL_OUTER_RADIUS + 300.0
+const ENGINE_WORLD_Y: float = ENGINE_VISUAL_OUTER_RADIUS + 500.0
 const BLOCKADE_HALF_HEIGHT: float = 323.0
 const CAMERA_MIN_Y: float = WORLD_HALF_WIDTH * (-1.0) + VIEWPORT_HEIGHT
 const CAMERA_MAX_Y: float = 400.0
@@ -128,7 +126,7 @@ const PLACEMENT_OVERLAY_Z_INDEX: int = 360
 const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y
 const FRONTIER_SMOOTHING_ALPHA: float = 0.85
 const FRONTIER_RADIUS_SCALE_K: float = 500.0
-const FRONTIER_MIN_EXPANSION_STEP: float = 64.0
+const FRONTIER_MIN_EXPANSION_STEP: float = 128.0
 # Set <= 0.0 to disable frontier radius clamping (endless progression mode).
 const FRONTIER_MAX_RADIUS_CLAMP: float = WORLD_HALF_WIDTH
 const FRONTIER_CONE_HALF_ANGLE_DEGREES: float = 15.0
@@ -139,19 +137,27 @@ const FRONTIER_FOG_FEATHER_STEPS: int = 4
 const FRONTIER_REQUIRE_RPM_RAMP: bool = true
 const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.0
 const FRONTIER_RPM_GATE_FULL: float = 5.0
+const FRONTIER_WIN_LEVER_TOP_MARGIN: float = 160.0
+
+# Placement-time jam prevention: reject snap candidates with incompatible
+# meshing phase requirements from multiple neighbors.
+const PLACEMENT_MAX_ROTATION_MISMATCH_DEGREES: float = 20.0
 
 # Dev procedural map generation (frontier-start, spacing-first)
-const DEV_MAP_DEFAULT_NODE_COUNT: int = 200
+const DEV_MAP_DEFAULT_NODE_COUNT: int = 300
 const DEV_MAP_NODE_START_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET
 const DEV_MAP_NODE_RADIUS_BUDGET: float = WORLD_VERTICAL_EXTENT
-const DEV_MAP_NODE_SPACING: float = 172.0
-const DEV_MAP_NODE_ROW_SPACING: float = 156.0
+const DEV_MAP_NODE_SPACING: float = 150.0
+const DEV_MAP_NODE_ROW_SPACING: float = 96.0
 const DEV_MAP_NODE_RADIAL_JITTER: float = 22.0
 const DEV_MAP_NODE_ANGLE_JITTER_DEGREES: float = 5.0
-const DEV_MAP_CONE_APEX_RAISE: float = 280.0
+const DEV_MAP_CONE_APEX_RAISE: float = 256.0
 const DEV_MAP_NODE_MIN_SEPARATION_FACTOR: float = 1.8
 const DEV_MAP_ZONE_RADIUS_EXTRA: float = 0.0
 const DEV_MAP_DEFAULT_ZONE_COUNT: int = 5
+
+# Map seed. Set to -1 to use a random seed on each run.
+const DEFAULT_RUN_SEED: int = 111
 
 # Early-game tuning targets (for balancing pass instrumentation)
 const EARLY_ROUTE_HP_TARGET_MIN: float = 5.0

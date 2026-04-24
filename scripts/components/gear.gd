@@ -120,6 +120,16 @@ func get_angular_velocity() -> float:
 	return angular_velocity
 
 
+func get_spin_direction() -> float:
+	if absf(angular_velocity) > 0.001:
+		return signf(angular_velocity)
+	if _use_direct_drive and absf(_direct_target_velocity) > 0.001:
+		return signf(_direct_target_velocity)
+	if absf(torque) > 0.001:
+		return signf(torque)
+	return 0.0
+
+
 func set_connection_state(connection_active: bool) -> void:
 	_is_connected_to_main = connection_active
 	_is_on_engine_route = connection_active

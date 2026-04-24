@@ -14,9 +14,9 @@ const INVALID_PREVIEW_COLOR := Color(1.0, 0.35, 0.35, 0.65)
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
 const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
-const MODE_MESH := "mesh"
 const DENSE_MESH_FASTPATH_COMPONENT_THRESHOLD := 240
 const DENSE_MESH_ULTRA_FASTPATH_COMPONENT_THRESHOLD := 420
+const MESH_CONTACT_EPSILON := 1.4
 
 ## Set by PlacementController when this handler is activated (e.g. "gear_small").
 var component_id: String = ""
@@ -35,6 +35,9 @@ var _focused_mesh_root_id: int = -1
 ## Used by _should_block_mesh_collision to pass through layer-2 gears that
 ## belong only to the stack being approached, not to other stacks.
 var _active_snap_origin_node: Node2D = null
+## World position of the preview gear this frame — used by draw_overlay.
+var _preview_world_pos: Vector2 = Vector2.ZERO
+var _preview_is_snapped: bool = false
 
 # -- Lifecycle -----------------------------------------------------------------
 
@@ -51,6 +54,7 @@ func _reset_drag() -> void:
 	_has_auto_place_anchor = false
 	_bulk_gear_place_pending_recalc = false
 	_active_snap_origin_node = null
+	_preview_is_snapped = false
 	_clear_mesh_focus()
 
 # -- Per-frame -----------------------------------------------------------------
@@ -111,9 +115,14 @@ func _update_mesh_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 		selected_radius,
 		collision_filter
 	)
+	if preview_is_clear and _would_trigger_snap_jam(preview_node.global_position, selected_radius):
+		preview_is_clear = false
 	ctx.socket_markers = [] if dense_fastpath else _build_mesh_arc_markers(mouse_pos, blocked_positions, selected_radius)
 	ctx.active_socket_position = snapped_pos
 	ctx.has_active_socket = use_snap and snap_result.get("origin", null) != null
+
+	_preview_world_pos = preview_node.global_position
+	_preview_is_snapped = use_snap
 
 	if preview_is_clear:
 		preview_node.modulate = VALID_PREVIEW_COLOR
@@ -127,16 +136,89 @@ func _update_mesh_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 func process(mouse_pos: Vector2) -> void:
 	_handle_drag_auto_place(mouse_pos)
 
-## Draw the 8-way direction-lock indicator line.
+## Draw direction-lock line (drag) and gear rotation arc-arrows (snap preview).
 func draw_overlay(draw_node: Node2D) -> void:
-	if not _gear_drag_has_direction_lock or not _has_auto_place_anchor:
+	# -- Drag direction-lock line --
+	if _gear_drag_has_direction_lock and _has_auto_place_anchor:
+		var anchor_local := draw_node.to_local(_auto_place_anchor)
+		var projected_local := draw_node.to_local(
+			_project_onto_axis(_auto_place_anchor, draw_node.get_global_mouse_position(), _gear_drag_locked_dir)
+		)
+		draw_node.draw_line(anchor_local, projected_local, Color(0.85, 0.95, 1.0, 0.38), 1.4)
+		draw_node.draw_circle(anchor_local, 3.5, Color(0.85, 0.95, 1.0, 0.55))
+
+	# -- Gear rotation arc-arrows (only when snapped near an existing gear) --
+	if not _preview_is_snapped or ctx == null or ctx.components_container == null:
 		return
-	var anchor_local := draw_node.to_local(_auto_place_anchor)
-	var projected_local := draw_node.to_local(
-		_project_onto_axis(_auto_place_anchor, draw_node.get_global_mouse_position(), _gear_drag_locked_dir)
-	)
-	draw_node.draw_line(anchor_local, projected_local, Color(0.85, 0.95, 1.0, 0.38), 1.4)
-	draw_node.draw_circle(anchor_local, 3.5, Color(0.85, 0.95, 1.0, 0.55))
+
+	var pulse_alpha := 0.55 + 0.45 * sin(Time.get_ticks_msec() / 300.0)
+	var selected_radius := get_connection_radius()
+	var candidate_required_sign: float = 0.0
+	var has_conflict := false
+
+	# Gather meshing neighbors and determine candidate spin direction.
+	var meshing_neighbors: Array = []
+	for child in ctx.components_container.get_children():
+		var neighbor := child as Node2D
+		if neighbor == null or not _is_standard_gear(neighbor):
+			continue
+		var neighbor_radius := ctx.get_node_connection_radius(neighbor)
+		var tangent_distance := neighbor_radius + selected_radius
+		var dist := neighbor.global_position.distance_to(_preview_world_pos)
+		if absf(dist - tangent_distance) > MESH_CONTACT_EPSILON:
+			continue
+		meshing_neighbors.append(neighbor)
+
+		if neighbor.has_method("get_spin_direction"):
+			var nspin := float(neighbor.call("get_spin_direction"))
+			if absf(nspin) >= 0.5:
+				var required := -nspin
+				if candidate_required_sign == 0.0:
+					candidate_required_sign = required
+				elif signf(required) != signf(candidate_required_sign):
+					has_conflict = true
+
+	if meshing_neighbors.is_empty():
+		return
+
+	var color_ok := Color(0.3, 1.0, 0.4, pulse_alpha)
+	var color_bad := Color(1.0, 0.25, 0.25, pulse_alpha)
+
+	# Draw arc-arrow on each meshing neighbor showing its spin direction.
+	for neighbor in meshing_neighbors:
+		if not neighbor.has_method("get_spin_direction"):
+			continue
+		var nspin := float(neighbor.call("get_spin_direction"))
+		if absf(nspin) < 0.5:
+			continue
+		var n_radius := ctx.get_node_connection_radius(neighbor)
+		var arrow_color := color_bad if has_conflict else color_ok
+		_draw_spin_arc_arrow(draw_node, neighbor.global_position, n_radius * 0.80, nspin, arrow_color)
+
+	# Draw arc-arrow on the preview position showing expected candidate spin.
+	if absf(candidate_required_sign) >= 0.5:
+		var preview_color := color_bad if has_conflict else color_ok
+		_draw_spin_arc_arrow(draw_node, _preview_world_pos, selected_radius * 0.80, candidate_required_sign, preview_color)
+
+
+## Draw a pulsing arc with an arrowhead indicating spin direction (sign > 0 = CCW, sign < 0 = CW).
+func _draw_spin_arc_arrow(draw_node: Node2D, world_center: Vector2, radius: float, spin_sign: float, color: Color) -> void:
+	var center := draw_node.to_local(world_center)
+	var arc_span := PI * 1.1  # slightly more than half-circle
+	# Choose start angle so the arc sits in the top half of the gear for readability.
+	var start_angle := -PI * 0.55 if spin_sign >= 0.0 else PI * 0.55 - arc_span
+	var end_angle := start_angle + arc_span * signf(spin_sign)
+	var steps := clampi(int(ceil(radius * absf(end_angle - start_angle) / 6.0)), 8, 32)
+	draw_node.draw_arc(center, radius, start_angle, end_angle, steps, color, 2.0)
+
+	# Arrowhead: small triangle at the arc endpoint.
+	var tip_angle := end_angle
+	var tip := center + Vector2(cos(tip_angle), sin(tip_angle)) * radius
+	var tangent_dir := Vector2(-sin(tip_angle), cos(tip_angle)) * signf(spin_sign)
+	var head_len := clampf(radius * 0.28, 5.0, 14.0)
+	var left := tip - tangent_dir * head_len + Vector2(-tangent_dir.y, tangent_dir.x) * head_len * 0.4
+	var right := tip - tangent_dir * head_len - Vector2(-tangent_dir.y, tangent_dir.x) * head_len * 0.4
+	draw_node.draw_colored_polygon(PackedVector2Array([tip, left, right]), color)
 
 # -- Input ---------------------------------------------------------------------
 
@@ -202,6 +284,9 @@ func _place_meshed_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	var target_pos := snapped_pos if use_snap else pos
 	if not ctx.placement_rules.can_place_at(target_pos, ctx.components_container, blocked_positions, selected_radius, collision_filter):
 		return
+	if _would_trigger_snap_jam(target_pos, selected_radius):
+		ctx.emit_feedback("Unable to place here: snap point would jam this gear.")
+		return
 
 	var chosen_scene := ctx.get_scene(component_id)
 	if chosen_scene == null:
@@ -217,6 +302,61 @@ func _place_meshed_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	if emit_network_update:
 		ctx.emit_gear_placed(gear)
 		ctx.mark_dirty()
+
+
+func _would_trigger_snap_jam(target_pos: Vector2, selected_radius: float) -> bool:
+	if ctx == null or ctx.components_container == null:
+		return false
+
+	# Collect the spin direction each meshing neighbor requires from the candidate.
+	# Meshing gears always reverse direction, so required_sign = -neighbor_spin_sign.
+	# If two neighbors require opposite signs, placement creates an irresolvable conflict.
+	var required_sign: float = 0.0  # 0 = undecided
+	for child in ctx.components_container.get_children():
+		var neighbor := child as Node2D
+		if neighbor == null:
+			continue
+		if not _is_standard_gear(neighbor):
+			continue
+
+		var neighbor_radius := ctx.get_node_connection_radius(neighbor)
+		var tangent_distance := neighbor_radius + selected_radius
+		var distance_to_target := neighbor.global_position.distance_to(target_pos)
+		if absf(distance_to_target - tangent_distance) > MESH_CONTACT_EPSILON:
+			continue
+
+		# Only use neighbors that have an active, known spin direction.
+		if not neighbor.has_method("get_spin_direction"):
+			continue
+		var neighbor_spin := float(neighbor.call("get_spin_direction"))
+		if absf(neighbor_spin) < 0.5:
+			continue  # direction not yet assigned — skip
+
+		var this_required := -neighbor_spin  # meshing reverses direction
+
+		if required_sign == 0.0:
+			required_sign = this_required
+		elif signf(this_required) != signf(required_sign):
+			return true  # two neighbors require opposite directions → jam
+
+	return false
+
+
+func _required_candidate_rotation_for_neighbor(
+	target_pos: Vector2,
+	neighbor: Node2D,
+	candidate_tooth_count: int
+) -> float:
+	var connection_angle := (target_pos - neighbor.global_position).angle()
+	var origin_tooth_count := ctx.get_node_tooth_count(neighbor)
+	if origin_tooth_count <= 0:
+		return connection_angle + PI
+
+	var origin_pitch := TAU / float(origin_tooth_count)
+	var candidate_pitch := TAU / float(candidate_tooth_count)
+	var origin_phase_ratio := wrapf((connection_angle - neighbor.rotation) / origin_pitch, 0.0, 1.0)
+	var candidate_phase := wrapf((0.5 - origin_phase_ratio), 0.0, 1.0) * candidate_pitch
+	return (connection_angle + PI) - candidate_phase
 
 ## Rotate gear to mesh with the origin gear's tooth phase.
 func align_instance_with_origin(gear: Node2D, snapped_pos: Vector2, origin_data: Variant) -> void:

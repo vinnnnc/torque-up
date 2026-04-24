@@ -12,6 +12,9 @@ var efficiency: float = 1.0
 ## Internal RPM tracking (not exposed in signal; used by frontier logic).
 var rpm: float = 0.0
 
+## Stored menu preference. Tutorial flow can read this later.
+var tutorial_enabled: bool = false
+
 ## Sandbox / endless scoring — never decrements.
 var lifetime_hp: float = 0.0
 ## Modulates how quickly lifetime_hp accumulates based on network reliability.
@@ -62,6 +65,24 @@ func register_jam() -> void:
 	_purge_old_jams()
 	_recalculate_reliability()
 	jam_registered.emit(total_jams)
+
+
+func set_tutorial_enabled(enabled: bool) -> void:
+	tutorial_enabled = enabled
+
+
+func reset_run_state() -> void:
+	horsepower = 0.0
+	available_torque = 0.0
+	efficiency = 1.0
+	rpm = 0.0
+	lifetime_hp = 0.0
+	total_score = 0.0
+	last_score_delta = 0.0
+	total_jams = 0
+	_recent_jams.clear()
+	reliability_multiplier = 1.0
+	state_changed.emit(horsepower, available_torque, efficiency, total_score, lifetime_hp, reliability_multiplier)
 
 
 func _purge_old_jams() -> void:

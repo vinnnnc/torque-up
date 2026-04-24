@@ -81,7 +81,6 @@ func _empty_condition() -> Dictionary:
 	return {
 		"heat": 0.0,
 		"cold_stress": 0.0,
-		"contamination": 0.0,
 		"strain_timer": 0.0,
 		"jam_timer": 0.0,
 		"jam_count": 0,
@@ -113,11 +112,6 @@ func _accumulate_zone_effects(
 				float(cond["cold_stress"]) + PROJECT_PATHS_SCRIPT.CONDITION_COLD_GAIN_COLD * intensity * delta,
 				0.0, 1.0
 			)
-		"dusty":
-			cond["contamination"] = clampf(
-				float(cond["contamination"]) + PROJECT_PATHS_SCRIPT.CONDITION_DUST_GAIN_DUSTY * intensity * delta,
-				0.0, 1.0
-			)
 
 	# Load always contributes a small heat gain regardless of zone type.
 	cond["heat"] = clampf(
@@ -135,32 +129,13 @@ func _decay_conditions(cond: Dictionary, delta: float) -> void:
 		float(cond["cold_stress"]) - PROJECT_PATHS_SCRIPT.CONDITION_COLD_LOSS_BASE * delta,
 		0.0, 1.0
 	)
-	cond["contamination"] = clampf(
-		float(cond["contamination"]) - PROJECT_PATHS_SCRIPT.CONDITION_DUST_LOSS_BASE * delta,
-		0.0, 1.0
-	)
 
 
 func _update_jam_state(cond: Dictionary, delta: float, _load_ratio: float) -> void:
-	var jam_timer := float(cond["jam_timer"])
-	var strain_timer := float(cond["strain_timer"])
-	var state := int(cond["state"])
-
-	if jam_timer > 0.0:
-		cond["jam_timer"] = maxf(0.0, jam_timer - delta)
-		return
-
-	# Advance strain timer while in RISK state; reset otherwise.
-	if state >= 3:  # ConditionState.RISK
-		cond["strain_timer"] = strain_timer + delta
-		if strain_timer >= PROJECT_PATHS_SCRIPT.CONDITION_STRAIN_SECONDS_TO_JAM:
-			# Trigger temporary jam.
-			cond["strain_timer"] = 0.0
-			cond["jam_timer"] = PROJECT_PATHS_SCRIPT.CONDITION_JAM_RECOVER_SECONDS
-			cond["jam_count"] = int(cond["jam_count"]) + 1
-	else:
-		# Decay strain timer when no longer at RISK.
-		cond["strain_timer"] = maxf(0.0, strain_timer - delta * 2.0)
+	# Runtime jam triggering is disabled. Keep legacy counters decayed to zero
+	# so stress diagnostics remain available without hard-stop states.
+	cond["jam_timer"] = maxf(0.0, float(cond["jam_timer"]) - delta * 4.0)
+	cond["strain_timer"] = maxf(0.0, float(cond["strain_timer"]) - delta * 2.0)
 
 
 func _update_wear(cond: Dictionary) -> void:
@@ -173,16 +148,11 @@ func _update_wear(cond: Dictionary) -> void:
 
 
 func _determine_state(cond: Dictionary, load_ratio: float) -> void:
-	if float(cond["jam_timer"]) > 0.0:
-		cond["state"] = 4  # ConditionState.JAMMED
-		return
-
-	# Composite stress score: max of heat, cold_stress, contamination (weighted) + load.
+	# Composite stress score: max of heat, cold_stress, wear (weighted) + load.
 	var heat := float(cond["heat"])
 	var cold := float(cond["cold_stress"])
-	var dust := float(cond["contamination"]) * 0.8
 	var wear := float(cond["wear"]) * 0.6
-	var composite := maxf(heat, maxf(cold, maxf(dust, wear)))
+	var composite := maxf(heat, maxf(cold, wear))
 	composite = maxf(composite, load_ratio * 0.65)
 
 	if composite >= PROJECT_PATHS_SCRIPT.CONDITION_THRESHOLD_RISK:
@@ -201,5 +171,5 @@ func _apply_to_component(component: Node2D, cond: Dictionary) -> void:
 			"set_condition_state",
 			int(cond["state"]),
 			float(cond["heat"]),
-			float(cond["contamination"])
+			0.0
 		)

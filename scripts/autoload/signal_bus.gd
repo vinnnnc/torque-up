@@ -10,5 +10,3 @@ signal network_changed
 signal component_selected(component_id: String)
 @warning_ignore("unused_signal")
 signal placement_feedback(message: String)
-@warning_ignore("unused_signal")
-signal placement_mode_changed(mode: String)

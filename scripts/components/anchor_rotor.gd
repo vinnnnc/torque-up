@@ -97,6 +97,10 @@ func set_underpowered_state(is_underpowered: bool) -> void:
 	_is_underpowered = is_underpowered
 
 
+func get_spin_direction() -> float:
+	return _spin_direction
+
+
 func set_connection_state(connection_active: bool) -> void:
 	_is_connected_to_network = connection_active
 	_is_on_engine_route = connection_active

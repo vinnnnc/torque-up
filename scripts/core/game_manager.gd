@@ -681,16 +681,9 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 			local_source_drive_speeds[src_id] = group_source_speed
 
 		if group_underpowered:
-			for src_raw in iso_group:
-				var src: Dictionary = src_raw as Dictionary
-				for comp_raw in (src.get("reachable", []) as Array):
-					var comp := comp_raw as Node2D
-					if comp == null:
-						continue
-					var comp_id := comp.get_instance_id()
-					isolated_stalled_components[comp_id] = true
-					isolated_component_targets[comp_id] = 0.0
-			continue
+			# Runtime stall behavior is disabled. Keep isolated groups spinning at
+			# reduced speed instead of hard-stopping components.
+			pass
 
 		for src_raw in iso_group:
 			var src: Dictionary = src_raw as Dictionary
@@ -842,31 +835,22 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 			connected_route_conflict_set[voted_id] = true
 			component_drive_targets[voted_id] = 0.0
 
-	# Conflict visuals stay local (direct contradiction gears only), but jam
-	# policy for the connected network is strict: stall the full engine route.
+	# Conflict visuals stay local; runtime jam-stall freezing is disabled.
 	var direct_conflict_ids: Array = visual_conflict_set.keys()
 	var jam_stalled_components: Dictionary = {}
+	var source_direction_conflicts := {} as Dictionary
+	if connected and power_sources.size() > 1:
+		source_direction_conflicts = _get_connected_source_direction_conflicts(power_sources)
 	# Generator direction conflict: if the network would spin the engine backwards, jam the route.
 	_generator_direction_conflict = false
 	if connected and _central_engine != null and not component_drive_targets.is_empty():
 		var expected_engine_drive := _derive_anchor_drive_speed(_central_engine, component_drive_targets, anchor_multipliers_by_id)
 		if expected_engine_drive < -0.001:
 			_generator_direction_conflict = true
-			for route_id_raw in engine_route_component_ids.keys():
-				connected_route_conflict_set[int(route_id_raw)] = true
-	var jam_stalls_connected_network := connected and not connected_route_conflict_set.is_empty()
-	if jam_stalls_connected_network:
-		for route_id_raw in engine_route_component_ids.keys():
-			jam_stalled_components[int(route_id_raw)] = true
-	else:
-		for conflict_id_raw in direct_conflict_ids:
-			jam_stalled_components[int(conflict_id_raw)] = true
-	for jam_id_raw in jam_stalled_components.keys():
-		var jam_id := int(jam_id_raw)
-		component_drive_targets[jam_id] = 0.0
+	var jam_stalls_connected_network := _generator_direction_conflict or not source_direction_conflicts.is_empty()
 
 	# Throttle engine-route component speeds by generator ramp factor.
-	var generator_output_connected := connected and not jam_stalls_connected_network
+	var generator_output_connected := connected
 	var generator_output_torque := delivered_torque if generator_output_connected else 0.0
 	var engine_rpm := _compute_generator_output_rpm(generator_output_torque, tick_delta, generator_output_connected)
 	var generator_ramp_factor := clampf(
@@ -881,7 +865,7 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	if connected:
 		for route_id_raw in engine_route_component_ids.keys():
 			var route_id := int(route_id_raw)
-			if jam_stalled_components.has(route_id) or not generator_output_connected:
+			if not generator_output_connected:
 				component_drive_targets[route_id] = 0.0
 				continue
 			var route_multiplier := float(engine_anchor_multipliers.get(route_id_raw, 0.0))
@@ -915,9 +899,9 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 		reachable_components,
 		reachable_profiles,
 		drive_utilization,
-		is_underpowered,
-		isolated_stalled_components,
-		jam_stalled_components
+		false,
+		{},
+		{}
 	)
 
 	# Direction conflict detection: components where two gear paths require opposite rotation.
@@ -959,10 +943,11 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 		local_source_drive_speeds,
 		engine_drive_multiplier,
 		anchor_multipliers_by_id,
-		jam_stalls_connected_network
+		jam_stalls_connected_network,
+		source_direction_conflicts
 	)
 	_refresh_source_rpm_feedback(all_power_sources, component_drive_targets, anchor_multipliers_by_id)
-	var engine_angular_velocity := _generator_output_angular_speed
+	var _engine_angular_velocity := _generator_output_angular_speed
 	var generator_internal_rpm := _compute_generator_internal_rpm(engine_rpm)
 	var engine_torque := generator_output_torque
 	var engine_operating_state := "in_band"
@@ -1144,7 +1129,7 @@ func _get_zone_effect_at(world_pos: Vector2) -> Dictionary:
 		combined["power_output_add"] = float(combined["power_output_add"]) + float(effect_dict.get("power_output_add", 0.0))
 
 	combined["friction_multiplier"] = clampf(float(combined["friction_multiplier"]), 0.5, 2.5)
-	combined["efficiency_multiplier"] = clampf(float(combined["efficiency_multiplier"]), 0.5, 1.0)
+	combined["efficiency_multiplier"] = clampf(float(combined["efficiency_multiplier"]), 0.5, 1.5)
 	combined["power_output_multiplier"] = clampf(float(combined["power_output_multiplier"]), 0.4, 1.8)
 	return combined
 
@@ -1502,7 +1487,8 @@ func _update_anchor_rotors(
 	local_source_drive_speeds: Dictionary,
 	engine_drive_multiplier: float,
 	anchor_multipliers_by_id: Dictionary = {},
-	jam_stalls_connected_network: bool = false
+	jam_stalls_connected_network: bool = false,
+	source_direction_conflicts: Dictionary = {}
 ) -> void:
 	for power_source_raw in all_power_sources:
 		var source := power_source_raw as Node2D
@@ -1511,6 +1497,7 @@ func _update_anchor_rotors(
 
 		var is_source_connected := power_sources.has(source)
 		var is_source_local := local_power_sources.has(source)
+		var has_source_direction_conflict := bool(source_direction_conflicts.get(source.get_instance_id(), false))
 		var source_sign := 1.0
 		source_sign = float(network_spin_signs.get(source.get_instance_id(), 1.0))
 		var source_drive := 0.0
@@ -1532,6 +1519,8 @@ func _update_anchor_rotors(
 
 		if jam_stalls_connected_network and is_source_connected:
 			source_drive = 0.0
+		if has_source_direction_conflict and is_source_connected:
+			source_drive = 0.0
 
 		if is_source_local and source.has_method("set_target_angular_speed"):
 			source.set_target_angular_speed(source_drive, is_source_local)
@@ -1540,12 +1529,13 @@ func _update_anchor_rotors(
 			# so `always_active` can keep their idle spin visible in dev mode.
 			source.set_network_torque(available_torque if is_source_connected else 0.0, is_source_connected, source_sign)
 		if source.has_method("set_underpowered_state"):
-			var source_underpowered := bool(local_source_underpowered.get(source.get_instance_id(), false))
-			source.set_underpowered_state((is_underpowered and is_source_connected) or source_underpowered or (jam_stalls_connected_network and is_source_connected))
+			source.set_underpowered_state(false)
 		if source.has_method("set_connection_state"):
 			source.set_connection_state(is_source_connected)
 		if source.has_method("set_engine_route_state"):
 			source.set_engine_route_state(is_source_connected)
+		if source.has_method("set_direction_conflict"):
+			source.set_direction_conflict(has_source_direction_conflict)
 
 	# Engine speed strictly follows synchronized route samples when connected.
 	if _central_engine and _central_engine.has_method("set_target_angular_speed"):
@@ -2099,7 +2089,7 @@ func _get_node_tooth_count(node: Node2D) -> int:
 
 
 func _get_source_drive_speed(power_sources: Array, is_underpowered: bool) -> float:
-	if is_underpowered or power_sources.is_empty():
+	if power_sources.is_empty():
 		return 0.0
 
 	var weighted_speed_sum := 0.0
@@ -2122,6 +2112,54 @@ func _get_source_drive_speed(power_sources: Array, is_underpowered: bool) -> flo
 		return 0.0
 
 	return weighted_speed_sum / total_weight
+
+
+func _get_connected_source_direction_conflicts(power_sources: Array) -> Dictionary:
+	var conflicts := {} as Dictionary
+	if power_sources.size() <= 1:
+		return conflicts
+
+	var seed_source := power_sources[0] as Node2D
+	if seed_source == null:
+		return conflicts
+
+	var seed_radius := _get_node_connection_radius(seed_source)
+	var extra_nodes: Array = []
+	for source_raw in power_sources:
+		var source := source_raw as Node2D
+		if source == null:
+			continue
+		extra_nodes.append({
+			"key": source.get_instance_id(),
+			"position": source.global_position,
+			"radius": _get_node_connection_radius(source),
+			"component_type": "source"
+		})
+
+	var sign_map := network_service.get_network_spin_signs(
+		_components_container,
+		seed_source.global_position,
+		seed_radius,
+		extra_nodes,
+		connection_tolerance
+	)
+
+	# Sources are modeled as fixed-direction drivers. If a source would require a
+	# negative sign relative to the seed source, this is a parity mismatch.
+	for source_raw in power_sources:
+		var source := source_raw as Node2D
+		if source == null:
+			continue
+		var source_id := source.get_instance_id()
+		if source == seed_source:
+			continue
+		if not sign_map.has(source_id):
+			continue
+		if float(sign_map.get(source_id, 1.0)) < -0.5:
+			conflicts[source_id] = true
+			conflicts[seed_source.get_instance_id()] = true
+
+	return conflicts
 
 
 func _get_drive_utilization(available_torque: float, friction_load: float) -> float:

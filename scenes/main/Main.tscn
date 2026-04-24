@@ -13,6 +13,8 @@
 [ext_resource type="PackedScene" path="res://scenes/components/SmallGear.tscn" id="12_smallgear"]
 [ext_resource type="PackedScene" path="res://scenes/components/MediumGear.tscn" id="13_mediumgear"]
 [ext_resource type="PackedScene" path="res://scenes/components/LargeGear.tscn" id="14_largegear"]
+[ext_resource type="Script" uid="uid://bvoynwgg0ietr" path="res://scripts/features/ui/main_menu_controller.gd" id="15_mainmenu"]
+[ext_resource type="Script" path="res://scripts/features/gameplay/win_controller.gd" id="16_wincontroller"]
 
 [node name="Node2D" type="Node2D" unique_id=1465959995]
 
@@ -29,7 +31,7 @@ power_source_path = NodePath("")
 [node name="Network" type="Node2D" parent="." unique_id=1857059566]
 
 [node name="CentralEngine" type="Node2D" parent="Network" unique_id=159928825]
-position = Vector2(576, 323)
+position = Vector2(576, 579)
 script = ExtResource("7_h01f3")
 base_spin_speed = 0.7
 
@@ -79,3 +81,63 @@ script = ExtResource("12_blockade")
 blockade_color = Color(0.056291588, 0.056291603, 0.056291595, 1)
 
 [node name="UI" parent="." unique_id=1047276783 instance=ExtResource("5_a8t5x")]
+visible = false
+
+[node name="MainMenu" type="CanvasLayer" parent="." unique_id=881002211]
+script = ExtResource("15_mainmenu")
+
+[node name="WinController" type="Node2D" parent="." unique_id=617200733]
+script = ExtResource("16_wincontroller")
+
+[node name="Root" type="Control" parent="MainMenu" unique_id=1297656399]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="MainMenu/Root" unique_id=527668046]
+custom_minimum_size = Vector2(420, 220)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -210.0
+offset_top = -110.0
+offset_right = 210.0
+offset_bottom = 110.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="MainMenu/Root/Panel" unique_id=1151717482]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/Root/Panel/Margin" unique_id=534953599]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="MainMenu/Root/Panel/Margin/VBox" unique_id=1227447623]
+layout_mode = 2
+text = "Ramp It Up"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="MainMenu/Root/Panel/Margin/VBox" unique_id=465667828]
+layout_mode = 2
+text = "Build torque routes into the central generator."
+autowrap_mode = 3
+
+[node name="TutorialCheckbox" type="CheckBox" parent="MainMenu/Root/Panel/Margin/VBox" unique_id=1942641820]
+layout_mode = 2
+text = "Enable tutorial (coming soon)"
+
+[node name="StartButton" type="Button" parent="MainMenu/Root/Panel/Margin/VBox" unique_id=1157671497]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "Start Game"

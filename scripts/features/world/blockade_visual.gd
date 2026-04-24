@@ -8,6 +8,11 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var blockade_color: Color = Color(0.0, 0.0, 0.0, 0.85)
 @export var fog_color: Color = Color(0.0, 0.0, 0.0, 0.28)
 @export var ring_color: Color = Color(0.72, 0.84, 1.0, 0.72)
+@export var exploration_light_enabled: bool = true
+@export var exploration_light_color: Color = Color(1.0, 0.94, 0.78, 0.18)
+@export var exploration_light_core_color: Color = Color(1.0, 0.98, 0.86, 0.24)
+@export var exploration_light_steps: int = 6
+@export var exploration_light_inner_ratio: float = 0.24
 @export var world_half_width: float = PROJECT_PATHS_SCRIPT.WORLD_HALF_WIDTH
 @export var world_height: float = PROJECT_PATHS_SCRIPT.WORLD_VERTICAL_EXTENT
 
@@ -320,6 +325,7 @@ func _draw() -> void:
 		_center.y - world_height, _center.y + world_height
 	)
 	draw_colored_polygon(blockade_pts, blockade_color)
+	_draw_exploration_light(half_angle)
 
 	# Fog outside the frontier cone-sector in upper world.
 	# Built as a single concave polygon: full upper-world rectangle with a
@@ -346,6 +352,42 @@ func _draw() -> void:
 	var right_edge := _cone_apex + (Vector2.RIGHT.rotated(right_angle) * _visual_unlocked_radius)
 	draw_line(_cone_apex, left_edge, ring_color, 2.0, true)
 	draw_line(_cone_apex, right_edge, ring_color, 2.0, true)
+
+
+func _draw_exploration_light(half_angle: float) -> void:
+	if not exploration_light_enabled:
+		return
+
+	var radius := maxf(_visual_unlocked_radius, 2.0)
+	var steps := maxi(exploration_light_steps, 1)
+	var inner_ratio := clampf(exploration_light_inner_ratio, 0.0, 0.95)
+	var inner_radius := maxf(radius * inner_ratio, 1.0)
+	var up_angle := -PI * 0.5
+	var right_angle := up_angle + half_angle
+	var left_angle := up_angle - half_angle
+
+	var torque_reference := maxf(PROJECT_PATHS_SCRIPT.POWER_NODE_TARGET_ROUTE_TORQUE, 1.0)
+	var torque_intensity := clampf(_smoothed_torque / torque_reference, 0.0, 1.0)
+	var intensity := lerpf(0.55, 1.0, torque_intensity)
+
+	for step in range(steps):
+		var t0 := float(step) / float(steps)
+		var t1 := float(step + 1) / float(steps)
+		var r0 := lerpf(inner_radius, radius, t0)
+		var r1 := lerpf(inner_radius, radius, t1)
+		var ring_radius := (r0 + r1) * 0.5
+		var ring_width := maxf(r1 - r0, 1.0)
+		var falloff := 1.0 - t0
+		var alpha := exploration_light_color.a * falloff * falloff * intensity
+		if alpha <= 0.001:
+			continue
+		var ring_color_value := Color(exploration_light_color.r, exploration_light_color.g, exploration_light_color.b, alpha)
+		draw_arc(_cone_apex, ring_radius, left_angle, right_angle, 72, ring_color_value, ring_width, true)
+
+	var core_alpha := exploration_light_core_color.a * intensity
+	if core_alpha > 0.001:
+		var core_color := Color(exploration_light_core_color.r, exploration_light_core_color.g, exploration_light_core_color.b, core_alpha)
+		draw_arc(_cone_apex, inner_radius * 0.5, left_angle, right_angle, 72, core_color, maxf(inner_radius, 2.0), true)
 
 
 func _draw_fog_feather(half_angle: float) -> void:
