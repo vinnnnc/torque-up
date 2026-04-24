@@ -27,44 +27,31 @@ script = ExtResource("1_r0du0")
 
 [node name="GameManager" type="Node" parent="." unique_id=1419560908]
 script = ExtResource("1_glv2v")
+power_source_path = NodePath("")
 
 [node name="Grid" type="Node2D" parent="." unique_id=1014952225]
 
 [node name="Network" type="Node2D" parent="." unique_id=1857059566]
 
 [node name="CentralEngine" type="Node2D" parent="Network" unique_id=159928825]
-position = Vector2(576, 520)
+position = Vector2(576, 1262)
 script = ExtResource("7_h01f3")
 base_spin_speed = 0.7
 
 [node name="Visual" type="Node2D" parent="Network/CentralEngine" unique_id=279898126]
 script = ExtResource("6_m4n62")
-tooth_count = 32
-outer_radius = 34.0
-inner_radius = 31.0
-hub_radius = 9.92
+tooth_count = 798
+outer_radius = 800.0
+inner_radius = 797.0
+hub_radius = 255.04
 tooth_depth = 3.0
 body_color = Color(0.46, 0.34, 0.22, 1)
 tooth_color = Color(0.74, 0.58, 0.36, 1)
 outline_color = Color(0.16, 0.1, 0.06, 1)
 
-[node name="PowerSource" type="Node2D" parent="Network" unique_id=761662706]
-position = Vector2(576, 323)
-script = ExtResource("7_h01f3")
-always_active = true
-base_spin_speed = 1.45
-torque_spin_factor = 0.015
-
-[node name="Visual" type="Node2D" parent="Network/PowerSource" unique_id=1191795328]
-script = ExtResource("6_m4n62")
-tooth_count = 24
-outer_radius = 26.0
-inner_radius = 23.0
-hub_radius = 7.36
-tooth_depth = 3.0
-body_color = Color(0.26, 0.48, 0.78, 1)
-tooth_color = Color(0.4, 0.68, 1, 1)
-outline_color = Color(0.07, 0.14, 0.23, 1)
+[node name="Art" type="Sprite2D" parent="Network/CentralEngine" unique_id=279898127]
+z_index = 321
+z_as_relative = false
 
 [node name="Components" type="Node2D" parent="Network" unique_id=739929044]
 position = Vector2(0, -1)
@@ -86,6 +73,7 @@ flywheel_scene = ExtResource("16_flywheel")
 clutch_scene = ExtResource("17_clutch")
 differential_scene = ExtResource("18_differential")
 chain_scene = ExtResource("19_chain")
+power_source_path = NodePath("")
 
 [node name="DevLevelEditor" type="Node" parent="." unique_id=642312004]
 script = ExtResource("10_21m0i")
@@ -103,5 +91,6 @@ script = ExtResource("11_71kjp")
 
 [node name="Blockade" type="Node2D" parent="." unique_id=1234567890]
 script = ExtResource("12_blockade")
+blockade_color = Color(0.056291588, 0.056291603, 0.056291595, 1)
 
 [node name="UI" parent="." unique_id=1047276783 instance=ExtResource("5_a8t5x")]

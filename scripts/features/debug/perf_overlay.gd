@@ -53,7 +53,7 @@ func _build_ui() -> void:
 	_root_panel.offset_left = 12.0
 	_root_panel.offset_top = 12.0
 	_root_panel.offset_right = 344.0
-	_root_panel.offset_bottom = 188.0
+	_root_panel.offset_bottom = 212.0
 	add_child(_root_panel)
 
 	var margin := MarginContainer.new()
@@ -79,6 +79,7 @@ func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
 	var last_ms := float(gm_stats.get("last_recalc_ms", 0.0))
 	var avg_ms := float(gm_stats.get("avg_recalc_ms", 0.0))
 	var peak_ms := float(gm_stats.get("peak_recalc_ms", 0.0))
+	var solver_mode := str(gm_stats.get("solver_mode", "unknown"))
 	var dirty := bool(gm_stats.get("network_dirty", false))
 	var dirty_wait := float(gm_stats.get("dirty_wait_ms", 0.0))
 	var tick_hz := float(gm_stats.get("sim_tick_hz", 0.0))
@@ -86,6 +87,14 @@ func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
 	var profiles := int(gm_stats.get("profile_count", 0))
 	var underpowered := bool(gm_stats.get("underpowered", false))
 	var components := int(gm_stats.get("component_count", 0))
+	var threaded_enabled := bool(gm_stats.get("threaded_solver_enabled", false))
+	var threaded_running := bool(gm_stats.get("threaded_solver_running", false))
+	var threaded_eligible := bool(gm_stats.get("threaded_solver_eligible", false))
+	var threaded_threshold := int(gm_stats.get("threaded_solver_threshold", 0))
+
+	var thread_req_ms := float(gm_stats.get("thread_request_ms", 0.0))
+	var thread_work_ms := float(gm_stats.get("thread_worker_ms", 0.0))
+	var thread_apply_ms := float(gm_stats.get("thread_apply_ms", 0.0))
 
 	var selected := str(placement_stats.get("selected_component", ""))
 	var placement_dirty := bool(placement_stats.get("context_dirty", false))
@@ -95,6 +104,8 @@ func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
 	_label.text = "Perf Overlay (F9)\n" \
 		+ "FPS: %d\n" % fps \
 		+ "Recalc ms  last/avg/peak: %.2f / %.2f / %.2f\n" % [last_ms, avg_ms, peak_ms] \
+		+ "Solver: %s  enabled: %s  eligible: %s  running: %s  threshold: %d\n" % [solver_mode, str(threaded_enabled), str(threaded_eligible), str(threaded_running), threaded_threshold] \
+		+ "Thread req/work/apply ms: %.1f / %.1f / %.1f\n" % [thread_req_ms, thread_work_ms, thread_apply_ms] \
 		+ "Network tick Hz: %.1f  dirty: %s  wait: %.1fms\n" % [tick_hz, str(dirty), dirty_wait] \
 		+ "Reachable: %d  profiles: %d  components: %d\n" % [reachable, profiles, components] \
 		+ "Underpowered: %s\n" % str(underpowered) \

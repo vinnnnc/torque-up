@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+const MINIMAP_VIEW_SCRIPT = preload("res://scripts/features/ui/minimap_view.gd")
 const HOVER_PICK_RADIUS := 30.0
 const TOOLTIP_OFFSET := Vector2(18.0, 18.0)
 const OVERLAY_REFRESH_INTERVAL := 0.12
@@ -23,6 +24,10 @@ const FEEDBACK_DURATION := 2.4
 @onready var _game_manager: Node = get_node_or_null("../GameManager")
 @onready var _placement_controller: Node2D = get_node_or_null("../PlacementController")
 @onready var _network_node: Node2D = get_node_or_null("../Network")
+@onready var _camera_node: Camera2D = get_node_or_null("../Camera2D")
+@onready var _frontier_node: Node = get_node_or_null("../Blockade")
+@onready var _components_container: Node2D = get_node_or_null("../Network/Components")
+@onready var _engine_node: Node2D = get_node_or_null("../Network/CentralEngine")
 
 const COMPONENT_NONE := PROJECT_PATHS_SCRIPT.COMPONENT_NONE
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
@@ -51,6 +56,8 @@ var _overlay_refresh_accum: float = 0.0
 var _feedback_label: Label = null
 var _feedback_timer: float = 0.0
 var _layer_indicator_label: Label = null
+var _minimap_panel: PanelContainer = null
+var _minimap_view: Control = null
 var _placement_mode: String = "mesh"
 
 
@@ -83,6 +90,7 @@ func _ready() -> void:
 	_build_network_overlay()
 	_build_feedback_toast()
 	_build_layer_indicator()
+	_build_minimap()
 
 	var signal_bus := get_node_or_null("/root/SignalBus")
 	if signal_bus and not signal_bus.network_changed.is_connected(_on_network_changed):
@@ -149,7 +157,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, rpm: float) -> void:
 	_horsepower_value.text = "%.1f" % horsepower
-	_torque_value.text = "%.1f" % available_torque
+	_torque_value.text = "%.1f" % maxf(available_torque, 0.0)
 	_efficiency_value.text = "%.1f%%" % (efficiency * 100.0)
 	_rpm_value.text = "%.0f" % rpm
 	if _overlay_visible:
@@ -479,6 +487,58 @@ func _build_layer_indicator() -> void:
 	_update_layer_indicator()
 
 
+func _build_minimap() -> void:
+	_minimap_panel = PanelContainer.new()
+	_minimap_panel.anchor_left = 1.0
+	_minimap_panel.anchor_right = 1.0
+	_minimap_panel.anchor_top = 1.0
+	_minimap_panel.anchor_bottom = 1.0
+	_minimap_panel.offset_left = -272.0
+	_minimap_panel.offset_top = -262.0
+	_minimap_panel.offset_right = -18.0
+	_minimap_panel.offset_bottom = -84.0
+	_minimap_panel.custom_minimum_size = Vector2(240.0, 160.0)
+	add_child(_minimap_panel)
+
+	var margin := MarginContainer.new()
+	margin.layout_mode = 2
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_minimap_panel.add_child(margin)
+
+	var minimap_title := Label.new()
+	minimap_title.text = "Minimap"
+	minimap_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	minimap_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	minimap_title.modulate = Color(0.9, 0.94, 1.0, 0.95)
+
+	var stack := VBoxContainer.new()
+	stack.layout_mode = 2
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 6)
+	margin.add_child(stack)
+	stack.add_child(minimap_title)
+
+	_minimap_view = MINIMAP_VIEW_SCRIPT.new()
+	_minimap_view.custom_minimum_size = Vector2(220.0, 130.0)
+	_minimap_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_minimap_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_child(_minimap_view)
+
+	if _minimap_view.has_method("set_context"):
+		_minimap_view.call(
+			"set_context",
+			_camera_node,
+			_frontier_node,
+			_network_node,
+			_components_container,
+			_engine_node
+		)
+
+
 func _cycle_mesh_origin_focus() -> void:
 	if _placement_controller == null or not _placement_controller.has_method("cycle_mesh_origin_focus"):
 		return
@@ -560,19 +620,31 @@ func _update_network_overlay() -> void:
 		return
 
 	var snapshot := _get_overlay_snapshot()
+	var high_speed_count := _count_high_speed_components()
 	var lines: Array = []
 	lines.append("Network Overlay [%s]" % OS.get_keycode_string(overlay_toggle_key))
 	if snapshot.is_empty() or not bool(snapshot.get("connected", false)):
 		lines.append("No engine-connected route")
+		if high_speed_count > 0:
+			lines.append("High-Speed Components: %d" % high_speed_count)
 		lines.append("Hover any part for local stats")
 		_overlay_label.text = _join_parts(lines, "\n")
 		return
 
 	lines.append("HP: %.1f" % float(snapshot.get("horsepower", 0.0)))
-	lines.append("Delivered Torque: %.1f" % float(snapshot.get("delivered_torque", 0.0)))
+	var hp_target_hint := _get_hp_target_hint(
+		float(snapshot.get("horsepower", 0.0)),
+		int(snapshot.get("connected_source_count", 0))
+	)
+	if not hp_target_hint.is_empty():
+		lines.append("Target Band: %s" % hp_target_hint)
+	lines.append("Net Torque (HUD): %.1f" % maxf(float(snapshot.get("net_torque", 0.0)), 0.0))
+	lines.append("Engine Input Torque: %.1f" % float(snapshot.get("delivered_torque", 0.0)))
+	lines.append("Engine Load Torque: %.1f" % float(snapshot.get("engine_load_torque", 0.0)))
 	lines.append("Engine RPM: %.0f" % float(snapshot.get("engine_rpm", 0.0)))
 	lines.append("Efficiency: %.1f%%" % (float(snapshot.get("efficiency", 0.0)) * 100.0))
 	lines.append("Friction Load: %.1f" % float(snapshot.get("friction_load", 0.0)))
+	lines.append("High-Speed Components: %d" % high_speed_count)
 	lines.append(
 		"Sources: %d/%d  Reachable: %d" % [
 			int(snapshot.get("connected_source_count", 0)),
@@ -586,6 +658,40 @@ func _update_network_overlay() -> void:
 		lines.append("Bottleneck: %s (%.1f loss)" % [bottleneck_name, float(snapshot.get("bottleneck_loss", 0.0))])
 	lines.append("Hold Shift while hovering for raw values")
 	_overlay_label.text = _join_parts(lines, "\n")
+
+
+func _count_high_speed_components() -> int:
+	if _components_container == null:
+		return 0
+	var count := 0
+	for child in _components_container.get_children():
+		var component := child as Node2D
+		if component == null:
+			continue
+		if _get_component_rpm(component) >= PROJECT_PATHS_SCRIPT.DRIVETRAIN_HIGH_SPEED_VISUAL_RPM:
+			count += 1
+	return count
+
+
+func _get_hp_target_hint(horsepower: float, connected_source_count: int) -> String:
+	if connected_source_count <= 0:
+		return ""
+
+	if connected_source_count <= 1:
+		if horsepower < PROJECT_PATHS_SCRIPT.EARLY_ROUTE_HP_TARGET_MIN:
+			return "Below first-route target"
+		if horsepower > PROJECT_PATHS_SCRIPT.EARLY_ROUTE_HP_TARGET_MAX:
+			return "Above first-route target"
+		return "Within first-route target"
+
+	if connected_source_count <= 2:
+		if horsepower < PROJECT_PATHS_SCRIPT.EARLY_OPTIMIZED_HP_TARGET_MIN:
+			return "Below early-optimized target"
+		if horsepower > PROJECT_PATHS_SCRIPT.EARLY_OPTIMIZED_HP_TARGET_MAX:
+			return "Above early-optimized target"
+		return "Within early-optimized target"
+
+	return ""
 
 
 func _find_hover_component(world_pos: Vector2) -> Node2D:
@@ -696,10 +802,23 @@ func _append_type_specific_lines(lines: Array, component: Node2D, snapshot: Dict
 		_:
 			if component.name == "CentralEngine":
 				lines.append("Role: Scoring sink")
+				var operating_state := str(snapshot.get("engine_operating_state", ""))
+				if not operating_state.is_empty():
+					lines.append("Operating State: %s" % _format_source_state_label(operating_state))
+				var input_hp := float(snapshot.get("engine_input_horsepower", -1.0))
+				if input_hp >= 0.0:
+					lines.append("Input HP: %.1f" % input_hp)
 			elif component.name.begins_with("Power"):
 				var rated_output: Variant = component.get("rated_torque_output")
 				if rated_output != null:
 					lines.append("Rated Torque: %.1f" % float(rated_output))
+				var source_status := str(snapshot.get("source_status", ""))
+				if not source_status.is_empty():
+					lines.append("Source State: %s" % _format_source_state_label(source_status))
+				var source_rpm := float(snapshot.get("source_rpm", -1.0))
+				var source_no_load := float(snapshot.get("source_no_load_rpm", -1.0))
+				if source_rpm >= 0.0 and source_no_load > 0.0:
+					lines.append("Source RPM: %.0f / %.0f" % [source_rpm, source_no_load])
 				var remaining_budget := float(snapshot.get("source_remaining_budget", -1.0))
 				if remaining_budget >= 0.0:
 					lines.append("Remaining Budget: %.1f" % remaining_budget)
@@ -737,6 +856,14 @@ func _get_component_badges(component: Node2D, snapshot: Dictionary) -> Array:
 	var route_active: Variant = component.get("_is_on_engine_route")
 	if route_active != null and bool(route_active):
 		badges.append("Engine Route")
+	if component.name.begins_with("Power"):
+		var source_status := str(snapshot.get("source_status", ""))
+		if not source_status.is_empty():
+			badges.append(_format_source_state_label(source_status))
+	if component.name == "CentralEngine":
+		var engine_state := str(snapshot.get("engine_operating_state", ""))
+		if not engine_state.is_empty():
+			badges.append(_format_source_state_label(engine_state))
 	if bool(snapshot.get("bottleneck", false)):
 		badges.append("Bottleneck")
 	var stalled: Variant = component.get("_is_stalled")
@@ -793,6 +920,22 @@ func _get_component_type(component: Node2D, snapshot: Dictionary) -> String:
 	if not snapshot_type.is_empty():
 		return snapshot_type
 	return str(component.get_meta("component_type", ""))
+
+
+func _format_source_state_label(state: String) -> String:
+	match state:
+		"in_band":
+			return "In Band"
+		"near_limit":
+			return "Near Limit"
+		"braking":
+			return "Braking"
+		"bogging":
+			return "Bogging"
+		"overspeed":
+			return "Overspeed"
+		_:
+			return state.capitalize()
 
 
 func _get_component_rpm(component: Node2D) -> float:

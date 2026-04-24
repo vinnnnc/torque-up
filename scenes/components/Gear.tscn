@@ -8,3 +8,6 @@ script = ExtResource("1_47weg")
 
 [node name="Visual" type="Node2D" parent="." unique_id=912632092]
 script = ExtResource("2_tthv6")
+
+[node name="Art" type="Sprite2D" parent="." unique_id=912632093]
+z_index = 1

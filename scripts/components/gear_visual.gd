@@ -2,6 +2,7 @@
 extends Node2D
 class_name GearVisual
 const VisualUtilsScript = preload("res://scripts/components/visual_utils.gd")
+const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 
 const DEFAULT_GEAR_MODULE: float = 2.0
 const DEFAULT_GEAR_ADDENDUM: float = DEFAULT_GEAR_MODULE * 0.80
@@ -38,10 +39,39 @@ var _shaft_phase: float = 0.0
 var _mode_phase: float = 0.0
 var _mode_pulse: float = 0.0
 var _mode_spin_speed: float = 0.0
+var _presentation_visible: bool = true
 
 func _ready() -> void:
 	_sync_module_profile()
+	_ensure_visibility_notifier()
 	queue_redraw()
+
+
+func _ensure_visibility_notifier() -> void:
+	if Engine.is_editor_hint():
+		return
+	var notifier := get_node_or_null("PresentationVisibility") as VisibleOnScreenNotifier2D
+	if notifier == null:
+		notifier = VisibleOnScreenNotifier2D.new()
+		notifier.name = "PresentationVisibility"
+		add_child(notifier)
+	var bounds_radius := maxf(outer_radius + 24.0, 32.0)
+	notifier.rect = Rect2(Vector2(-bounds_radius, -bounds_radius), Vector2(bounds_radius * 2.0, bounds_radius * 2.0))
+	if not notifier.screen_entered.is_connected(_on_screen_entered):
+		notifier.screen_entered.connect(_on_screen_entered)
+	if not notifier.screen_exited.is_connected(_on_screen_exited):
+		notifier.screen_exited.connect(_on_screen_exited)
+	_presentation_visible = notifier.is_on_screen()
+
+
+func _on_screen_entered() -> void:
+	_presentation_visible = true
+	if not Engine.is_editor_hint():
+		queue_redraw()
+
+
+func _on_screen_exited() -> void:
+	_presentation_visible = false
 
 
 func _process(delta: float) -> void:
@@ -49,6 +79,9 @@ func _process(delta: float) -> void:
 		# Keep inspector edits live in the 2D editor by forcing redraw
 		_sync_module_profile(false)
 		queue_redraw()
+		return
+
+	if not _presentation_visible:
 		return
 
 	if visual_mode == "shaft":
@@ -72,16 +105,13 @@ func _sync_module_profile(redraw: bool = true) -> void:
 			queue_redraw()
 		return
 
-	var safe_module := maxf(module_size, 0.5)
+	var safe_module := maxf(module_size / maxf(PROJECT_PATHS_SCRIPT.GEAR_TOOTH_DENSITY_SCALE, 0.1), 0.5)
 	var safe_outer := maxf(outer_radius, safe_module * 4.0)
 	if not is_equal_approx(safe_outer, outer_radius):
 		outer_radius = safe_outer
 
 	var pitch_radius := maxf(safe_outer - DEFAULT_GEAR_ADDENDUM, safe_module * 3.0)
-	var computed_tooth_count := maxi(
-		MIN_GEAR_TOOTH_COUNT,
-		int(round((pitch_radius * 2.0) / safe_module))
-	)
+	var computed_tooth_count := PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(safe_outer)
 	var computed_inner := maxf(2.0, pitch_radius - DEFAULT_GEAR_DEDENDUM)
 	var computed_depth := safe_outer - computed_inner
 	var computed_hub := maxf(safe_module * 1.4, computed_inner * DEFAULT_GEAR_HUB_RADIUS_RATIO)
@@ -111,26 +141,37 @@ func _draw() -> void:
 
 	var pitch: float = TAU / float(max(tooth_count, 1))
 	var root_radius: float = maxf(inner_radius, outer_radius - tooth_depth)
-	var half_top: float = pitch * tooth_width_ratio * 0.5
-	var half_base: float = minf(pitch * 0.5, half_top * 1.28)
+	var half_top: float = pitch * tooth_width_ratio * 0.4
+	var half_base: float = minf(pitch * 0.5, half_top * 2.0)
 
-	# Base wheel body below the teeth ring.
-	draw_circle(Vector2.ZERO, root_radius, body_color)
 
 	# Draw each tooth as a slightly tapered quad with a flat top.
 	for tooth_index in range(tooth_count):
 		var center_angle: float = pitch * float(tooth_index)
-		var base_left: Vector2 = Vector2.RIGHT.rotated(center_angle - half_base) * root_radius
+		var base_left: Vector2 = Vector2.RIGHT.rotated(center_angle - half_base) * (root_radius -1.0)
 		var top_left: Vector2 = Vector2.RIGHT.rotated(center_angle - half_top) * outer_radius
 		var top_right: Vector2 = Vector2.RIGHT.rotated(center_angle + half_top) * outer_radius
-		var base_right: Vector2 = Vector2.RIGHT.rotated(center_angle + half_base) * root_radius
+		var base_right: Vector2 = Vector2.RIGHT.rotated(center_angle + half_base) * (root_radius -1.0)
 		var tooth_poly := PackedVector2Array([base_left, top_left, top_right, base_right])
 		draw_colored_polygon(tooth_poly, tooth_color)
+
+    # Base wheel body below the teeth ring.
+	draw_circle(Vector2.ZERO, root_radius, body_color)
 
 	# Subtle contour strokes that do not cut through the tooth faces.
 	var contour_color := Color(outline_color.r, outline_color.g, outline_color.b, clampf(outline_color.a * outline_strength, 0.0, 1.0))
 	draw_arc(Vector2.ZERO, root_radius, 0.0, TAU, 72, contour_color, 1.1)
 	draw_arc(Vector2.ZERO, outer_radius, 0.0, TAU, 72, contour_color, 1.0)
+
+	if _should_draw_high_speed_gear(absf(_mode_spin_speed), root_radius):
+		_draw_high_speed_ring(root_radius)
+		draw_circle(Vector2.ZERO, hub_radius, Color(0.2, 0.22, 0.24, 1.0))
+		draw_arc(Vector2.ZERO, hub_radius, 0.0, TAU, 36, outline_color, 1.2)
+		if pulley_mode:
+			_draw_pulley_ring()
+		if is_stacked_top:
+			_draw_stacked_ring()
+		return
 
 	draw_circle(Vector2.ZERO, hub_radius, Color(0.2, 0.22, 0.24, 1.0))
 	draw_arc(Vector2.ZERO, hub_radius, 0.0, TAU, 36, outline_color, 1.2)
@@ -252,6 +293,43 @@ func set_shaft_spin_speed(speed: float) -> void:
 
 func set_visual_spin_speed(speed: float) -> void:
 	_mode_spin_speed = speed
+
+
+func _is_placed_component_visual() -> bool:
+	if Engine.is_editor_hint():
+		return false
+	var parent_node := get_parent() as Node
+	if parent_node == null:
+		return false
+	return parent_node.has_meta("component_type")
+
+
+func _should_draw_high_speed_gear(angular_speed: float, root_radius: float) -> bool:
+	if visual_mode != "gear":
+		return false
+	if not _is_placed_component_visual():
+		return false
+	if root_radius <= 0.0:
+		return false
+	return angular_speed >= PROJECT_PATHS_SCRIPT.DRIVETRAIN_HIGH_SPEED_VISUAL_ANGULAR_SPEED
+
+
+func _draw_high_speed_ring(root_radius: float) -> void:
+	var blur_outer := outer_radius
+	var blur_mid := lerpf(root_radius, outer_radius, 0.78)
+	var blur_inner := lerpf(root_radius, outer_radius, 0.58)
+	var blur_color := Color(tooth_color.r, tooth_color.g, tooth_color.b, 0.36)
+	var marker_color := Color(0.94, 0.98, 1.0, 0.82)
+	draw_arc(Vector2.ZERO, blur_outer, 0.0, TAU, 96, blur_color, 3.2)
+	draw_arc(Vector2.ZERO, blur_mid, 0.0, TAU, 96, blur_color, 2.2)
+	draw_arc(Vector2.ZERO, blur_inner, 0.0, TAU, 96, Color(blur_color.r, blur_color.g, blur_color.b, 0.2), 1.4)
+
+	var marker_count := 8
+	for i in range(marker_count):
+		var angle := _mode_phase + (TAU * float(i) / float(marker_count))
+		var inner := Vector2.RIGHT.rotated(angle) * (blur_mid - 1.6)
+		var outer := Vector2.RIGHT.rotated(angle) * (blur_outer + 0.6)
+		draw_line(inner, outer, marker_color, 1.4)
 
 func set_flywheel_color(c: Color) -> void:
 	flywheel_color = c

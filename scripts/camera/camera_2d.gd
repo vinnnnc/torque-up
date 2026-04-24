@@ -14,6 +14,8 @@ var _is_dragging: bool = false
 var _camera_min_y: float = 0.0
 var _camera_max_y: float = 0.0
 
+@onready var _frontier_node: Node = get_node_or_null("../Blockade")
+
 
 func _ready() -> void:
 	_camera_min_y = PROJECT_PATHS_SCRIPT.CAMERA_MIN_Y
@@ -26,9 +28,8 @@ func _process(delta: float) -> void:
 
 	if input_dir.length_squared() > 0.0:
 		position += input_dir.normalized() * pan_speed * delta * zoom.x
-	
-	# Constrain camera position
-	position.y = clampf(position.y, _camera_min_y, _camera_max_y)
+
+	_constrain_camera_position()
 
 
 func _input(event: InputEvent) -> void:
@@ -47,10 +48,18 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _is_dragging:
 		var motion := event as InputEventMouseMotion
 		position -= motion.relative * zoom.x
-		# Constrain camera position after drag
-		position.y = clampf(position.y, _camera_min_y, _camera_max_y)
+		_constrain_camera_position()
 
 
 func _apply_zoom(next_zoom: float) -> void:
 	var clamped_zoom := clampf(next_zoom, min_zoom, max_zoom)
 	zoom = Vector2.ONE * clamped_zoom
+
+
+func _constrain_camera_position() -> void:
+	position.y = clampf(position.y, _camera_min_y, _camera_max_y)
+
+	if _frontier_node != null and _frontier_node.has_method("constrain_world_position"):
+		var constrained: Variant = _frontier_node.call("constrain_world_position", global_position, 0.0, false)
+		if constrained is Vector2:
+			global_position = constrained

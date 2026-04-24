@@ -16,6 +16,8 @@ const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
 const MODE_MESH := "mesh"
 const MODE_COMPOUND := "compound"
+const DENSE_MESH_FASTPATH_COMPONENT_THRESHOLD := 240
+const DENSE_MESH_ULTRA_FASTPATH_COMPONENT_THRESHOLD := 420
 
 ## Set by PlacementController when this handler is activated (e.g. "gear_small").
 var component_id: String = ""
@@ -67,20 +69,33 @@ func update_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 
 func _update_mesh_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 	_ensure_mesh_focus_is_valid(mouse_pos)
+	var component_count := ctx.components_container.get_child_count() if ctx.components_container != null else 0
+	var dense_fastpath := component_count >= DENSE_MESH_FASTPATH_COMPONENT_THRESHOLD
+	if component_count >= DENSE_MESH_ULTRA_FASTPATH_COMPONENT_THRESHOLD:
+		_active_snap_origin_node = null
+		preview_node.global_position = mouse_pos
+		preview_node.modulate = VALID_PREVIEW_COLOR
+		ctx.socket_markers = []
+		ctx.has_active_socket = false
+		ctx.active_socket_valid = false
+		return
 	var selected_radius := get_connection_radius()
 	var blocked_positions := ctx.get_cached_blocked_positions()
 	var origin_filter := Callable(self, "_is_mesh_origin_compatible")
 	var collision_filter := Callable(self, "_should_block_mesh_collision")
 	# Pre-resolve the nearest snap origin so the collision filter knows which
 	# compound stack is being approached this frame.
-	var nearest_origin_raw = ctx.placement_rules.get_nearest_snap_origin(
-		mouse_pos, ctx.components_container, ctx.get_cached_seed_positions(),
-		blocked_positions, selected_radius, origin_filter, collision_filter
-	)
-	if nearest_origin_raw is Dictionary:
-		_active_snap_origin_node = (nearest_origin_raw as Dictionary).get("node", null) as Node2D
-	else:
+	if dense_fastpath:
 		_active_snap_origin_node = null
+	else:
+		var nearest_origin_raw = ctx.placement_rules.get_nearest_snap_origin(
+			mouse_pos, ctx.components_container, ctx.get_cached_seed_positions(),
+			blocked_positions, selected_radius, origin_filter, collision_filter
+		)
+		if nearest_origin_raw is Dictionary:
+			_active_snap_origin_node = (nearest_origin_raw as Dictionary).get("node", null) as Node2D
+		else:
+			_active_snap_origin_node = null
 	var snap_result: Dictionary = ctx.placement_rules.get_snap_result(
 		mouse_pos,
 		ctx.components_container,
@@ -101,7 +116,7 @@ func _update_mesh_preview(mouse_pos: Vector2, preview_node: Node2D) -> void:
 		selected_radius,
 		collision_filter
 	)
-	ctx.socket_markers = _build_mesh_arc_markers(mouse_pos, blocked_positions, selected_radius)
+	ctx.socket_markers = [] if dense_fastpath else _build_mesh_arc_markers(mouse_pos, blocked_positions, selected_radius)
 	ctx.active_socket_position = snapped_pos
 	ctx.has_active_socket = use_snap and snap_result.get("origin", null) != null
 

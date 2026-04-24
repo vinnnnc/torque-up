@@ -16,6 +16,7 @@ Torque is gathered from active sources using source-specific output functions or
 Important current rule:
 
 - `active` for scoring means connected to the central engine
+- source-to-engine connectivity is evaluated through player-placed components only (power nodes and engine do not bridge islands)
 
 Torque processing currently includes:
 
@@ -34,6 +35,7 @@ Efficiency is currently based on:
 - number of reachable engine-network connections
 - zone efficiency modifiers
 - a small mixed-network bonus when a reachable network uses both gears and shafts
+- a gear-variation bonus based on small/medium/large gear diversity (with optional chain/compound add-ons)
 - compound stack added-layer penalty (per added layer)
 
 Efficiency is clamped to a minimum floor.

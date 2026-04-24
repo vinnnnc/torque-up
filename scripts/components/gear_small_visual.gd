@@ -1,7 +1,7 @@
 @tool
 extends GearVisual
 
-const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+# const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 
 func _ready() -> void:
 	visual_mode = "gear"

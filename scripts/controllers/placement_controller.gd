@@ -37,6 +37,9 @@ const INVALID_PREVIEW_COLOR := Color(1.0, 0.35, 0.35, 0.65)
 const SOCKET_MARKER_COLOR := Color(0.34, 0.72, 1.0, 0.35)
 const SOCKET_MARKER_OUTLINE := Color(0.48, 0.86, 1.0, 0.95)
 const ACTIVE_SOCKET_COLOR := Color(0.95, 0.97, 1.0, 0.95)
+const OVERLAY_ARC_PIXELS_PER_SEGMENT := 8.0
+const OVERLAY_ARC_MIN_POINTS := 18
+const OVERLAY_ARC_MAX_POINTS := 220
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
 const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
@@ -58,6 +61,7 @@ var _placement_context_dirty: bool = true
 var _last_preview_mouse_pos := Vector2.ZERO
 var _has_last_preview_mouse: bool = false
 var _last_preview_refresh_msec: int = 0
+var _skip_next_dirty_flag: bool = false
 # -- Per-component handlers ---------------------------------------------------
 var _handler_ctx: PlacementHandlerContext
 var _handlers: Dictionary = {}
@@ -66,19 +70,27 @@ var _handlers: Dictionary = {}
 @onready var _central_engine: Node2D = get_node_or_null("../Network/CentralEngine")
 @onready var _network_node: Node2D = get_node_or_null("../Network")
 @onready var _barriers_node: Node2D = get_node_or_null("../Barriers")
+@onready var _frontier_node: Node = get_node_or_null("../Blockade")
 @onready var _signal_bus: Node = get_node_or_null("/root/SignalBus")
 
 const AUTO_DELETE_INTERVAL_MSEC := 55
 const PREVIEW_REFRESH_INTERVAL_MSEC := 33
+const DENSE_MESH_PREVIEW_COMPONENT_THRESHOLD := 240
+const DENSE_MESH_PREVIEW_REFRESH_INTERVAL_MSEC := 90
+const DENSE_MESH_PREVIEW_MIN_MOUSE_DELTA_SQ := 9.0
 const DRAG_RELEASE_DEADZONE := 14.0
 const SHAFT_PLACEMENT_BLOCK_RADIUS := PROJECT_PATHS_SCRIPT.SHAFT_MIN_CONNECTION_RADIUS
 
 
 func _ready() -> void:
+	z_as_relative = false
+	z_index = PROJECT_PATHS_SCRIPT.PLACEMENT_OVERLAY_Z_INDEX
 	_placement_rules.socket_count = socket_count
 	_placement_rules.socket_radius = socket_radius
 	_placement_rules.snap_max_distance = snap_max_distance
 	_placement_rules.placement_clearance = placement_clearance
+	_placement_rules.world_position_validator = func(world_pos: Vector2, clearance_radius: float) -> bool:
+		return _is_inside_frontier(world_pos, clearance_radius)
 	_setup_handler_context()
 	_setup_handlers()
 	_create_preview_gear()
@@ -115,7 +127,11 @@ func _setup_handler_context() -> void:
 	_handler_ctx.fn_get_node_tooth_count = _get_node_tooth_count
 	_handler_ctx.fn_get_cached_seed_positions = _get_cached_seed_positions
 	_handler_ctx.fn_get_cached_blocked_positions = _get_cached_blocked_positions
-	_handler_ctx.fn_mark_dirty = func(): _placement_context_dirty = true
+	_handler_ctx.fn_mark_dirty = func():
+		if _skip_next_dirty_flag:
+			_skip_next_dirty_flag = false
+		else:
+			_placement_context_dirty = true
 	_handler_ctx.fn_get_all_snap_origins = _get_all_snap_origins
 
 
@@ -208,11 +224,13 @@ func _draw() -> void:
 			if kind == "arc_segment":
 				var start_angle := float(marker.get("start_angle", 0.0))
 				var end_angle := float(marker.get("end_angle", 0.0))
-				draw_arc(center_local, radius, start_angle, end_angle, 18, SOCKET_MARKER_COLOR, 3.0)
-				draw_arc(center_local, radius, start_angle, end_angle, 18, SOCKET_MARKER_OUTLINE, 1.6)
+				var segment_points := _get_overlay_arc_point_count(radius, absf(end_angle - start_angle))
+				draw_arc(center_local, radius, start_angle, end_angle, segment_points, SOCKET_MARKER_COLOR, 3.0)
+				draw_arc(center_local, radius, start_angle, end_angle, segment_points, SOCKET_MARKER_OUTLINE, 1.6)
 			elif kind == "ring":
-				draw_arc(center_local, radius, 0.0, TAU, 36, SOCKET_MARKER_COLOR, 3.0)
-				draw_arc(center_local, radius, 0.0, TAU, 36, SOCKET_MARKER_OUTLINE, 1.6)
+				var ring_points := _get_overlay_arc_point_count(radius, TAU)
+				draw_arc(center_local, radius, 0.0, TAU, ring_points, SOCKET_MARKER_COLOR, 3.0)
+				draw_arc(center_local, radius, 0.0, TAU, ring_points, SOCKET_MARKER_OUTLINE, 1.6)
 			continue
 		if not marker_world_pos is Vector2:
 			continue
@@ -226,11 +244,19 @@ func _draw() -> void:
 	if _handler_ctx.has_active_socket:
 		var active_local := to_local(_handler_ctx.active_socket_position)
 		var ring_color := ACTIVE_SOCKET_COLOR if _handler_ctx.active_socket_valid else INVALID_PREVIEW_COLOR
-		draw_arc(active_local, 8.0, 0.0, TAU, 28, ring_color, 2.0)
+		draw_arc(active_local, 8.0, 0.0, TAU, _get_overlay_arc_point_count(8.0, TAU), ring_color, 2.0)
 
 	var handler := _get_active_handler()
 	if handler != null:
 		handler.draw_overlay(self)
+
+
+func _get_overlay_arc_point_count(radius: float, sweep_angle: float) -> int:
+	var safe_radius := maxf(radius, 1.0)
+	var safe_sweep := clampf(absf(sweep_angle), 0.001, TAU)
+	var arc_length := safe_radius * safe_sweep
+	var estimated_points := int(ceil(arc_length / OVERLAY_ARC_PIXELS_PER_SEGMENT))
+	return clampi(estimated_points, OVERLAY_ARC_MIN_POINTS, OVERLAY_ARC_MAX_POINTS)
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
@@ -272,6 +298,10 @@ func _input(event: InputEvent) -> void:
 
 	if not _is_selected_placeable_component():
 		return
+	if not _is_inside_frontier(world_pos):
+		if _signal_bus and _signal_bus.has_signal("placement_feedback"):
+			_signal_bus.placement_feedback.emit("Fog blocks placement outside the unlocked frontier.")
+		return
 
 	var active_handler := _get_active_handler()
 	if active_handler == null:
@@ -304,6 +334,16 @@ func _should_refresh_preview(mouse_world_pos: Vector2) -> bool:
 	if _placement_context_dirty:
 		return true
 
+	# In very dense layouts mesh preview calculations are expensive. Throttle
+	# refreshes to a fixed interval to keep cursor movement smooth.
+	if _handler_ctx != null and _handler_ctx.active_mode == "mesh" and _components_container != null:
+		if _components_container.get_child_count() >= DENSE_MESH_PREVIEW_COMPONENT_THRESHOLD:
+			if not _has_last_preview_mouse:
+				return true
+			if _last_preview_mouse_pos.distance_squared_to(mouse_world_pos) < DENSE_MESH_PREVIEW_MIN_MOUSE_DELTA_SQ:
+				return false
+			return (Time.get_ticks_msec() - _last_preview_refresh_msec) >= DENSE_MESH_PREVIEW_REFRESH_INTERVAL_MSEC
+
 	if not _has_last_preview_mouse:
 		return true
 
@@ -326,18 +366,22 @@ func _record_preview_refresh(mouse_world_pos: Vector2) -> void:
 
 func _get_cached_seed_positions() -> Array:
 	if _placement_context_dirty:
-		_cached_seed_positions = _get_seed_positions()
-		_cached_blocked_positions = _get_blocked_positions()
-		_placement_context_dirty = false
+		_rebuild_placement_context_cache()
 	return _cached_seed_positions
 
 
 func _get_cached_blocked_positions() -> Array:
 	if _placement_context_dirty:
-		_cached_seed_positions = _get_seed_positions()
-		_cached_blocked_positions = _get_blocked_positions()
-		_placement_context_dirty = false
+		_rebuild_placement_context_cache()
 	return _cached_blocked_positions
+
+
+func _rebuild_placement_context_cache() -> void:
+	_cached_seed_positions = _get_seed_positions()
+	_cached_blocked_positions = _get_blocked_positions()
+	if _placement_rules != null and _placement_rules.has_method("rebuild_mesh_cache"):
+		_placement_rules.call("rebuild_mesh_cache", _components_container, _cached_seed_positions, _cached_blocked_positions)
+	_placement_context_dirty = false
 
 
 func _create_preview_gear() -> void:
@@ -411,7 +455,15 @@ func _on_placement_mode_changed(mode: String) -> void:
 
 
 func _on_layout_changed(_component: Node2D = null) -> void:
+	if _component != null and _placement_rules != null and _placement_rules.has_method("add_component_to_mesh_cache"):
+		var incremental_ok := bool(_placement_rules.call("add_component_to_mesh_cache", _component))
+		if incremental_ok:
+			_skip_next_dirty_flag = true
+			_has_last_preview_mouse = false
+			return
 	_placement_context_dirty = true
+	if _placement_rules != null and _placement_rules.has_method("invalidate_mesh_cache"):
+		_placement_rules.call("invalidate_mesh_cache")
 	_has_last_preview_mouse = false
 
 
@@ -420,6 +472,8 @@ func _update_preview_visibility() -> void:
 		_preview_gear.visible = _is_selected_placeable_component() and _selected_component != COMPONENT_CHAIN
 
 func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
+	if not _is_inside_frontier(pos):
+		return
 	var handler := _handlers.get(_selected_component, null) as GearPlacementHandler
 	if handler == null:
 		return
@@ -629,6 +683,20 @@ func _get_node_outer_radius(node: Node2D) -> float:
 	if node == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
+	if node.name == "CentralEngine" and PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
+		var engine_visual := node.get_node_or_null("Visual")
+		if engine_visual != null:
+			var engine_radius_value: Variant = engine_visual.get("outer_radius")
+			if engine_radius_value != null:
+				return maxf(2.0, float(engine_radius_value))
+
+	# Anchor nodes can use a smaller mechanical mesh radius than their visuals.
+	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
+	if anchor_mesh_radius != null:
+		var mesh_radius := float(anchor_mesh_radius)
+		if mesh_radius > 0.0:
+			return mesh_radius
+
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
@@ -707,6 +775,8 @@ func place_shaft_between_gears(first_gear: GearComponent, second_gear: GearCompo
 
 
 func place_chain_step(world_pos: Vector2) -> void:
+	if not _is_inside_frontier(world_pos):
+		return
 	var handler := _handlers.get(COMPONENT_CHAIN, null) as ChainPlacementHandler
 	if handler != null:
 		handler.on_click(world_pos)
@@ -742,6 +812,8 @@ func _get_all_snap_origins() -> Array:
 	for anchor in network_anchors:
 		if anchor == null:
 			continue
+		if not _is_inside_frontier(anchor.global_position, 0.0):
+			continue
 		if not origin_nodes_set.has(anchor.get_instance_id()):
 			origins.append({
 				"position": anchor.global_position,
@@ -750,6 +822,12 @@ func _get_all_snap_origins() -> Array:
 			})
 	
 	return origins
+
+
+func _is_inside_frontier(world_pos: Vector2, clearance_radius: float = 0.0) -> bool:
+	if _frontier_node != null and _frontier_node.has_method("is_position_unlocked"):
+		return bool(_frontier_node.call("is_position_unlocked", world_pos, clearance_radius))
+	return true
 
 
 func _is_shaft_component(node: Node2D) -> bool:
@@ -767,11 +845,15 @@ func _get_shaft_connection_radius(node: Node2D) -> float:
 
 
 func get_perf_stats() -> Dictionary:
+	var mesh_cache_stats: Dictionary = {}
+	if _placement_rules != null and _placement_rules.has_method("get_mesh_cache_stats"):
+		mesh_cache_stats = _placement_rules.call("get_mesh_cache_stats") as Dictionary
 	return {
 		"selected_component": _selected_component,
 		"context_dirty": _placement_context_dirty,
 		"socket_markers": _handler_ctx.socket_markers.size() if _handler_ctx != null else 0,
 		"has_active_socket": _handler_ctx.has_active_socket if _handler_ctx != null else false,
-		"components": _components_container.get_child_count()
+		"components": _components_container.get_child_count(),
+		"mesh_cache": mesh_cache_stats,
 	}
 

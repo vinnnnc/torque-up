@@ -70,7 +70,7 @@ Core design decisions around game progression, session management, and scoring.
 **Goal**: Learn connectivity and basic torque flow.
 
 - Start with engine + 1 balanced power node within build radius
-- Introduce: gears, shafts, chain, basic zones
+- Introduce: gears, chain, basic zones
 - Learning objectives:
     - Place components to connect power to engine
     - Observe that disconnected nodes don't contribute to HP
@@ -89,8 +89,8 @@ Core design decisions around game progression, session management, and scoring.
 - New mechanics:
     - Ratio propagation: size differences affect RPM/torque trade
     - Sprocket auto-conversion on chain placement
+    - Power-node RPM limit model (sources drop to neutral, then braking when oversped)
     - Zone modifiers (heat, cold, dust)
-    - Flywheel for inertia management
 
 **Learning objectives**:
 
@@ -109,8 +109,7 @@ Core design decisions around game progression, session management, and scoring.
 
 - Introduce:
     - Compound gear stacks for local ratio without footprint
-    - Differential for multi-source merging (simplified mechanics)
-    - Clutch for temporary isolation during optimization
+    - Multi-source convergence via ratio normalization (no differential)
     - Barriers and complex zone layouts
     - Reliability multiplier: jam penalties
 
@@ -167,7 +166,6 @@ Core design decisions around game progression, session management, and scoring.
 | --------------- | ---- |
 | Gear mesh       | 2%   |
 | Chain           | 3%   |
-| Shaft           | 1%   |
 | Compound layer  | 4%   |
 | Zone (hot)      | 3-8% |
 | Zone (cold)     | -2%  |

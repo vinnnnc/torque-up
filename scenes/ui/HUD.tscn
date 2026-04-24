@@ -6,14 +6,14 @@
 script = ExtResource("1_hud")
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=44089220]
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -286.0
-offset_top = 19.0
-offset_right = -22.0
-offset_bottom = 165.0
-grow_horizontal = 0
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = -161.0
+offset_right = 279.0
+offset_bottom = -15.0
+grow_vertical = 0
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=50519175]
 layout_mode = 2
@@ -84,10 +84,10 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -355.0
-offset_top = -63.0
-offset_right = 355.0
-offset_bottom = -19.0
+offset_left = -205.0
+offset_top = -58.0
+offset_right = 205.0
+offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
 
@@ -101,6 +101,7 @@ theme_override_constants/margin_bottom = 6
 [node name="Hotbar" type="HBoxContainer" parent="HotbarPanel/MarginContainer" unique_id=1443427638]
 layout_mode = 2
 theme_override_constants/separation = 6
+alignment = 1
 
 [node name="NoneButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=858038806]
 custom_minimum_size = Vector2(56, 26)
@@ -138,6 +139,7 @@ tooltip_text = "Place rigid shafts (low friction, bridging)"
 disabled = true
 toggle_mode = true
 text = "Shaft"
+flat = true
 
 [node name="BeltButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=1878592687]
 custom_minimum_size = Vector2(56, 26)
@@ -147,25 +149,31 @@ toggle_mode = true
 text = "Chain"
 
 [node name="FlywheelButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=-2061521730]
+visible = false
 custom_minimum_size = Vector2(72, 26)
 layout_mode = 2
 tooltip_text = "Place a flywheel — buffers torque spikes and covers short stalls"
 toggle_mode = true
 text = "Flywheel"
+flat = true
 
 [node name="ClutchButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=-950410619]
+visible = false
 custom_minimum_size = Vector2(64, 26)
 layout_mode = 2
 tooltip_text = "Place a clutch — one-way coupling, freewheels when source RPM falls below network RPM"
 toggle_mode = true
 text = "Clutch"
+flat = true
 
 [node name="DifferentialButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=160700492]
+visible = false
 custom_minimum_size = Vector2(72, 26)
 layout_mode = 2
 tooltip_text = "Place a differential — merges two power sources into one output, blending RPM and summing torque"
 toggle_mode = true
 text = "Diff"
+flat = true
 
 [node name="DeleteButton" type="Button" parent="HotbarPanel/MarginContainer/Hotbar" unique_id=659612899]
 custom_minimum_size = Vector2(64, 26)

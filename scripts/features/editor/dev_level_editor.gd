@@ -25,6 +25,7 @@ const TOOL_DELETE_DEV := "delete_dev"
 @export var network_node_path: NodePath = NodePath("../Network")
 @export var zones_node_path: NodePath = NodePath("../Zones")
 @export var barriers_node_path: NodePath = NodePath("../Barriers")
+@export var blockade_node_path: NodePath = NodePath("../Blockade")
 @export var menu_toggle_hotkey: Key = KEY_F5
 @export var save_hotkey: Key = KEY_F6
 @export var load_hotkey: Key = KEY_F7
@@ -34,6 +35,7 @@ const TOOL_DELETE_DEV := "delete_dev"
 @onready var _network_node: Node2D = get_node_or_null(network_node_path)
 @onready var _zones_node: Node2D = get_node_or_null(zones_node_path)
 @onready var _barriers_node: Node2D = get_node_or_null(barriers_node_path)
+@onready var _blockade_node: Node = get_node_or_null(blockade_node_path)
 @onready var _signal_bus: Node = get_node_or_null("/root/SignalBus")
 
 @export var small_gear_scene: PackedScene
@@ -156,8 +158,117 @@ func clear_level() -> void:
 	for child in _components_container.get_children():
 		child.queue_free()
 	_clear_dev_world_nodes()
+	if _blockade_node != null and _blockade_node.has_method("reset_frontier"):
+		_blockade_node.call("reset_frontier")
+	await get_tree().process_frame
 	_notify_layout_changed()
 	print("DevLevelEditor: cleared placed components")
+
+
+func generate_procedural_map(node_count: int = -1, zone_count: int = -1) -> void:
+	# Clear existing dev-placed network nodes and world objects.
+	_clear_dev_world_nodes()
+	if _network_node != null:
+		for child in _network_node.get_children():
+			if child.has_meta("dev_created"):
+				child.queue_free()
+
+	# Wait one frame so queue_free'd nodes are removed before we place new ones.
+	await get_tree().process_frame
+
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+
+	var dev_apex_raise := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_CONE_APEX_RAISE, 0.0)
+	var apex := Vector2(
+		PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_X,
+		PROJECT_PATHS_SCRIPT.ENGINE_WORLD_Y + PROJECT_PATHS_SCRIPT.FRONTIER_CONE_APEX_Y_OFFSET - dev_apex_raise
+	)
+	var half_angle := deg_to_rad(PROJECT_PATHS_SCRIPT.FRONTIER_CONE_HALF_ANGLE_DEGREES)
+	var requested_node_count := node_count
+	if requested_node_count <= 0:
+		requested_node_count = PROJECT_PATHS_SCRIPT.DEV_MAP_DEFAULT_NODE_COUNT
+	var total_nodes := maxi(requested_node_count, 1)
+	var start_radius := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_START_RADIUS, 24.0)
+	var radius_budget := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_RADIUS_BUDGET, 200.0)
+	var max_radius := start_radius + radius_budget
+	var node_spacing := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_SPACING, 24.0)
+	var row_spacing := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_ROW_SPACING, 24.0)
+	var radial_jitter := clampf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_RADIAL_JITTER, 0.0, row_spacing * 0.45)
+	var angle_jitter := deg_to_rad(clampf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_ANGLE_JITTER_DEGREES, 0.0, 12.0))
+	var min_separation := node_spacing * clampf(PROJECT_PATHS_SCRIPT.DEV_MAP_NODE_MIN_SEPARATION_FACTOR, 0.4, 1.0)
+	var world_max_radius := maxf(1200.0, PROJECT_PATHS_SCRIPT.WORLD_VERTICAL_EXTENT - 220.0)
+	max_radius = minf(max_radius, world_max_radius)
+
+	var placed_positions: Array[Vector2] = []
+	var placed_nodes := 0
+	var row_radius := start_radius
+	while placed_nodes < total_nodes and row_radius <= max_radius:
+		var arc_length := maxf((half_angle * 2.0) * row_radius, node_spacing)
+		var slot_count := maxi(1, int(floor(arc_length / node_spacing)) + 1)
+		var angle_step := 0.0
+		if slot_count > 1:
+			angle_step = (half_angle * 2.0) / float(slot_count - 1)
+
+		for slot_index in range(slot_count):
+			if placed_nodes >= total_nodes:
+				break
+
+			var slot_angle := 0.0
+			if slot_count > 1:
+				slot_angle = -half_angle + (angle_step * float(slot_index))
+			slot_angle += rng.randf_range(-angle_jitter, angle_jitter)
+			slot_angle = clampf(slot_angle, -half_angle, half_angle)
+
+			var slot_radius := row_radius + rng.randf_range(-radial_jitter, radial_jitter)
+			slot_radius = clampf(slot_radius, start_radius, max_radius)
+			var world_pos := apex + Vector2(sin(slot_angle), -cos(slot_angle)) * slot_radius
+
+			if _is_too_close_to_positions(world_pos, placed_positions, min_separation):
+				continue
+
+			_create_power_node(world_pos, _pick_procedural_power_type(rng))
+			placed_positions.append(world_pos)
+			placed_nodes += 1
+		row_radius += row_spacing
+    # Scatter environmental zones.
+	var requested_zone_count := zone_count
+	if requested_zone_count <= 0:
+		requested_zone_count = PROJECT_PATHS_SCRIPT.DEV_MAP_DEFAULT_ZONE_COUNT
+	var zone_types := ["heat", "cold", "dust"]
+	var zones_placed := 0
+	var zone_attempts := 0
+	var zone_max_radius := minf(max_radius + PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_RADIUS_EXTRA, world_max_radius)
+	while zones_placed < requested_zone_count and zone_attempts < requested_zone_count * 20:
+		zone_attempts += 1
+		var r := rng.randf_range(start_radius, zone_max_radius)
+		var angle := rng.randf_range(-half_angle, half_angle)
+		var world_pos := apex + Vector2(sin(angle), -cos(angle)) * r
+		_create_zone(world_pos, zone_types[rng.randi() % zone_types.size()])
+		zones_placed += 1
+
+	_notify_layout_changed()
+	print("DevLevelEditor: generated %d/%d power nodes, %d zones" % [
+		placed_positions.size(), total_nodes, zones_placed
+	])
+
+
+func _is_too_close_to_positions(world_pos: Vector2, placed_positions: Array, min_separation: float) -> bool:
+	for p_raw in placed_positions:
+		var p := p_raw as Vector2
+		if world_pos.distance_to(p) < min_separation:
+			return true
+	return false
+
+
+func _pick_procedural_power_type(rng: RandomNumberGenerator) -> String:
+	# Weighted type: 50% balanced, 30% torque, 20% speed.
+	var rand_val := rng.randf()
+	if rand_val < 0.5:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED
+	if rand_val < 0.8:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE
+	return PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED
 
 
 func _serialize_components() -> Dictionary:
@@ -487,6 +598,12 @@ func _build_menu() -> void:
 	var sep2 := HSeparator.new()
 	layout.add_child(sep2)
 
+	var gen_btn := Button.new()
+	gen_btn.text = "Generate Map"
+	gen_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gen_btn.pressed.connect(func() -> void: generate_procedural_map())
+	layout.add_child(gen_btn)
+
 	var row := HBoxContainer.new()
 	layout.add_child(row)
 
@@ -586,7 +703,8 @@ func _create_power_node(world_pos: Vector2, power_type: String, overrides: Dicti
 	power_node.name = _generate_unique_name("Power", _network_node)
 	power_node.global_position = world_pos
 	power_node.set_meta("dev_created", true)
-	power_node.set("always_active", true)
+	var always_active := bool(overrides.get("always_active", false))
+	power_node.set("always_active", always_active)
 	power_node.set("power_node_type", power_type)
 
 	if overrides.has("rated_torque_output"):
@@ -599,7 +717,15 @@ func _create_power_node(world_pos: Vector2, power_type: String, overrides: Dicti
 	var visual := Node2D.new()
 	visual.name = "Visual"
 	visual.set_script(visual_script)
-	visual.set("outer_radius", 26.0)
+	var visual_radius: float
+	match power_type:
+		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
+			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_TORQUE
+		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
+			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_SPEED
+		_:
+			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
+	visual.set("outer_radius", visual_radius)
 	visual.set("use_module_profile", true)
 	_match_power_visual_style(visual, power_type)
 	power_node.add_child(visual)

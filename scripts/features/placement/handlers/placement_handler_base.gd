@@ -8,7 +8,6 @@
 class_name PlacementHandlerBase
 extends RefCounted
 
-const PlacementHandlerContext = preload("res://scripts/features/placement/handlers/placement_handler_context.gd")
 
 ## The shared context provided by PlacementController.
 var ctx: PlacementHandlerContext = null

@@ -6,8 +6,13 @@ const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 @export var always_active: bool = false
 @export_enum("balanced", "torque", "speed") var power_node_type: String = PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED
 @export var rated_torque_output: float = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
+@export var stall_torque_output: float = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_BALANCED
+@export var no_load_rpm: float = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_BALANCED
+@export var brake_torque_cap: float = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_BALANCED
+@export var source_outer_radius: float = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
 @export var min_output_ratio: float = 0.7
 @export var output_droop_strength: float = 0.45
+@export var near_limit_ratio: float = PROJECT_PATHS_SCRIPT.POWER_NODE_NEAR_LIMIT_RATIO
 @export var base_spin_speed: float = 1.2
 @export var torque_spin_factor: float = 0.02
 @export var inactive_spin_multiplier: float = 0.0
@@ -30,14 +35,50 @@ var _direct_drive_speed: float = 0.0
 var _use_direct_drive: bool = false
 var _base_position: Vector2 = Vector2.ZERO
 var _jitter_phase: float = 0.0
+var _last_source_rpm: float = 0.0
+var _last_source_torque: float = 0.0
+var _source_status: String = "in_band"
+var _presentation_visible: bool = true
 
 const SPIN_SMOOTHING: float = 6.0
 
 func _ready() -> void:
+	_apply_engine_presentation_tunables()
 	_base_position = position
 	_jitter_phase = randf() * TAU
+	_ensure_visibility_notifier()
 	if is_equal_approx(rated_torque_output, PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT):
 		_apply_type_defaults()
+
+
+func _ensure_visibility_notifier() -> void:
+	if Engine.is_editor_hint():
+		return
+	var notifier := get_node_or_null("PresentationVisibility") as VisibleOnScreenNotifier2D
+	if notifier == null:
+		notifier = VisibleOnScreenNotifier2D.new()
+		notifier.name = "PresentationVisibility"
+		add_child(notifier)
+	var bounds_radius := maxf(source_outer_radius + 32.0, 48.0)
+	var visual_node := get_node_or_null("Visual")
+	if visual_node != null:
+		var visual_outer_radius: Variant = visual_node.get("outer_radius")
+		if visual_outer_radius != null:
+			bounds_radius = maxf(bounds_radius, float(visual_outer_radius) + 32.0)
+	notifier.rect = Rect2(Vector2(-bounds_radius, -bounds_radius), Vector2(bounds_radius * 2.0, bounds_radius * 2.0))
+	if not notifier.screen_entered.is_connected(_on_screen_entered):
+		notifier.screen_entered.connect(_on_screen_entered)
+	if not notifier.screen_exited.is_connected(_on_screen_exited):
+		notifier.screen_exited.connect(_on_screen_exited)
+	_presentation_visible = notifier.is_on_screen()
+
+
+func _on_screen_entered() -> void:
+	_presentation_visible = true
+
+
+func _on_screen_exited() -> void:
+	_presentation_visible = false
 
 func set_network_torque(torque_value: float, network_active: bool, spin_direction: float = 1.0) -> void:
 	_network_torque = max(torque_value, 0.0)
@@ -66,38 +107,92 @@ func set_engine_route_state(route_active: bool) -> void:
 
 
 func get_power_output(load_ratio: float = 0.0) -> float:
-	var clamped_load := clampf(load_ratio, 0.0, 1.0)
-	var droop := output_droop_strength * clamped_load
-	var ratio := maxf(min_output_ratio, 1.0 - droop)
-	return rated_torque_output * ratio
+	var source_rpm := _to_rpm(_angular_velocity)
+	return get_source_torque_at_speed_rpm(source_rpm, load_ratio)
+
+
+func get_source_torque_at_speed_rpm(source_rpm: float, load_ratio: float = 0.0) -> float:
+	_last_source_rpm = maxf(source_rpm, 0.0)
+	var safe_no_load := maxf(no_load_rpm, 1.0)
+	var safe_stall := maxf(stall_torque_output, 0.0)
+	var safe_brake_cap := maxf(brake_torque_cap, 0.0)
+
+	var torque_value := safe_stall * (1.0 - (_last_source_rpm / safe_no_load))
+	torque_value = clampf(torque_value, -safe_brake_cap, safe_stall)
+
+	if torque_value > 0.0:
+		var clamped_load := clampf(load_ratio, 0.0, 1.0)
+		var droop := output_droop_strength * clamped_load
+		var ratio := maxf(min_output_ratio, 1.0 - droop)
+		torque_value *= ratio
+
+	_last_source_torque = torque_value
+	_update_source_status()
+	return torque_value
+
+
+func get_source_status() -> String:
+	return _source_status
+
+
+func is_source_braking() -> bool:
+	return _source_status == "braking"
+
+
+func get_source_no_load_rpm() -> float:
+	return no_load_rpm
+
+
+func get_source_last_rpm() -> float:
+	return _last_source_rpm
+
+
+func get_source_torque_estimate() -> float:
+	return _last_source_torque
 
 
 func _apply_type_defaults() -> void:
 	match power_node_type:
 		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
+			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_TORQUE
+			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_TORQUE
+			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_TORQUE
+			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_TORQUE
 			rated_torque_output = PROJECT_PATHS_SCRIPT.TORQUE_NODE_OUTPUT
 			base_spin_speed = 0.85
 			torque_spin_factor = 0.01
-			min_output_ratio = 0.76
-			output_droop_strength = 0.3
+			min_output_ratio = 0.80
+			output_droop_strength = 0.25
 		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
+			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_SPEED
+			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_SPEED
+			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_SPEED
+			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_SPEED
 			rated_torque_output = PROJECT_PATHS_SCRIPT.SPEED_NODE_OUTPUT
 			base_spin_speed = 3.2
 			torque_spin_factor = 0.045
-			min_output_ratio = 0.66
-			output_droop_strength = 0.5
+			min_output_ratio = 0.72
+			output_droop_strength = 0.42
 		_:
+			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_BALANCED
+			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_BALANCED
+			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_BALANCED
+			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
 			rated_torque_output = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
 			base_spin_speed = 1.45
 			torque_spin_factor = 0.02
-			min_output_ratio = 0.7
-			output_droop_strength = 0.45
+			min_output_ratio = 0.74
+			output_droop_strength = 0.38
 
 
 func get_angular_velocity() -> float:
 	return _angular_velocity
 
 func _process(delta: float) -> void:
+	if not _is_underpowered and not _is_connected_to_network and not _is_on_engine_route and not always_active:
+		if absf(_angular_velocity) <= 0.0005 and absf(_direct_drive_speed) <= 0.0005 and _network_torque <= 0.001:
+			return
+
 	var target_speed := 0.0
 
 	if not _is_underpowered:
@@ -116,6 +211,8 @@ func _process(delta: float) -> void:
 				target_speed += base_spin_speed * inactive_spin_multiplier
 
 	_angular_velocity = lerpf(_angular_velocity, target_speed, min(delta * SPIN_SMOOTHING, 1.0))
+	if not Engine.is_editor_hint() and not _presentation_visible:
+		return
 	rotation += _angular_velocity * delta
 
 	var target_tint := underpowered_tint
@@ -131,3 +228,62 @@ func _process(delta: float) -> void:
 		position = _base_position + jitter_offset
 	else:
 		position = position.lerp(_base_position, min(delta * 12.0, 1.0))
+
+
+func _update_source_status() -> void:
+	if _last_source_torque < -0.001:
+		_source_status = "braking"
+		return
+
+	var safe_no_load := maxf(no_load_rpm, 1.0)
+	if _last_source_rpm >= (safe_no_load * near_limit_ratio):
+		_source_status = "near_limit"
+		return
+
+	_source_status = "in_band"
+
+
+func _to_rpm(angular_speed: float) -> float:
+	return absf(angular_speed) * (60.0 / TAU)
+
+
+func _apply_engine_presentation_tunables() -> void:
+	if name != "CentralEngine":
+		return
+
+	z_as_relative = false
+	z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX
+
+	var visual := get_node_or_null("Visual")
+	if visual == null:
+		return
+	visual.z_as_relative = false
+	visual.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX
+	_ensure_engine_art_node()
+
+	var outer_radius := maxf(PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_OUTER_RADIUS, 8.0)
+	var inner_radius := maxf(outer_radius * PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_INNER_RADIUS_RATIO, 2.0)
+	var hub_radius := maxf(outer_radius * PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_HUB_RADIUS_RATIO, 2.0)
+	var auto_tooth_count := PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(outer_radius)
+
+	visual.set("outer_radius", outer_radius)
+	visual.set("inner_radius", inner_radius)
+	visual.set("hub_radius", hub_radius)
+	visual.set("tooth_depth", PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_TOOTH_DEPTH)
+	visual.set("tooth_count", auto_tooth_count)
+	visual.set("engine_shell_mode", false)
+
+	if visual.has_method("queue_redraw"):
+		visual.call("queue_redraw")
+
+
+func _ensure_engine_art_node() -> void:
+	var art_node := get_node_or_null("Art") as Sprite2D
+	if art_node == null:
+		art_node = Sprite2D.new()
+		art_node.name = "Art"
+		add_child(art_node)
+
+	art_node.centered = true
+	art_node.z_as_relative = false
+	art_node.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX + 1

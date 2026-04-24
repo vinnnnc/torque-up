@@ -9,15 +9,165 @@ var snap_max_distance: float = PROJECT_PATHS_SCRIPT.DEFAULT_SNAP_MAX_DISTANCE
 var placement_clearance: float = PROJECT_PATHS_SCRIPT.DEFAULT_PLACEMENT_CLEARANCE
 var marker_samples: int = 24
 var component_radius: float = PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
+## Optional callback signature: func(world_pos: Vector2, clearance_radius: float) -> bool
+var world_position_validator: Callable = Callable()
 
 const MAX_ORIGIN_CLEARANCE_TESTS := 6
 const DENSE_LAYOUT_COMPONENT_THRESHOLD := 180
 const DENSE_LAYOUT_MARKER_SAMPLES := 10
 const MAX_DUAL_SNAP_ORIGINS := 10
+const DENSE_LAYOUT_DISABLE_DUAL_SNAP_THRESHOLD := 240
+const MESH_CACHE_CELL_SIZE := 96.0
+const MESH_CACHE_LARGE_RADIUS_THRESHOLD := 180.0
+
+var _mesh_cache_valid: bool = false
+var _mesh_cache_components_container: Node = null
+var _mesh_cache_origins: Array = []
+var _mesh_cache_components: Array = []
+var _mesh_cache_components_grid: Dictionary = {}
+var _mesh_cache_max_component_radius: float = 0.0
+var _mesh_cache_blocked_small: Array = []
+var _mesh_cache_blocked_small_grid: Dictionary = {}
+var _mesh_cache_blocked_large: Array = []
+var _mesh_cache_max_blocked_small_radius: float = 0.0
+var _mesh_cache_blocked_count: int = 0
+
+
+func invalidate_mesh_cache() -> void:
+	_mesh_cache_valid = false
+	_mesh_cache_components_container = null
+	_mesh_cache_origins = []
+	_mesh_cache_components = []
+	_mesh_cache_components_grid = {}
+	_mesh_cache_max_component_radius = 0.0
+	_mesh_cache_blocked_small = []
+	_mesh_cache_blocked_small_grid = {}
+	_mesh_cache_blocked_large = []
+	_mesh_cache_max_blocked_small_radius = 0.0
+	_mesh_cache_blocked_count = 0
+
+
+func rebuild_mesh_cache(components_container: Node, seed_positions: Array = [], blocked_positions: Array = []) -> void:
+	invalidate_mesh_cache()
+	_mesh_cache_components_container = components_container
+	if components_container == null:
+		return
+
+	for child in components_container.get_children():
+		var placed_component := child as Node2D
+		if not placed_component:
+			continue
+		var component_entry := {
+			"node": placed_component,
+			"position": placed_component.global_position,
+			"radius": _get_node_block_radius(placed_component)
+		}
+		var component_index := _mesh_cache_components.size()
+		_mesh_cache_components.append(component_entry)
+		_mesh_cache_max_component_radius = maxf(_mesh_cache_max_component_radius, float(component_entry.get("radius", 0.0)))
+		_grid_insert(_mesh_cache_components_grid, component_entry.get("position", Vector2.ZERO) as Vector2, component_index)
+
+	for blocked_raw in blocked_positions:
+		var blocked_data := _to_origin_data(blocked_raw)
+		if blocked_data.is_empty():
+			continue
+		var blocked_entry := {
+			"position": blocked_data.get("position", Vector2.ZERO),
+			"radius": float(blocked_data.get("radius", 0.0))
+		}
+		_mesh_cache_blocked_count += 1
+		if float(blocked_entry.get("radius", 0.0)) >= MESH_CACHE_LARGE_RADIUS_THRESHOLD:
+			_mesh_cache_blocked_large.append(blocked_entry)
+			continue
+		var blocked_small_index := _mesh_cache_blocked_small.size()
+		_mesh_cache_blocked_small.append(blocked_entry)
+		_mesh_cache_max_blocked_small_radius = maxf(_mesh_cache_max_blocked_small_radius, float(blocked_entry.get("radius", 0.0)))
+		_grid_insert(_mesh_cache_blocked_small_grid, blocked_entry.get("position", Vector2.ZERO) as Vector2, blocked_small_index)
+
+	_mesh_cache_origins = _get_snap_origins_uncached(components_container, seed_positions)
+	_mesh_cache_valid = true
+
+
+func is_mesh_cache_valid() -> bool:
+	return _mesh_cache_valid
+
+
+## Incrementally add a single newly-placed component to an existing cache.
+## Returns false if the cache is not currently valid (caller should fall back to full rebuild).
+func add_component_to_mesh_cache(component: Node2D) -> bool:
+	if not _mesh_cache_valid or _mesh_cache_components_container == null or component == null:
+		return false
+
+	var component_entry := {
+		"node": component,
+		"position": component.global_position,
+		"radius": _get_node_block_radius(component)
+	}
+	var component_index := _mesh_cache_components.size()
+	_mesh_cache_components.append(component_entry)
+	_mesh_cache_max_component_radius = maxf(_mesh_cache_max_component_radius, float(component_entry.get("radius", 0.0)))
+	_grid_insert(_mesh_cache_components_grid, component_entry.get("position", Vector2.ZERO) as Vector2, component_index)
+
+	# Append snap origins contributed by this component.
+	if _is_shaft_component(component):
+		var shaft_radius := _get_shaft_connection_radius(component)
+		var shaft_dir := Vector2.RIGHT.rotated(component.rotation)
+		var endpoint_a := component.global_position + (shaft_dir * shaft_radius)
+		var endpoint_b := component.global_position - (shaft_dir * shaft_radius)
+		if _is_world_position_valid(endpoint_a, 0.0):
+			_mesh_cache_origins.append({
+				"position": endpoint_a,
+				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+				"node": component
+			})
+		if _is_world_position_valid(endpoint_b, 0.0):
+			_mesh_cache_origins.append({
+				"position": endpoint_b,
+				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+				"node": component
+			})
+		return true
+
+	var port_origins := _get_component_port_snap_origins(component)
+	if not port_origins.is_empty():
+		for port_origin_raw in port_origins:
+			var port_origin := port_origin_raw as Dictionary
+			if port_origin.is_empty():
+				continue
+			var port_pos: Vector2 = port_origin.get("position", Vector2.ZERO)
+			if _is_world_position_valid(port_pos, 0.0):
+				_mesh_cache_origins.append(port_origin)
+		return true
+
+	if _is_world_position_valid(component.global_position, 0.0):
+		_mesh_cache_origins.append({
+			"position": component.global_position,
+			"radius": _get_node_connection_radius(component),
+			"node": component
+		})
+	return true
 
 
 func get_snap_origins(components_container: Node, seed_positions: Array = []) -> Array:
-	return _get_snap_origins(components_container, seed_positions)
+	if _has_valid_mesh_cache_for(components_container):
+		return _mesh_cache_origins.duplicate(true)
+	return _get_snap_origins_uncached(components_container, seed_positions)
+
+
+func _has_valid_mesh_cache_for(components_container: Node) -> bool:
+	return _mesh_cache_valid and _mesh_cache_components_container == components_container
+
+
+func _get_query_origins(components_container: Node, seed_positions: Array) -> Array:
+	if _has_valid_mesh_cache_for(components_container):
+		return _mesh_cache_origins
+	return _get_snap_origins_uncached(components_container, seed_positions)
+
+
+func _is_world_position_valid(world_pos: Vector2, clearance_radius: float = 0.0) -> bool:
+	if not world_position_validator.is_valid():
+		return true
+	return bool(world_position_validator.call(world_pos, clearance_radius))
 
 
 func get_available_socket_positions(
@@ -32,7 +182,7 @@ func get_available_socket_positions(
 		return []
 
 	var positions: Array = []
-	var origins := _get_snap_origins(components_container, seed_positions)
+	var origins := _get_query_origins(components_container, seed_positions)
 	for origin_raw in origins:
 		var origin_data := _to_origin_data(origin_raw)
 		if origin_data.is_empty():
@@ -42,6 +192,8 @@ func get_available_socket_positions(
 
 		if origin_data.has("fixed_direction"):
 			var fixed_candidate := _get_snap_candidate_for_origin(Vector2.ZERO, origin_data, component_outer_radius)
+			if not _is_world_position_valid(fixed_candidate, component_outer_radius):
+				continue
 			if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 				positions.append(fixed_candidate)
 			continue
@@ -51,6 +203,8 @@ func get_available_socket_positions(
 		for sample_index in range(marker_samples):
 			var angle := TAU * (float(sample_index) / float(marker_samples))
 			var candidate := origin + Vector2.RIGHT.rotated(angle) * (origin_radius + component_outer_radius)
+			if not _is_world_position_valid(candidate, component_outer_radius):
+				continue
 			if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 				continue
 			positions.append(candidate)
@@ -88,6 +242,8 @@ func get_nearest_available_socket_positions(
 	var positions: Array = []
 	if origin.has("fixed_direction"):
 		var fixed_candidate := _get_snap_candidate_for_origin(world_pos, origin, component_outer_radius)
+		if not _is_world_position_valid(fixed_candidate, component_outer_radius):
+			return positions
 		if not _is_too_close(fixed_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			positions.append(fixed_candidate)
 		return positions
@@ -101,6 +257,8 @@ func get_nearest_available_socket_positions(
 	for sample_index in range(local_marker_samples):
 		var angle := TAU * (float(sample_index) / float(local_marker_samples))
 		var candidate := origin_pos + Vector2.RIGHT.rotated(angle) * (origin_radius + component_outer_radius)
+		if not _is_world_position_valid(candidate, component_outer_radius):
+			continue
 		if _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			continue
 		positions.append(candidate)
@@ -120,7 +278,7 @@ func get_nearest_snap_origin(
 	if components_container == null:
 		return null
 
-	var origins := _get_snap_origins(components_container, seed_positions)
+	var origins := _get_query_origins(components_container, seed_positions)
 	if origins.is_empty():
 		return null
 
@@ -133,7 +291,10 @@ func get_nearest_snap_origin(
 			continue
 
 		var origin_pos: Vector2 = origin_data["position"]
-		var distance_to_mouse := origin_pos.distance_to(world_pos)
+		if not _is_world_position_valid(origin_pos, 0.0):
+			continue
+		var edge_candidate := _get_snap_candidate_for_origin(world_pos, origin_data, component_outer_radius)
+		var distance_to_mouse := edge_candidate.distance_to(world_pos)
 		_push_nearest_origin_candidate(nearest_candidates, origin_data, distance_to_mouse)
 
 	for candidate_entry_raw in nearest_candidates:
@@ -147,6 +308,8 @@ func get_nearest_snap_origin(
 		var _candidate_origin_pos: Vector2 = candidate_origin["position"]
 		var _candidate_origin_radius: float = candidate_origin["radius"]
 		var edge_candidate := _get_snap_candidate_for_origin(world_pos, candidate_origin, component_outer_radius)
+		if not _is_world_position_valid(edge_candidate, component_outer_radius):
+			continue
 		if not _is_too_close(edge_candidate, components_container, blocked_positions, component_outer_radius, collision_filter):
 			return candidate_origin
 
@@ -164,15 +327,17 @@ func get_snap_result(
 	if components_container == null:
 		return {"valid": false, "position": world_pos}
 
-	var dual_candidate := _get_dual_snap_result(
-		world_pos,
-		components_container,
-		seed_positions,
-		blocked_positions,
-		component_outer_radius,
-		origin_filter,
-		collision_filter
-	)
+	var dual_candidate := {"valid": false, "position": world_pos}
+	if components_container.get_child_count() < DENSE_LAYOUT_DISABLE_DUAL_SNAP_THRESHOLD:
+		dual_candidate = _get_dual_snap_result(
+			world_pos,
+			components_container,
+			seed_positions,
+			blocked_positions,
+			component_outer_radius,
+			origin_filter,
+			collision_filter
+		)
 
 	var nearest_origin_raw = get_nearest_snap_origin(
 		world_pos,
@@ -197,6 +362,12 @@ func get_snap_result(
 	var _origin_pos: Vector2 = nearest_origin["position"]
 	var _origin_radius: float = nearest_origin["radius"]
 	var candidate := _get_snap_candidate_for_origin(world_pos, nearest_origin, component_outer_radius)
+	if not _is_world_position_valid(candidate, component_outer_radius):
+		return {
+			"valid": false,
+			"position": candidate,
+			"origin": nearest_origin
+		}
 	var is_close_enough := candidate.distance_to(world_pos) <= snap_max_distance
 	var is_clear := not _is_too_close(candidate, components_container, blocked_positions, component_outer_radius, collision_filter)
 	var single_candidate := {
@@ -224,17 +395,21 @@ func can_place_at(
 ) -> bool:
 	if components_container == null:
 		return false
+	if not _is_world_position_valid(world_pos, component_outer_radius):
+		return false
 
 	return not _is_too_close(world_pos, components_container, blocked_positions, component_outer_radius, collision_filter)
 
 
-func _get_snap_origins(components_container: Node, seed_positions: Array) -> Array:
+func _get_snap_origins_uncached(components_container: Node, seed_positions: Array) -> Array:
 	var origins: Array = []
 
 	for seed_pos in seed_positions:
 		var seed_data := _to_origin_data(seed_pos)
 		if not seed_data.is_empty():
-			origins.append(seed_data)
+			var seed_world_pos: Vector2 = seed_data["position"]
+			if _is_world_position_valid(seed_world_pos, 0.0):
+				origins.append(seed_data)
 
 	for child in components_container.get_children():
 		var placed_component := child as Node2D
@@ -244,16 +419,20 @@ func _get_snap_origins(components_container: Node, seed_positions: Array) -> Arr
 		if _is_shaft_component(placed_component):
 			var shaft_radius := _get_shaft_connection_radius(placed_component)
 			var shaft_dir := Vector2.RIGHT.rotated(placed_component.rotation)
-			origins.append({
-				"position": placed_component.global_position + (shaft_dir * shaft_radius),
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": placed_component
-			})
-			origins.append({
-				"position": placed_component.global_position - (shaft_dir * shaft_radius),
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": placed_component
-			})
+			var endpoint_a := placed_component.global_position + (shaft_dir * shaft_radius)
+			var endpoint_b := placed_component.global_position - (shaft_dir * shaft_radius)
+			if _is_world_position_valid(endpoint_a, 0.0):
+				origins.append({
+					"position": endpoint_a,
+					"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+					"node": placed_component
+				})
+			if _is_world_position_valid(endpoint_b, 0.0):
+				origins.append({
+					"position": endpoint_b,
+					"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
+					"node": placed_component
+				})
 			continue
 
 		var port_origins := _get_component_port_snap_origins(placed_component)
@@ -262,14 +441,17 @@ func _get_snap_origins(components_container: Node, seed_positions: Array) -> Arr
 				var port_origin := port_origin_raw as Dictionary
 				if port_origin.is_empty():
 					continue
-				origins.append(port_origin)
+				var port_pos: Vector2 = port_origin.get("position", Vector2.ZERO)
+				if _is_world_position_valid(port_pos, 0.0):
+					origins.append(port_origin)
 			continue
 
-		origins.append({
-			"position": placed_component.global_position,
-			"radius": _get_node_connection_radius(placed_component),
-			"node": placed_component
-		})
+		if _is_world_position_valid(placed_component.global_position, 0.0):
+			origins.append({
+				"position": placed_component.global_position,
+				"radius": _get_node_connection_radius(placed_component),
+				"node": placed_component
+			})
 
 	return origins
 
@@ -325,7 +507,7 @@ func _get_dual_snap_result(
 	origin_filter: Callable = Callable(),
 	collision_filter: Callable = Callable()
 ) -> Dictionary:
-	var origins := _get_snap_origins(components_container, seed_positions)
+	var origins := _get_query_origins(components_container, seed_positions)
 	if origins.size() < 2:
 		return {"valid": false, "position": world_pos}
 
@@ -429,6 +611,65 @@ func _circle_intersections(c1: Vector2, r1: float, c2: Vector2, r2: float) -> Ar
 
 
 func _is_too_close(candidate: Vector2, components_container: Node, blocked_positions: Array = [], component_outer_radius: float = component_radius, collision_filter: Callable = Callable()) -> bool:
+	if _has_valid_mesh_cache_for(components_container):
+		var component_query_radius := component_outer_radius + _mesh_cache_max_component_radius + 2.0
+		var nearby_component_indices := _query_grid_indices(_mesh_cache_components_grid, candidate, component_query_radius)
+		for component_index_raw in nearby_component_indices:
+			var component_index := int(component_index_raw)
+			if component_index < 0 or component_index >= _mesh_cache_components.size():
+				continue
+			var component_entry := _mesh_cache_components[component_index] as Dictionary
+			if component_entry.is_empty():
+				continue
+			var placed_component := component_entry.get("node", null) as Node2D
+			if placed_component == null:
+				continue
+			if collision_filter.is_valid() and not bool(collision_filter.call(placed_component)):
+				continue
+			var placed_pos := component_entry.get("position", Vector2.ZERO) as Vector2
+			var placed_radius := float(component_entry.get("radius", component_radius))
+			var component_min_distance := placed_radius + component_outer_radius - 0.6
+			if placed_pos.distance_to(candidate) < component_min_distance:
+				return true
+
+		var use_cached_blocked := not blocked_positions.is_empty() and blocked_positions.size() == _mesh_cache_blocked_count
+		if use_cached_blocked:
+			var blocked_small_query_radius := component_outer_radius + _mesh_cache_max_blocked_small_radius + 2.0
+			var nearby_blocked_indices := _query_grid_indices(_mesh_cache_blocked_small_grid, candidate, blocked_small_query_radius)
+			for blocked_index_raw in nearby_blocked_indices:
+				var blocked_index := int(blocked_index_raw)
+				if blocked_index < 0 or blocked_index >= _mesh_cache_blocked_small.size():
+					continue
+				var blocked_entry := _mesh_cache_blocked_small[blocked_index] as Dictionary
+				if blocked_entry.is_empty():
+					continue
+				var blocked_pos := blocked_entry.get("position", Vector2.ZERO) as Vector2
+				var blocked_radius := float(blocked_entry.get("radius", 0.0))
+				var blocked_min_distance := blocked_radius + component_outer_radius - 1.0
+				if blocked_pos.distance_to(candidate) < blocked_min_distance:
+					return true
+
+			for blocked_entry_raw in _mesh_cache_blocked_large:
+				var blocked_large := blocked_entry_raw as Dictionary
+				if blocked_large.is_empty():
+					continue
+				var blocked_large_pos := blocked_large.get("position", Vector2.ZERO) as Vector2
+				var blocked_large_radius := float(blocked_large.get("radius", 0.0))
+				var blocked_large_min_distance := blocked_large_radius + component_outer_radius - 1.0
+				if blocked_large_pos.distance_to(candidate) < blocked_large_min_distance:
+					return true
+		else:
+			for blocked_raw in blocked_positions:
+				var blocked_data := _to_origin_data(blocked_raw)
+				if blocked_data.is_empty():
+					continue
+				var blocked_pos: Vector2 = blocked_data["position"]
+				var blocked_radius: float = blocked_data["radius"]
+				var blocked_min_distance := blocked_radius + component_outer_radius - 1.0
+				if blocked_pos.distance_to(candidate) < blocked_min_distance:
+					return true
+		return false
+
 	for child in components_container.get_children():
 		var placed_component := child as Node2D
 		if not placed_component:
@@ -455,9 +696,73 @@ func _is_too_close(candidate: Vector2, components_container: Node, blocked_posit
 	return false
 
 
+func _grid_key(cell_x: int, cell_y: int) -> String:
+	return "%d:%d" % [cell_x, cell_y]
+
+
+func _grid_insert(grid: Dictionary, world_pos: Vector2, index: int) -> void:
+	var cell_x := int(floor(world_pos.x / MESH_CACHE_CELL_SIZE))
+	var cell_y := int(floor(world_pos.y / MESH_CACHE_CELL_SIZE))
+	var key := _grid_key(cell_x, cell_y)
+	if not grid.has(key):
+		grid[key] = []
+	(grid[key] as Array).append(index)
+
+
+func _query_grid_indices(grid: Dictionary, world_pos: Vector2, radius: float) -> Array:
+	if grid.is_empty():
+		return []
+	var safe_radius := maxf(radius, 0.0)
+	var center_x := int(floor(world_pos.x / MESH_CACHE_CELL_SIZE))
+	var center_y := int(floor(world_pos.y / MESH_CACHE_CELL_SIZE))
+	var cell_radius := int(ceil(safe_radius / MESH_CACHE_CELL_SIZE))
+	var indices: Array = []
+	var seen: Dictionary = {}
+	for cy in range(center_y - cell_radius, center_y + cell_radius + 1):
+		for cx in range(center_x - cell_radius, center_x + cell_radius + 1):
+			var key := _grid_key(cx, cy)
+			if not grid.has(key):
+				continue
+			for idx_raw in (grid[key] as Array):
+				var idx := int(idx_raw)
+				if seen.has(idx):
+					continue
+				seen[idx] = true
+				indices.append(idx)
+	return indices
+
+
+func get_mesh_cache_stats() -> Dictionary:
+	return {
+		"valid": _mesh_cache_valid,
+		"origins": _mesh_cache_origins.size(),
+		"components": _mesh_cache_components.size(),
+		"blocked_small": _mesh_cache_blocked_small.size(),
+		"blocked_large": _mesh_cache_blocked_large.size(),
+		"blocked_total": _mesh_cache_blocked_count,
+		"max_component_radius": _mesh_cache_max_component_radius,
+		"max_blocked_small_radius": _mesh_cache_max_blocked_small_radius,
+	}
+
+
 func _get_node_outer_radius(node: Node2D) -> float:
 	if node == null:
 		return component_radius
+
+	if node.name == "CentralEngine" and PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
+		var engine_visual := node.get_node_or_null("Visual")
+		if engine_visual != null:
+			var engine_radius_value: Variant = engine_visual.get("outer_radius")
+			if engine_radius_value != null:
+				return maxf(2.0, float(engine_radius_value))
+
+	# Anchor nodes can expose a mechanical mesh radius that is independent
+	# from their visible shell size.
+	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
+	if anchor_mesh_radius != null:
+		var mesh_radius := float(anchor_mesh_radius)
+		if mesh_radius > 0.0:
+			return mesh_radius
 
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:

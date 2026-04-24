@@ -33,6 +33,7 @@ var _is_shell_component: bool = false
 var _is_flywheel_component: bool = false
 var _base_rotation: float = 0.0
 var _visual: Node = null
+var _presentation_visible: bool = true
 var _pulley_mode: bool = false
 var _flywheel_energy: float = 0.0
 var _flywheel_peak_speed: float = 0.0
@@ -59,8 +60,51 @@ func _ready() -> void:
 	_is_flywheel_component = component_type == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL
 	_base_rotation = rotation
 	_visual = get_node_or_null("Visual")
+	_ensure_art_node()
+	_ensure_visibility_notifier()
 	_stack_parent_id = int(get_meta("stack_parent_id", -1))
 	_compound_added_layers = _compute_compound_added_layers()
+
+
+func _ensure_art_node() -> void:
+	var art_node := get_node_or_null("Art") as Sprite2D
+	if art_node == null:
+		art_node = Sprite2D.new()
+		art_node.name = "Art"
+		add_child(art_node)
+
+	art_node.centered = true
+	art_node.z_as_relative = true
+	art_node.z_index = 1
+
+
+func _ensure_visibility_notifier() -> void:
+	if Engine.is_editor_hint():
+		return
+	var notifier := get_node_or_null("PresentationVisibility") as VisibleOnScreenNotifier2D
+	if notifier == null:
+		notifier = VisibleOnScreenNotifier2D.new()
+		notifier.name = "PresentationVisibility"
+		add_child(notifier)
+	var bounds_radius := 32.0
+	if _visual != null:
+		var outer_radius_value: Variant = _visual.get("outer_radius")
+		if outer_radius_value != null:
+			bounds_radius = maxf(bounds_radius, float(outer_radius_value) + 24.0)
+	notifier.rect = Rect2(Vector2(-bounds_radius, -bounds_radius), Vector2(bounds_radius * 2.0, bounds_radius * 2.0))
+	if not notifier.screen_entered.is_connected(_on_screen_entered):
+		notifier.screen_entered.connect(_on_screen_entered)
+	if not notifier.screen_exited.is_connected(_on_screen_exited):
+		notifier.screen_exited.connect(_on_screen_exited)
+	_presentation_visible = notifier.is_on_screen()
+
+
+func _on_screen_entered() -> void:
+	_presentation_visible = true
+
+
+func _on_screen_exited() -> void:
+	_presentation_visible = false
 
 func set_torque(value: float) -> void:
 	torque = value
@@ -239,12 +283,18 @@ func _process(delta: float) -> void:
 		var response_penalty := PROJECT_PATHS_SCRIPT.COMPOUND_LAYER_INERTIA_RESPONSE_PENALTY * float(_compound_added_layers)
 		var smoothing_scale := 1.0 / maxf(1.0, 1.0 + response_penalty)
 		angular_velocity = lerpf(angular_velocity, target_velocity, min(delta * SMOOTHING * smoothing_scale, 1.0))
+
+	if not Engine.is_editor_hint() and not _presentation_visible:
+		if _is_shaft_component or _is_shell_component:
+			rotation = _base_rotation
+		return
+
+	if _visual and _visual.has_method("set_visual_spin_speed"):
+		_visual.call("set_visual_spin_speed", angular_velocity)
 	if _is_shaft_component or _is_shell_component:
 		rotation = _base_rotation
 		if _visual and _visual.has_method("set_shaft_spin_speed"):
 			_visual.call("set_shaft_spin_speed", angular_velocity)
-		if _visual and _visual.has_method("set_visual_spin_speed"):
-			_visual.call("set_visual_spin_speed", angular_velocity)
 	else:
 		rotation += angular_velocity * delta
 
