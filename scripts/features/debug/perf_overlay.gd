@@ -41,7 +41,18 @@ func _process(delta: float) -> void:
 
 	var gm_stats := _game_manager.call("get_perf_stats") as Dictionary if _game_manager and _game_manager.has_method("get_perf_stats") else {}
 	var placement_stats := _placement_controller.call("get_perf_stats") as Dictionary if _placement_controller and _placement_controller.has_method("get_perf_stats") else {}
-	_update_text(gm_stats, placement_stats)
+	
+	var game_state := get_node_or_null("/root/GameState")
+	var score_stats := {}
+	if game_state:
+		score_stats = {
+			"total_score": game_state.total_score,
+			"lifetime_hp": game_state.lifetime_hp,
+			"reliability_multiplier": game_state.reliability_multiplier,
+			"total_jams": game_state.total_jams
+		}
+	
+	_update_text(gm_stats, placement_stats, score_stats)
 
 
 func _build_ui() -> void:
@@ -71,7 +82,7 @@ func _build_ui() -> void:
 	margin.add_child(_label)
 
 
-func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
+func _update_text(gm_stats: Dictionary, placement_stats: Dictionary, score_stats: Dictionary = {}) -> void:
 	if _label == null:
 		return
 
@@ -100,6 +111,15 @@ func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
 	var placement_dirty := bool(placement_stats.get("context_dirty", false))
 	var marker_count := int(placement_stats.get("socket_markers", 0))
 	var has_socket := bool(placement_stats.get("has_active_socket", false))
+	
+	var total_score := float(score_stats.get("total_score", 0.0))
+	var reliability := float(score_stats.get("reliability_multiplier", 1.0))
+	var total_jams := int(score_stats.get("total_jams", 0))
+	var kilowatts := float(gm_stats.get("kilowatts", 0.0))
+	var generator_output_rpm := float(gm_stats.get("generator_output_rpm", 0.0))
+	var generator_internal_rpm := float(gm_stats.get("generator_internal_rpm", 0.0))
+	var generator_load_torque := float(gm_stats.get("generator_load_torque", 0.0))
+	var generator_ramp := float(gm_stats.get("generator_ramp_factor", 0.0))
 
 	_label.text = "Perf Overlay (F9)\n" \
 		+ "FPS: %d\n" % fps \
@@ -109,5 +129,7 @@ func _update_text(gm_stats: Dictionary, placement_stats: Dictionary) -> void:
 		+ "Network tick Hz: %.1f  dirty: %s  wait: %.1fms\n" % [tick_hz, str(dirty), dirty_wait] \
 		+ "Reachable: %d  profiles: %d  components: %d\n" % [reachable, profiles, components] \
 		+ "Underpowered: %s\n" % str(underpowered) \
+		+ "Generator: %.1f kW  Energy Delivered: %.1f kJ  Reliability: %.0f%%  Jams: %d\n" % [kilowatts, total_score, reliability * 100.0, total_jams] \
+		+ "Generator RPM out/int: %.2f / %.0f  Load: %.1f Nm  Ramp: %.0f%%\n" % [generator_output_rpm, generator_internal_rpm, generator_load_torque, generator_ramp * 100.0] \
 		+ "Placement selected: %s\n" % selected \
 		+ "Placement dirty: %s  markers: %d  active_socket: %s" % [str(placement_dirty), marker_count, str(has_socket)]

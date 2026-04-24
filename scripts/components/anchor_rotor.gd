@@ -4,10 +4,9 @@ class_name AnchorRotor
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 
 @export var always_active: bool = false
-@export_enum("balanced", "torque", "speed") var power_node_type: String = PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED
 @export var rated_torque_output: float = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
 @export var stall_torque_output: float = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_BALANCED
-@export var no_load_rpm: float = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_BALANCED
+@export var no_load_rpm: float = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM
 @export var brake_torque_cap: float = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_BALANCED
 @export var source_outer_radius: float = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
 @export var min_output_ratio: float = 0.7
@@ -47,8 +46,6 @@ func _ready() -> void:
 	_base_position = position
 	_jitter_phase = randf() * TAU
 	_ensure_visibility_notifier()
-	if is_equal_approx(rated_torque_output, PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT):
-		_apply_type_defaults()
 
 
 func _ensure_visibility_notifier() -> void:
@@ -149,40 +146,6 @@ func get_source_last_rpm() -> float:
 
 func get_source_torque_estimate() -> float:
 	return _last_source_torque
-
-
-func _apply_type_defaults() -> void:
-	match power_node_type:
-		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
-			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_TORQUE
-			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_TORQUE
-			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_TORQUE
-			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_TORQUE
-			rated_torque_output = PROJECT_PATHS_SCRIPT.TORQUE_NODE_OUTPUT
-			base_spin_speed = 0.85
-			torque_spin_factor = 0.01
-			min_output_ratio = 0.80
-			output_droop_strength = 0.25
-		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
-			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_SPEED
-			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_SPEED
-			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_SPEED
-			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_SPEED
-			rated_torque_output = PROJECT_PATHS_SCRIPT.SPEED_NODE_OUTPUT
-			base_spin_speed = 3.2
-			torque_spin_factor = 0.045
-			min_output_ratio = 0.72
-			output_droop_strength = 0.42
-		_:
-			stall_torque_output = PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_TORQUE_BALANCED
-			brake_torque_cap = PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_TORQUE_CAP_BALANCED
-			no_load_rpm = PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM_BALANCED
-			source_outer_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
-			rated_torque_output = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
-			base_spin_speed = 1.45
-			torque_spin_factor = 0.02
-			min_output_ratio = 0.74
-			output_droop_strength = 0.38
 
 
 func get_angular_velocity() -> float:

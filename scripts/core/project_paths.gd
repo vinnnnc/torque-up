@@ -9,17 +9,7 @@ const COMPONENT_NONE := ""
 const COMPONENT_GEAR_SMALL := "gear_small"
 const COMPONENT_GEAR_MEDIUM := "gear_medium"
 const COMPONENT_GEAR_LARGE := "gear_large"
-const COMPONENT_SHAFT := "shaft"
-const COMPONENT_CHAIN := "chain"
-const COMPONENT_BELT := COMPONENT_CHAIN # legacy alias
 const COMPONENT_DELETE := "delete"
-const COMPONENT_FLYWHEEL := "flywheel"
-const COMPONENT_CLUTCH := "clutch"
-const COMPONENT_DIFFERENTIAL := "differential"
-
-const POWER_NODE_BALANCED := "balanced"
-const POWER_NODE_TORQUE := "torque"
-const POWER_NODE_SPEED := "speed"
 
 const SMALL_GEAR_OUTER_RADIUS: float = 12.0
 const DEFAULT_GEAR_OUTER_RADIUS: float = 18.0
@@ -38,35 +28,7 @@ const DEFAULT_SOCKET_COUNT: int = 8
 const DEFAULT_SNAP_MAX_DISTANCE: float = 24.0
 const DEFAULT_PLACEMENT_CLEARANCE: float = DEFAULT_SOCKET_RADIUS - 1.0
 const DEFAULT_CONNECTION_TOLERANCE: float = 3.0
-const SHAFT_PICK_DISTANCE: float = 160.0
 const STACK_PICK_DISTANCE: float = 34.0
-const COMPOUND_MAX_LAYERS_PHASE1: int = 2
-const COMPOUND_LAYER_EFFICIENCY_PENALTY: float = 0.03
-const COMPOUND_LAYER_INERTIA_RESPONSE_PENALTY: float = 0.35
-const SHAFT_MIN_CONNECTION_RADIUS: float = SHAFT_OUTER_RADIUS - GEAR_MESH_CONTACT_MARGIN
-const SHAFT_MAX_CONNECTION_RADIUS: float = 96.0
-const SHAFT_SHAPE_MODULE: float = 2.2
-const SHAFT_ENDPOINT_ORIGIN_RADIUS: float = 0.0
-
-# Chain system
-const CHAIN_MAX_SPAN: float = 480.0
-const CHAIN_FRICTION_BASE: float = 2.5
-const CHAIN_FRICTION_PER_RADIUS: float = 0.12
-const CHAIN_JAM_LOAD_THRESHOLD: float = 140.0
-const CHAIN_JAM_PENALTY: float = 0.15
-const CHAIN_SPAN_WEIGHT: float = 0.05
-const CHAIN_MODULE_SIZE: float = 1.8
-
-# Belt legacy aliases (use chain values)
-const BELT_OUTER_RADIUS: float = 8.0
-const BELT_INNER_RADIUS: float = 4.0
-const BELT_MAX_SPAN: float = CHAIN_MAX_SPAN
-const BELT_FRICTION_BASE: float = CHAIN_FRICTION_BASE
-const BELT_FRICTION_PER_RADIUS: float = CHAIN_FRICTION_PER_RADIUS
-const BELT_SLIP_LOAD_THRESHOLD: float = CHAIN_JAM_LOAD_THRESHOLD
-const BELT_SLIP_PENALTY: float = CHAIN_JAM_PENALTY
-const BELT_SPAN_WEIGHT: float = CHAIN_SPAN_WEIGHT
-const BELT_MODULE_SIZE: float = CHAIN_MODULE_SIZE
 
 # Gear drag 8-way directional lock
 const GEAR_DRAG_DEADZONE: float = 22.0
@@ -92,45 +54,49 @@ const TORQUE_COST_RADIUS_EXPONENT: float = 1.15
 const FRICTION_SMALL_GEAR: float = 3.2
 const FRICTION_MEDIUM_GEAR: float = 5.0
 const FRICTION_LARGE_GEAR: float = 12.0
-const FRICTION_SHAFT: float = 1.8
-const FRICTION_SHAFT_BASE: float = 1.3
-const FRICTION_SHAFT_PER_RADIUS: float = 0.085
 const FRICTION_DEFAULT_COMPONENT: float = FRICTION_MEDIUM_GEAR
-const BASE_POWER_NODE_OUTPUT: float = 50.0
-const TORQUE_NODE_OUTPUT: float = 85.0
-const SPEED_NODE_OUTPUT: float = 45.0
+const BASE_POWER_NODE_OUTPUT: float = 68.0
 
-# Power node profile (Phase 1 tunables)
-const POWER_NODE_RADIUS_SPEED: float = 8.0
-const POWER_NODE_RADIUS_BALANCED: float = 9.5
-const POWER_NODE_RADIUS_TORQUE: float = 11.5
-
-const POWER_NODE_NO_LOAD_RPM_SPEED: float = 235.0
-const POWER_NODE_NO_LOAD_RPM_BALANCED: float = 180.0
-const POWER_NODE_NO_LOAD_RPM_TORQUE: float = 140.0
-
-const POWER_NODE_STALL_TORQUE_SPEED: float = 56.0
-const POWER_NODE_STALL_TORQUE_BALANCED: float = 68.0
-const POWER_NODE_STALL_TORQUE_TORQUE: float = 110.0
-
-const POWER_NODE_BRAKE_TORQUE_CAP_SPEED: float = 14.0
-const POWER_NODE_BRAKE_TORQUE_CAP_BALANCED: float = 18.0
-const POWER_NODE_BRAKE_TORQUE_CAP_TORQUE: float = 24.0
-
+# Power node: all nodes share the same angular velocity; torque and size are randomized
+const POWER_NODE_NO_LOAD_RPM: float = 180.0
+const POWER_NODE_BASE_SPIN_SPEED: float = 1.45
+const POWER_NODE_TORQUE_SPIN_FACTOR: float = 0.02
+const POWER_NODE_STALL_RATIO: float = 1.35        # stall_torque = rated_torque * this
+const POWER_NODE_BRAKE_CAP_RATIO: float = 0.22    # brake_torque_cap = rated_torque * this
+const POWER_NODE_MIN_OUTPUT_RATIO: float = 0.72
+const POWER_NODE_OUTPUT_DROOP: float = 0.40
 const POWER_NODE_NEAR_LIMIT_RATIO: float = 0.90
 
-# Engine sink response (Phase 1 tunables)
+# Random torque range — all sizes draw from the same flat range
+const POWER_NODE_TORQUE_MIN: float = 25.0
+const POWER_NODE_TORQUE_MAX: float = 115.0
+
+# 5 size tiers: 0 = smallest/most common → 4 = largest/rarest
+const POWER_NODE_TIER_0_RADIUS: float = 9.0
+const POWER_NODE_TIER_1_RADIUS: float = 11.5
+const POWER_NODE_TIER_2_RADIUS: float = 14.5
+const POWER_NODE_TIER_3_RADIUS: float = 18.0
+const POWER_NODE_TIER_4_RADIUS: float = 22.0
+
+# Kept as generic defaults for AnchorRotor inspector values and fallback paths
+const POWER_NODE_STALL_TORQUE_BALANCED: float = 68.0
+const POWER_NODE_BRAKE_TORQUE_CAP_BALANCED: float = 18.0
+const POWER_NODE_RADIUS_BALANCED: float = 11.5
+
+# Engine (generator) sink response
 const ENGINE_LOAD_STATIC_TORQUE: float = 42.0
 const ENGINE_LOAD_LINEAR_COEFF: float = 0.28
 const ENGINE_LOAD_QUADRATIC_COEFF: float = 0.05
 
-const ENGINE_OPERATING_BAND_SOFT_MIN_RPM: float = 8.0
-const ENGINE_OPERATING_BAND_MIN_RPM: float = 10.0
-const ENGINE_OPERATING_BAND_MAX_RPM: float = 52.0
-const ENGINE_OPERATING_BAND_SOFT_MAX_RPM: float = 70.0
+# Generator output-shaft ramp (visible) and internal gearbox equivalent (scoring)
+const GENERATOR_OUTPUT_MAX_RPM: float = 10.0
+const GENERATOR_INTERNAL_MAX_RPM: float = 1500.0
+const GENERATOR_OUTPUT_TORQUE_FOR_MAX_RPM: float = 95.0
+const GENERATOR_BREAKAWAY_TORQUE: float = 1.5
+const GENERATOR_RPM_RESPONSE: float = 7.0
 
 # Engine visual tuning (simple larger gear)
-const ENGINE_VISUAL_OUTER_RADIUS: float = 800.0
+const ENGINE_VISUAL_OUTER_RADIUS: float = 100.0
 const ENGINE_VISUAL_TOOTH_COUNT: int = 64
 const ENGINE_VISUAL_INNER_RADIUS_RATIO: float = 0.92
 const ENGINE_VISUAL_HUB_RADIUS_RATIO: float = 0.28
@@ -156,42 +122,41 @@ const VIEWPORT_WIDTH: float = 1152.0
 const VIEWPORT_HEIGHT: float = 646.0
 const VIEWPORT_CENTER_X: float = 576.0
 const VIEWPORT_CENTER_Y: float = 323.0
-const ENGINE_WORLD_Y: float = 800.0
+const ENGINE_WORLD_Y: float = ENGINE_VISUAL_OUTER_RADIUS + 300.0
 const BLOCKADE_HALF_HEIGHT: float = 323.0
 const CAMERA_MIN_Y: float = WORLD_HALF_WIDTH * (-1.0) + VIEWPORT_HEIGHT
 const CAMERA_MAX_Y: float = 400.0
-const WORLD_HALF_WIDTH: float = 5000.0
+const WORLD_HALF_WIDTH: float = 8000.0
 const WORLD_VERTICAL_EXTENT: float = WORLD_HALF_WIDTH
 const WORLD_BLOCKADE_Z_INDEX: int = 250
 const ENGINE_FOREGROUND_Z_INDEX: int = 350
 const PLACEMENT_OVERLAY_Z_INDEX: int = 360
 
 # Torque frontier (fog progression)
-const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y - 128.0
+const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y + 300.0
 const FRONTIER_SMOOTHING_ALPHA: float = 0.85
 const FRONTIER_RADIUS_SCALE_K: float = 120.0
 const FRONTIER_MIN_EXPANSION_STEP: float = 96.0
 # Set <= 0.0 to disable frontier radius clamping (endless progression mode).
 const FRONTIER_MAX_RADIUS_CLAMP: float = 0.0
 const FRONTIER_CONE_HALF_ANGLE_DEGREES: float = 15.0
-const FRONTIER_CONE_APEX_Y_OFFSET: float = ENGINE_WORLD_Y - 330.0
+const FRONTIER_CONE_APEX_Y_OFFSET: float = 0.0
 const FRONTIER_VISUAL_RADIUS_SMOOTHING: float = 6.5
 const FRONTIER_FOG_FEATHER_WIDTH: float = 44.0
 const FRONTIER_FOG_FEATHER_STEPS: int = 4
 const FRONTIER_REQUIRE_RPM_RAMP: bool = true
-const FRONTIER_RPM_GATE_SOFT_MIN: float = 1.0
-const FRONTIER_RPM_GATE_FULL: float = 5.0
-const FRONTIER_RPM_GATE_MIN_FACTOR: float = 0.6
+const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.8
+const FRONTIER_RPM_GATE_FULL: float = 10.0
 
 # Dev procedural map generation (frontier-start, spacing-first)
 const DEV_MAP_DEFAULT_NODE_COUNT: int = 1000
 const DEV_MAP_NODE_START_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET
 const DEV_MAP_NODE_RADIUS_BUDGET: float = WORLD_VERTICAL_EXTENT
 const DEV_MAP_NODE_SPACING: float = 172.0
-const DEV_MAP_NODE_ROW_SPACING: float = 184.0
+const DEV_MAP_NODE_ROW_SPACING: float = 156.0
 const DEV_MAP_NODE_RADIAL_JITTER: float = 22.0
 const DEV_MAP_NODE_ANGLE_JITTER_DEGREES: float = 5.0
-const DEV_MAP_CONE_APEX_RAISE: float = 512.0
+const DEV_MAP_CONE_APEX_RAISE: float = 280.0
 const DEV_MAP_NODE_MIN_SEPARATION_FACTOR: float = 1.8
 const DEV_MAP_ZONE_RADIUS_EXTRA: float = 0.0
 const DEV_MAP_DEFAULT_ZONE_COUNT: int = 5
@@ -205,29 +170,6 @@ const HP_DISPLAY_SCALE: float = 1.0
 
 const EFFICIENCY_LOSS_PER_CONNECTION: float = 0.005
 const MIN_EFFICIENCY: float = 0.10
-const SHAFT_JOINT_FRICTION: float = 0.55
-const MIXED_NETWORK_EFFICIENCY_BONUS: float = 0.035
-const GEAR_VARIATION_BONUS_PER_TYPE: float = 0.02
-const GEAR_VARIATION_BONUS_MAX_TYPES: int = 3
-const GEAR_VARIATION_INCLUDE_CHAIN: bool = true
-const GEAR_VARIATION_CHAIN_BONUS: float = 0.015
-const GEAR_VARIATION_INCLUDE_COMPOUND: bool = true
-const GEAR_VARIATION_COMPOUND_BONUS_PER_STACK: float = 0.01
-const GEAR_VARIATION_COMPOUND_BONUS_MAX_STACKS: int = 8
-
-# Flywheel
-const FRICTION_FLYWHEEL: float = 8.0
-const FLYWHEEL_CAPACITY: float = 200.0
-const FLYWHEEL_CHARGE_RATE: float = 0.25
-const FLYWHEEL_DISCHARGE_RATE: float = 0.40
-
-# Clutch
-const FRICTION_CLUTCH: float = 3.5
-const CLUTCH_ENGAGEMENT_THRESHOLD: float = 0.05
-
-# Differential
-const FRICTION_DIFFERENTIAL: float = 7.0
-const DIFFERENTIAL_MERGE_EFFICIENCY: float = 0.92
 
 
 static func compute_tooth_count_from_outer_radius(outer_radius: float) -> int:
@@ -236,3 +178,12 @@ static func compute_tooth_count_from_outer_radius(outer_radius: float) -> int:
 	var pitch_radius := maxf(safe_outer - (scaled_module * 0.80), scaled_module * 3.0)
 	var computed := int(round((pitch_radius * 2.0) / scaled_module))
 	return maxi(MIN_GEAR_TOOTH_COUNT, computed)
+
+
+static func get_power_node_tier_radius(tier: int) -> float:
+	match tier:
+		0: return POWER_NODE_TIER_0_RADIUS
+		1: return POWER_NODE_TIER_1_RADIUS
+		2: return POWER_NODE_TIER_2_RADIUS
+		3: return POWER_NODE_TIER_3_RADIUS
+		_: return POWER_NODE_TIER_4_RADIUS

@@ -109,25 +109,6 @@ func add_component_to_mesh_cache(component: Node2D) -> bool:
 	_grid_insert(_mesh_cache_components_grid, component_entry.get("position", Vector2.ZERO) as Vector2, component_index)
 
 	# Append snap origins contributed by this component.
-	if _is_shaft_component(component):
-		var shaft_radius := _get_shaft_connection_radius(component)
-		var shaft_dir := Vector2.RIGHT.rotated(component.rotation)
-		var endpoint_a := component.global_position + (shaft_dir * shaft_radius)
-		var endpoint_b := component.global_position - (shaft_dir * shaft_radius)
-		if _is_world_position_valid(endpoint_a, 0.0):
-			_mesh_cache_origins.append({
-				"position": endpoint_a,
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": component
-			})
-		if _is_world_position_valid(endpoint_b, 0.0):
-			_mesh_cache_origins.append({
-				"position": endpoint_b,
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": component
-			})
-		return true
-
 	var port_origins := _get_component_port_snap_origins(component)
 	if not port_origins.is_empty():
 		for port_origin_raw in port_origins:
@@ -414,25 +395,6 @@ func _get_snap_origins_uncached(components_container: Node, seed_positions: Arra
 	for child in components_container.get_children():
 		var placed_component := child as Node2D
 		if not placed_component:
-			continue
-
-		if _is_shaft_component(placed_component):
-			var shaft_radius := _get_shaft_connection_radius(placed_component)
-			var shaft_dir := Vector2.RIGHT.rotated(placed_component.rotation)
-			var endpoint_a := placed_component.global_position + (shaft_dir * shaft_radius)
-			var endpoint_b := placed_component.global_position - (shaft_dir * shaft_radius)
-			if _is_world_position_valid(endpoint_a, 0.0):
-				origins.append({
-					"position": endpoint_a,
-					"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-					"node": placed_component
-				})
-			if _is_world_position_valid(endpoint_b, 0.0):
-				origins.append({
-					"position": endpoint_b,
-					"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-					"node": placed_component
-				})
 			continue
 
 		var port_origins := _get_component_port_snap_origins(placed_component)
@@ -756,28 +718,29 @@ func _get_node_outer_radius(node: Node2D) -> float:
 			if engine_radius_value != null:
 				return maxf(2.0, float(engine_radius_value))
 
-	# Anchor nodes can expose a mechanical mesh radius that is independent
-	# from their visible shell size.
-	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
-	if anchor_mesh_radius != null:
-		var mesh_radius := float(anchor_mesh_radius)
-		if mesh_radius > 0.0:
-			return mesh_radius
-
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return component_radius
 
+	var mesh_radius := 0.0
+	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
+	if anchor_mesh_radius != null:
+		mesh_radius = maxf(float(anchor_mesh_radius), 0.0)
+
 	var radius_value: Variant = visual.get("outer_radius")
 	if radius_value == null:
+		if mesh_radius > 0.0:
+			return mesh_radius
 		return component_radius
 
-	return float(radius_value)
+	var visual_radius := maxf(float(radius_value), 0.0)
+	if mesh_radius <= 0.0:
+		return visual_radius
+	# Keep mesh contact radius aligned with the rendered shell size.
+	return maxf(mesh_radius, visual_radius)
 
 
 func _get_node_connection_radius(node: Node2D) -> float:
-	if node and str(node.get_meta("component_type", "")) == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL and node.has_meta("shaft_connection_radius"):
-		return maxf(2.0, float(node.get_meta("shaft_connection_radius")))
 	var outer_radius := _get_node_outer_radius(node)
 	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
 
@@ -812,77 +775,5 @@ func _to_origin_data(entry: Variant) -> Dictionary:
 	return {}
 
 
-func _is_shaft_component(node: Node2D) -> bool:
-	if node == null or not node.has_meta("component_type"):
-		return false
-
-	return str(node.get_meta("component_type")) == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT
-
-
-func _has_stacked_child(components_container: Node, base_node: Node2D) -> bool:
-	if components_container == null or base_node == null:
-		return false
-
-	var base_id := base_node.get_instance_id()
-	for child in components_container.get_children():
-		var node := child as Node2D
-		if node == null or node == base_node:
-			continue
-		if int(node.get_meta("stack_parent_id", -1)) == base_id:
-			return true
-
-	return false
-
-
-func _get_shaft_connection_radius(node: Node2D) -> float:
-	if node and node.has_meta("shaft_connection_radius"):
-		return maxf(0.0, float(node.get_meta("shaft_connection_radius")))
-
-	return _get_node_connection_radius(node)
-
-
-func _get_component_port_snap_origins(node: Node2D) -> Array:
-	if node == null or not node.has_meta("component_type"):
-		return []
-
-	var component_type := str(node.get_meta("component_type"))
-	if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
-		var shaft_radius := _get_shaft_connection_radius(node)
-		var shaft_dir := Vector2.RIGHT.rotated(node.global_rotation)
-		return [
-			{
-				"position": node.global_position + (shaft_dir * shaft_radius),
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": node
-			},
-			{
-				"position": node.global_position - (shaft_dir * shaft_radius),
-				"radius": PROJECT_PATHS_SCRIPT.SHAFT_ENDPOINT_ORIGIN_RADIUS,
-				"node": node
-			}
-		]
-
-	var local_ports: Array = []
-	match component_type:
-		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-			# Center-based shaft ports: visible on top, hidden on back
-			local_ports = [0.0, PI]
-		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-			# Center-based shaft ports: input on top, outputs on sides
-			local_ports = [0.0, PI * 0.5, -PI * 0.5]
-		_:
-			return []
-
-	var snap_origins: Array = []
-	for port_angle_raw in local_ports:
-		var port_angle: float = float(port_angle_raw) + node.global_rotation
-		var outward: Vector2 = Vector2.RIGHT.rotated(port_angle)
-		# Shaft ports snap at component center, not on perimeter
-		snap_origins.append({
-			"position": node.global_position,
-			"radius": 0.0,
-			"fixed_direction": outward,
-			"node": node
-		})
-
-	return snap_origins
+func _get_component_port_snap_origins(_node: Node2D) -> Array:
+	return []

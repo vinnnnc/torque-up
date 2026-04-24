@@ -5,7 +5,7 @@
 The current simulation is split into two layers:
 
 - local source simulation: disconnected power nodes run a lightweight torque-budget pass for visual feedback (spin vs stall)
-- engine scoring simulation: only the subnetwork that reaches the central engine contributes to delivered torque, horsepower, efficiency, and HUD RPM
+- engine scoring simulation: only the subnetwork that reaches the central engine contributes to delivered torque, horsepower, efficiency, generator output RPM, and energy scoring
 
 This avoids the old privileged "main power node" model while still keeping the engine as the authoritative scoring sink.
 
@@ -21,6 +21,7 @@ Important current rule:
 Torque processing currently includes:
 
 - friction load from reachable component profiles
+- generator sink resistance load based on current generator shaft speed
 - shaft joint penalties
 - zone-driven output modifiers and added load
 - source droop under load ratio
@@ -44,14 +45,13 @@ Efficiency is clamped to a minimum floor.
 
 The game tracks angular speed internally on components and source visuals.
 
-HUD RPM is currently:
+Generator RPM now uses a two-stage model:
 
-- the absolute RPM of the central engine drive
-- gear ratio propagation uses per-edge tooth/radius ratio multipliers through the network traversal
-- the engine edge ratio prefers tooth-count ratio when available
-- derived from engine angular speed using $RPM = |\omega| \times 60 / 2\pi$
+- visible output shaft RPM is clamped and ramped in the $0 \rightarrow 10$ range for readability and progression feedback
+- output RPM is mapped to an internal gearbox-equivalent RPM up to 1500 for power generation/scoring
+- low delivered torque produces weak spin and weak power; higher torque pushes toward the 10 RPM output cap
 
-This is a display stat, not yet a full standalone simulation resource.
+The internal RPM value is used for power generation and frontier gating, while visible shaft RPM communicates progression clearly.
 
 ## Local Source Simulation
 

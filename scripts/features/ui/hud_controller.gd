@@ -10,7 +10,8 @@ const FEEDBACK_DURATION := 2.4
 @onready var _horsepower_value: Label = $PanelContainer/MarginContainer/Stats/HorsepowerRow/Value
 @onready var _torque_value: Label = $PanelContainer/MarginContainer/Stats/TorqueRow/Value
 @onready var _efficiency_value: Label = $PanelContainer/MarginContainer/Stats/EfficiencyRow/Value
-@onready var _rpm_value: Label = $PanelContainer/MarginContainer/Stats/RpmRow/Value
+@onready var _score_value: Label = $PanelContainer/MarginContainer/Stats/ScoreRow/Value
+@onready var _lifetime_hp_value: Label = $PanelContainer/MarginContainer/Stats/LifetimeHpRow/Value
 @onready var _none_button: Button = $HotbarPanel/MarginContainer/Hotbar/NoneButton
 @onready var _small_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/SmallGearButton
 @onready var _medium_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/MediumGearButton
@@ -33,12 +34,13 @@ const COMPONENT_NONE := PROJECT_PATHS_SCRIPT.COMPONENT_NONE
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
 const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
-const COMPONENT_SHAFT := PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT
 const COMPONENT_DELETE := PROJECT_PATHS_SCRIPT.COMPONENT_DELETE
-const COMPONENT_CHAIN := PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-const COMPONENT_FLYWHEEL := PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL
-const COMPONENT_CLUTCH := PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH
-const COMPONENT_DIFFERENTIAL := PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL
+# Removed component types — kept as constants so legacy code branches compile.
+const COMPONENT_SHAFT := "shaft"
+const COMPONENT_CHAIN := "chain"
+const COMPONENT_FLYWHEEL := "flywheel"
+const COMPONENT_CLUTCH := "clutch"
+const COMPONENT_DIFFERENTIAL := "differential"
 
 @export var overlay_toggle_key: Key = KEY_Q
 @export var mesh_origin_cycle_key: Key = KEY_Z
@@ -66,7 +68,7 @@ func _ready() -> void:
 	if game_state:
 		if not game_state.state_changed.is_connected(_on_state_changed):
 			game_state.state_changed.connect(_on_state_changed)
-		_on_state_changed(game_state.horsepower, game_state.available_torque, game_state.efficiency, game_state.rpm)
+		_on_state_changed(game_state.horsepower, game_state.available_torque, game_state.efficiency, game_state.total_score, game_state.lifetime_hp, game_state.reliability_multiplier)
 
 	_none_button.pressed.connect(_on_none_button_pressed)
 	_small_gear_button.pressed.connect(_on_small_gear_button_pressed)
@@ -76,16 +78,19 @@ func _ready() -> void:
 		_shaft_button.visible = false
 		_shaft_button.disabled = true
 	if _chain_button:
-		_chain_button.pressed.connect(_on_chain_button_pressed)
-	_delete_button.pressed.connect(_on_delete_button_pressed)
+		_chain_button.visible = false
+		_chain_button.disabled = true
 	if _flywheel_button:
-		_flywheel_button.pressed.connect(_on_flywheel_button_pressed)
+		_flywheel_button.visible = false
+		_flywheel_button.disabled = true
 	if _clutch_button:
-		_clutch_button.pressed.connect(_on_clutch_button_pressed)
+		_clutch_button.visible = false
+		_clutch_button.disabled = true
 	if _differential_button:
-		_differential_button.pressed.connect(_on_differential_button_pressed)
+		_differential_button.visible = false
+		_differential_button.disabled = true
+	_delete_button.pressed.connect(_on_delete_button_pressed)
 	_configure_hotbar_tooltips()
-
 	_build_hover_tooltip()
 	_build_network_overlay()
 	_build_feedback_toast()
@@ -155,11 +160,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, rpm: float) -> void:
+func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, total_score: float, lifetime_hp: float, reliability_multiplier: float) -> void:
 	_horsepower_value.text = "%.1f" % horsepower
 	_torque_value.text = "%.1f" % maxf(available_torque, 0.0)
 	_efficiency_value.text = "%.1f%%" % (efficiency * 100.0)
-	_rpm_value.text = "%.0f" % rpm
+	
+	# Score row now shows accumulated energy in kJ
+	_score_value.text = "%.1f" % total_score
+	
+	# Lifetime HP row now shows live generator power in kW
+	var snapshot := _get_overlay_snapshot()
+	var kilowatts := float(snapshot.get("kilowatts", 0.0))
+	_lifetime_hp_value.text = "%.1f" % kilowatts
+	
 	if _overlay_visible:
 		_update_network_overlay()
 
@@ -548,25 +561,25 @@ func _cycle_mesh_origin_focus() -> void:
 
 
 func _toggle_placement_mode() -> void:
-	_placement_mode = "compound" if _placement_mode == "mesh" else "mesh"
+	_placement_mode = "mesh"
 	_update_layer_indicator()
 	var signal_bus := get_node_or_null("/root/SignalBus")
 	if signal_bus and signal_bus.has_signal("placement_mode_changed"):
 		signal_bus.placement_mode_changed.emit(_placement_mode)
 
 
-## Receives mode changes emitted by other systems (e.g., auto-return after compound placement).
+## Receives mode changes emitted by other systems.
 func _on_placement_mode_changed_by_system(mode: String) -> void:
-	if _placement_mode == mode:
+	if _placement_mode == "mesh" and mode == "mesh":
 		return
-	_placement_mode = mode
+	_placement_mode = "mesh"
 	_update_layer_indicator()
 
 
 func _update_layer_indicator() -> void:
 	if _layer_indicator_label == null:
 		return
-	var mode_label := "Compound" if _placement_mode == "compound" else "Mesh"
+	var mode_label := "Mesh"
 	_layer_indicator_label.text = "%s [%s]  Origin Cycle [%s]" % [
 		mode_label,
 		OS.get_keycode_string(placement_mode_toggle_key),
@@ -640,8 +653,6 @@ func _update_network_overlay() -> void:
 		lines.append("Target Band: %s" % hp_target_hint)
 	lines.append("Net Torque (HUD): %.1f" % maxf(float(snapshot.get("net_torque", 0.0)), 0.0))
 	lines.append("Engine Input Torque: %.1f" % float(snapshot.get("delivered_torque", 0.0)))
-	lines.append("Engine Load Torque: %.1f" % float(snapshot.get("engine_load_torque", 0.0)))
-	lines.append("Engine RPM: %.0f" % float(snapshot.get("engine_rpm", 0.0)))
 	lines.append("Efficiency: %.1f%%" % (float(snapshot.get("efficiency", 0.0)) * 100.0))
 	lines.append("Friction Load: %.1f" % float(snapshot.get("friction_load", 0.0)))
 	lines.append("High-Speed Components: %d" % high_speed_count)
@@ -785,8 +796,6 @@ func _append_type_specific_lines(lines: Array, component: Node2D, snapshot: Dict
 			var pulley_mode_value: Variant = component.get("_pulley_mode")
 			if pulley_mode_value != null and bool(pulley_mode_value):
 				lines.append("Interface: Sprocket")
-			if component.has_meta("stack_parent_id"):
-				lines.append("Compound: Stacked layer")
 		COMPONENT_SHAFT:
 			lines.append("Span Length: %.0f" % _get_connector_length(component))
 		COMPONENT_CHAIN:

@@ -2,7 +2,6 @@ extends Node
 class_name DevLevelEditor
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
-const CHAIN_COMPONENT_SCRIPT_PATH := "res://scripts/components/chain.gd"
 const GEAR_SCENE_PATH := "res://scenes/components/Gear.tscn"
 const ANCHOR_ROTOR_SCRIPT_PATH := "res://scripts/components/anchor_rotor.gd"
 const GEAR_VISUAL_SCRIPT_PATH := "res://scripts/components/gear_visual.gd"
@@ -12,14 +11,14 @@ const SAVE_DIR := "user://dev_levels"
 const SAVE_PATH := "user://dev_levels/level_dev.json"
 
 const TOOL_NONE := "none"
-const TOOL_POWER_BALANCED := "power_balanced"
-const TOOL_POWER_TORQUE := "power_torque"
-const TOOL_POWER_SPEED := "power_speed"
+const TOOL_POWER_NODE := "power_node"
 const TOOL_ZONE_HEAT := "zone_heat"
 const TOOL_ZONE_COLD := "zone_cold"
 const TOOL_ZONE_DUST := "zone_dust"
 const TOOL_BARRIER := "barrier"
 const TOOL_DELETE_DEV := "delete_dev"
+
+const SAVE_VERSION := 2
 
 @export var components_container_path: NodePath = NodePath("../Network/Components")
 @export var network_node_path: NodePath = NodePath("../Network")
@@ -41,11 +40,6 @@ const TOOL_DELETE_DEV := "delete_dev"
 @export var small_gear_scene: PackedScene
 @export var medium_gear_scene: PackedScene
 @export var large_gear_scene: PackedScene
-@export var shaft_scene: PackedScene
-@export var flywheel_scene: PackedScene
-@export var clutch_scene: PackedScene
-@export var differential_scene: PackedScene
-@export var chain_scene: PackedScene
 
 var _active_tool: String = TOOL_NONE
 var _menu_visible: bool = false
@@ -57,6 +51,11 @@ func _ready() -> void:
 	_build_menu()
 	_set_active_tool(TOOL_NONE)
 	print("DevLevelEditor hotkeys: F5=menu F6=save F7=load F8=clear")
+	
+	# Auto-generate procedural map on first run if no save exists.
+	if not FileAccess.file_exists(SAVE_PATH):
+		print("DevLevelEditor: first run detected, auto-generating procedural map...")
+		await generate_procedural_map(-1, -1, 42)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -114,9 +113,9 @@ func save_level() -> void:
 		return
 
 	file.store_string(json_text)
-	print("DevLevelEditor: saved %s components and %s chains to %s" % [
+	print("DevLevelEditor: saved %s components and %s power nodes to %s" % [
 		int(payload.get("component_count", 0)),
-		int(payload.get("chain_count", 0)),
+		int((payload.get("dev_power_nodes", []) as Array).size()),
 		SAVE_PATH
 	])
 
@@ -165,7 +164,7 @@ func clear_level() -> void:
 	print("DevLevelEditor: cleared placed components")
 
 
-func generate_procedural_map(node_count: int = -1, zone_count: int = -1) -> void:
+func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: int = -1) -> void:
 	# Clear existing dev-placed network nodes and world objects.
 	_clear_dev_world_nodes()
 	if _network_node != null:
@@ -177,7 +176,10 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1) -> void
 	await get_tree().process_frame
 
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	if seed >= 0:
+		rng.seed = seed
+	else:
+		rng.randomize()
 
 	var dev_apex_raise := maxf(PROJECT_PATHS_SCRIPT.DEV_MAP_CONE_APEX_RAISE, 0.0)
 	var apex := Vector2(
@@ -227,7 +229,7 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1) -> void
 			if _is_too_close_to_positions(world_pos, placed_positions, min_separation):
 				continue
 
-			_create_power_node(world_pos, _pick_procedural_power_type(rng))
+			_create_power_node(world_pos, _pick_procedural_power_overrides(rng))
 			placed_positions.append(world_pos)
 			placed_nodes += 1
 		row_radius += row_spacing
@@ -261,86 +263,30 @@ func _is_too_close_to_positions(world_pos: Vector2, placed_positions: Array, min
 	return false
 
 
-func _pick_procedural_power_type(rng: RandomNumberGenerator) -> String:
-	# Weighted type: 50% balanced, 30% torque, 20% speed.
-	var rand_val := rng.randf()
-	if rand_val < 0.5:
-		return PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED
-	if rand_val < 0.8:
-		return PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE
-	return PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED
+func _pick_procedural_power_overrides(rng: RandomNumberGenerator) -> Dictionary:
+	var radius := _random_power_node_radius(rng)
+	var rated := rng.randf_range(PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MIN, PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MAX)
+	return { "source_outer_radius": radius, "rated_torque_output": rated }
 
 
 func _serialize_components() -> Dictionary:
 	var component_entries: Array = []
-	var chain_entries: Array = []
-	var id_by_instance: Dictionary = {}
-	var next_id := 1
 
 	for child in _components_container.get_children():
 		var node := child as Node2D
 		if node == null:
 			continue
 		var component_type := str(node.get_meta("component_type", ""))
-		if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
+		if not _is_supported_component_type(component_type):
 			continue
 
 		var entry := {
-			"id": next_id,
 			"component_type": component_type,
 			"position": [node.global_position.x, node.global_position.y],
 			"rotation": node.rotation
 		}
 
-		if node.has_meta("shaft_connection_radius"):
-			entry["shaft_connection_radius"] = float(node.get_meta("shaft_connection_radius"))
-		if node.has_meta("stack_parent_id"):
-			entry["stack_parent_instance_id"] = int(node.get_meta("stack_parent_id"))
-		if node.has_meta("stack_root_id"):
-			entry["stack_root_instance_id"] = int(node.get_meta("stack_root_id"))
-
 		component_entries.append(entry)
-		id_by_instance[node.get_instance_id()] = next_id
-		next_id += 1
-
-	for entry_raw in component_entries:
-		if not entry_raw is Dictionary:
-			continue
-		var entry := entry_raw as Dictionary
-		if entry.has("stack_parent_instance_id"):
-			var parent_instance_id := int(entry["stack_parent_instance_id"])
-			entry.erase("stack_parent_instance_id")
-			if id_by_instance.has(parent_instance_id):
-				entry["stack_parent_id"] = int(id_by_instance[parent_instance_id])
-		if entry.has("stack_root_instance_id"):
-			var root_instance_id := int(entry["stack_root_instance_id"])
-			entry.erase("stack_root_instance_id")
-			if id_by_instance.has(root_instance_id):
-				entry["stack_root_id"] = int(id_by_instance[root_instance_id])
-
-	for child in _components_container.get_children():
-		var node := child as Node2D
-		if node == null:
-			continue
-		if str(node.get_meta("component_type", "")) != PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
-			continue
-
-		var chain_component := _get_chain_component(node)
-		if chain_component == null:
-			continue
-
-		var pulley_a := chain_component.get("pulley_a") as Node2D
-		var pulley_b := chain_component.get("pulley_b") as Node2D
-		if pulley_a == null or pulley_b == null:
-			continue
-
-		if not id_by_instance.has(pulley_a.get_instance_id()) or not id_by_instance.has(pulley_b.get_instance_id()):
-			continue
-
-		chain_entries.append({
-			"pulley_a_id": int(id_by_instance[pulley_a.get_instance_id()]),
-			"pulley_b_id": int(id_by_instance[pulley_b.get_instance_id()])
-		})
 
 	var dev_power_nodes: Array = []
 	if _network_node:
@@ -355,10 +301,10 @@ func _serialize_components() -> Dictionary:
 
 			dev_power_nodes.append({
 				"position": [power_node.global_position.x, power_node.global_position.y],
-				"power_node_type": str(power_node.get("power_node_type")),
 				"rated_torque_output": float(power_node.get("rated_torque_output")),
-				"base_spin_speed": float(power_node.get("base_spin_speed")),
-				"torque_spin_factor": float(power_node.get("torque_spin_factor"))
+				"stall_torque_output": float(power_node.get("stall_torque_output")),
+				"brake_torque_cap": float(power_node.get("brake_torque_cap")),
+				"source_outer_radius": float(power_node.get("source_outer_radius"))
 			})
 
 	var dev_zones: Array = []
@@ -398,14 +344,12 @@ func _serialize_components() -> Dictionary:
 			})
 
 	return {
-		"version": 1,
+		"version": SAVE_VERSION,
 		"components": component_entries,
-		"chains": chain_entries,
 		"dev_power_nodes": dev_power_nodes,
 		"dev_zones": dev_zones,
 		"dev_barriers": dev_barriers,
-		"component_count": component_entries.size(),
-		"chain_count": chain_entries.size()
+		"component_count": component_entries.size()
 	}
 
 
@@ -415,28 +359,22 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 	_clear_dev_world_nodes()
 
 	var default_gear_scene := load(GEAR_SCENE_PATH) as PackedScene
-	var chain_script := load(CHAIN_COMPONENT_SCRIPT_PATH) as Script
-	if default_gear_scene == null or chain_script == null:
-		push_warning("DevLevelEditor: required resources are missing")
-		return
 
 	var saved_components := payload.get("components", []) as Array
-	var saved_chains := payload.get("chains", payload.get("belts", [])) as Array
 	var saved_power_nodes := payload.get("dev_power_nodes", []) as Array
 	var saved_zones := payload.get("dev_zones", []) as Array
 	var saved_barriers := payload.get("dev_barriers", []) as Array
-	var node_by_id: Dictionary = {}
-	var stack_meta_by_id: Dictionary = {}
 
 	for component_raw in saved_components:
 		if not component_raw is Dictionary:
 			continue
 		var component := component_raw as Dictionary
-		var component_id := int(component.get("id", -1))
-		if component_id < 0:
-			continue
 
-		var component_type := str(component.get("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM))
+		var component_type := _normalize_loaded_component_type(
+			str(component.get("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM))
+		)
+		if component_type.is_empty():
+			continue
 		var chosen_scene := _get_scene_for_component(component_type)
 		if chosen_scene == null:
 			chosen_scene = default_gear_scene
@@ -447,70 +385,9 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 		node.set_meta("component_type", component_type)
 		node.global_position = _array_to_vec2(component.get("position", [0.0, 0.0]))
 		node.rotation = float(component.get("rotation", 0.0))
-		if component.has("shaft_connection_radius"):
-			node.set_meta("shaft_connection_radius", float(component.get("shaft_connection_radius", 0.0)))
 
 		_configure_visual_for_component(node, component_type)
 		_components_container.add_child(node)
-		node_by_id[component_id] = node
-		stack_meta_by_id[component_id] = {
-			"stack_parent_id": int(component.get("stack_parent_id", -1)),
-			"stack_root_id": int(component.get("stack_root_id", -1))
-		}
-
-	for id_key in node_by_id.keys():
-		var node := node_by_id[id_key] as Node2D
-		var stack_meta := stack_meta_by_id.get(id_key, {}) as Dictionary
-		var saved_parent_id := int(stack_meta.get("stack_parent_id", -1))
-		var saved_root_id := int(stack_meta.get("stack_root_id", -1))
-		if saved_parent_id >= 0 and node_by_id.has(saved_parent_id):
-			var parent_node := node_by_id[saved_parent_id] as Node2D
-			node.set_meta("stack_parent_id", parent_node.get_instance_id())
-			if node.has_method("set_stacked_top"):
-				node.call("set_stacked_top", true)
-		if saved_root_id >= 0 and node_by_id.has(saved_root_id):
-			var root_node := node_by_id[saved_root_id] as Node2D
-			node.set_meta("stack_root_id", root_node.get_instance_id())
-		elif node.has_meta("stack_parent_id") and saved_parent_id >= 0 and node_by_id.has(saved_parent_id):
-			node.set_meta("stack_root_id", (node_by_id[saved_parent_id] as Node2D).get_instance_id())
-
-	for chain_raw in saved_chains:
-		if not chain_raw is Dictionary:
-			continue
-		var chain_data := chain_raw as Dictionary
-		var pulley_a_id := int(chain_data.get("pulley_a_id", -1))
-		var pulley_b_id := int(chain_data.get("pulley_b_id", -1))
-		if not node_by_id.has(pulley_a_id) or not node_by_id.has(pulley_b_id):
-			continue
-
-		var pulley_a := node_by_id[pulley_a_id] as Node2D
-		var pulley_b := node_by_id[pulley_b_id] as Node2D
-		if pulley_a == null or pulley_b == null:
-			continue
-
-		# Prefer exported chain scene when available
-		if chain_scene != null:
-			var chain_node := chain_scene.instantiate() as Node2D
-			if chain_node == null:
-				continue
-			if chain_node.has_method("configure"):
-				chain_node.call("configure", pulley_a, pulley_b, _get_node_connection_radius(pulley_a), _get_node_connection_radius(pulley_b))
-			chain_node.set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
-			_components_container.add_child(chain_node)
-		else:
-			var chain_node := Node2D.new()
-			chain_node.set_meta("component_type", PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN)
-			var chain_component: Node = chain_script.new() as Node
-			if chain_component == null:
-				continue
-			chain_node.add_child(chain_component)
-			chain_component.configure(
-				pulley_a,
-				pulley_b,
-				_get_node_connection_radius(pulley_a),
-				_get_node_connection_radius(pulley_b)
-			)
-			_components_container.add_child(chain_node)
 
 	for power_raw in saved_power_nodes:
 		if not power_raw is Dictionary:
@@ -518,7 +395,6 @@ func _apply_serialized_level(payload: Dictionary) -> void:
 		var power_data := power_raw as Dictionary
 		_create_power_node(
 			_array_to_vec2(power_data.get("position", [0.0, 0.0])),
-			str(power_data.get("power_node_type", PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED)),
 			power_data
 		)
 
@@ -586,9 +462,7 @@ func _build_menu() -> void:
 	layout.add_child(sep1)
 
 	_add_tool_button(layout, "Select/None", TOOL_NONE)
-	_add_tool_button(layout, "Power Node: Balanced", TOOL_POWER_BALANCED)
-	_add_tool_button(layout, "Power Node: Torque", TOOL_POWER_TORQUE)
-	_add_tool_button(layout, "Power Node: Speed", TOOL_POWER_SPEED)
+	_add_tool_button(layout, "Power Node", TOOL_POWER_NODE)
 	_add_tool_button(layout, "Zone: Heat", TOOL_ZONE_HEAT)
 	_add_tool_button(layout, "Zone: Cold", TOOL_ZONE_COLD)
 	_add_tool_button(layout, "Zone: Dust", TOOL_ZONE_DUST)
@@ -598,10 +472,24 @@ func _build_menu() -> void:
 	var sep2 := HSeparator.new()
 	layout.add_child(sep2)
 
+	var seed_label := Label.new()
+	seed_label.text = "Seed (empty = random)"
+	layout.add_child(seed_label)
+
+	var seed_input := LineEdit.new()
+	seed_input.placeholder_text = "-1 for random"
+	seed_input.text = "-1"
+	layout.add_child(seed_input)
+
 	var gen_btn := Button.new()
 	gen_btn.text = "Generate Map"
 	gen_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gen_btn.pressed.connect(func() -> void: generate_procedural_map())
+	gen_btn.pressed.connect(func() -> void:
+		var seed_value: int = -1
+		if not seed_input.text.is_empty():
+			seed_value = int(seed_input.text) if seed_input.text.is_valid_int() else -1
+		generate_procedural_map(-1, -1, seed_value)
+	)
 	layout.add_child(gen_btn)
 
 	var row := HBoxContainer.new()
@@ -645,12 +533,8 @@ func _set_active_tool(tool_id: String) -> void:
 
 func _describe_tool(tool_id: String) -> String:
 	match tool_id:
-		TOOL_POWER_BALANCED:
-			return "Power Balanced"
-		TOOL_POWER_TORQUE:
-			return "Power Torque"
-		TOOL_POWER_SPEED:
-			return "Power Speed"
+		TOOL_POWER_NODE:
+			return "Power Node"
 		TOOL_ZONE_HEAT:
 			return "Zone Heat"
 		TOOL_ZONE_COLD:
@@ -667,12 +551,8 @@ func _describe_tool(tool_id: String) -> String:
 
 func _place_with_active_tool(world_pos: Vector2) -> void:
 	match _active_tool:
-		TOOL_POWER_BALANCED:
-			_create_power_node(world_pos, PROJECT_PATHS_SCRIPT.POWER_NODE_BALANCED)
-		TOOL_POWER_TORQUE:
-			_create_power_node(world_pos, PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE)
-		TOOL_POWER_SPEED:
-			_create_power_node(world_pos, PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED)
+		TOOL_POWER_NODE:
+			_create_power_node(world_pos)
 		TOOL_ZONE_HEAT:
 			_create_zone(world_pos, "heat")
 		TOOL_ZONE_COLD:
@@ -689,7 +569,7 @@ func _place_with_active_tool(world_pos: Vector2) -> void:
 	_notify_layout_changed()
 
 
-func _create_power_node(world_pos: Vector2, power_type: String, overrides: Dictionary = {}) -> void:
+func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> void:
 	if _network_node == null:
 		return
 
@@ -698,58 +578,55 @@ func _create_power_node(world_pos: Vector2, power_type: String, overrides: Dicti
 	if anchor_script == null or visual_script == null:
 		return
 
+	# Generate random defaults; overrides win so loading saved nodes restores exact values.
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var radius := float(overrides.get("source_outer_radius", _random_power_node_radius(rng)))
+	var rated := float(overrides.get("rated_torque_output",
+			rng.randf_range(PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MIN, PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_MAX)))
+	var stall := float(overrides.get("stall_torque_output", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_RATIO))
+	var brake := float(overrides.get("brake_torque_cap", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_CAP_RATIO))
+
 	var power_node := Node2D.new()
 	power_node.set_script(anchor_script)
 	power_node.name = _generate_unique_name("Power", _network_node)
 	power_node.global_position = world_pos
 	power_node.set_meta("dev_created", true)
-	var always_active := bool(overrides.get("always_active", false))
-	power_node.set("always_active", always_active)
-	power_node.set("power_node_type", power_type)
-
-	if overrides.has("rated_torque_output"):
-		power_node.set("rated_torque_output", float(overrides.get("rated_torque_output", PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT)))
-	if overrides.has("base_spin_speed"):
-		power_node.set("base_spin_speed", float(overrides.get("base_spin_speed", 1.45)))
-	if overrides.has("torque_spin_factor"):
-		power_node.set("torque_spin_factor", float(overrides.get("torque_spin_factor", 0.015)))
+	power_node.set("always_active", bool(overrides.get("always_active", false)))
+	power_node.set("rated_torque_output", rated)
+	power_node.set("stall_torque_output", stall)
+	power_node.set("brake_torque_cap", brake)
+	power_node.set("no_load_rpm", PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM)
+	power_node.set("source_outer_radius", radius)
+	power_node.set("base_spin_speed", PROJECT_PATHS_SCRIPT.POWER_NODE_BASE_SPIN_SPEED)
+	power_node.set("torque_spin_factor", PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_SPIN_FACTOR)
+	power_node.set("min_output_ratio", PROJECT_PATHS_SCRIPT.POWER_NODE_MIN_OUTPUT_RATIO)
+	power_node.set("output_droop_strength", PROJECT_PATHS_SCRIPT.POWER_NODE_OUTPUT_DROOP)
 
 	var visual := Node2D.new()
 	visual.name = "Visual"
 	visual.set_script(visual_script)
-	var visual_radius: float
-	match power_type:
-		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
-			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_TORQUE
-		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
-			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_SPEED
-		_:
-			visual_radius = PROJECT_PATHS_SCRIPT.POWER_NODE_RADIUS_BALANCED
-	visual.set("outer_radius", visual_radius)
+	visual.set("outer_radius", radius)
 	visual.set("use_module_profile", true)
-	_match_power_visual_style(visual, power_type)
+	visual.set("body_color", Color(0.26, 0.48, 0.78, 1.0))
+	visual.set("tooth_color", Color(0.4, 0.68, 1.0, 1.0))
+	visual.set("outline_color", Color(0.07, 0.14, 0.23, 1.0))
 	power_node.add_child(visual)
 
 	_network_node.add_child(power_node)
 
 
-func _match_power_visual_style(visual: Node2D, power_type: String) -> void:
-	if visual == null:
-		return
-
-	match power_type:
-		PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE:
-			visual.set("body_color", Color(0.48, 0.62, 0.27, 1.0))
-			visual.set("tooth_color", Color(0.7, 0.85, 0.4, 1.0))
-			visual.set("outline_color", Color(0.14, 0.17, 0.08, 1.0))
-		PROJECT_PATHS_SCRIPT.POWER_NODE_SPEED:
-			visual.set("body_color", Color(0.76, 0.42, 0.25, 1.0))
-			visual.set("tooth_color", Color(0.96, 0.62, 0.34, 1.0))
-			visual.set("outline_color", Color(0.2, 0.11, 0.07, 1.0))
-		_:
-			visual.set("body_color", Color(0.26, 0.48, 0.78, 1.0))
-			visual.set("tooth_color", Color(0.4, 0.68, 1.0, 1.0))
-			visual.set("outline_color", Color(0.07, 0.14, 0.23, 1.0))
+func _random_power_node_radius(rng: RandomNumberGenerator) -> float:
+	var roll := rng.randf()
+	if roll < 0.40:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_0_RADIUS
+	if roll < 0.68:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_1_RADIUS
+	if roll < 0.86:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_2_RADIUS
+	if roll < 0.96:
+		return PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_3_RADIUS
+	return PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_4_RADIUS
 
 
 func _create_zone(world_pos: Vector2, zone_type: String, overrides: Dictionary = {}) -> void:
@@ -894,59 +771,14 @@ func _get_mouse_world_position() -> Vector2:
 	return canvas_xform.affine_inverse() * get_viewport().get_mouse_position()
 
 
-func _get_chain_component(chain_node: Node2D) -> Node:
-	if chain_node == null:
-		return null
-
-	# Support direct connector scripts as well as legacy wrapper-child setup.
-	if chain_node.has_method("set_tension_state") or chain_node.has_method("set_jam_state"):
-		return chain_node
-	if chain_node.get("pulley_a") != null or chain_node.get("pulley_b") != null:
-		return chain_node
-
-	for child in chain_node.get_children():
-		if child and (child.has_method("set_tension_state") or child.has_method("set_jam_state")):
-			return child
-	return null
-
-
 func _configure_visual_for_component(node: Node2D, component_type: String) -> void:
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return
 
 	visual.set("outer_radius", _get_component_outer_radius(component_type))
-	if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-		visual.set("use_module_profile", false)
-		visual.set("visual_mode", "shaft")
-		visual.set("shaft_module_size", PROJECT_PATHS_SCRIPT.SHAFT_SHAPE_MODULE)
-		visual.set("inner_radius", 4.8)
-		visual.set("hub_radius", 3.8)
-		visual.set("tooth_count", 0)
-	elif component_type == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
-		visual.set("visual_mode", "flywheel")
-		visual.set("use_module_profile", false)
-		visual.set("inner_radius", _get_component_outer_radius(component_type) * 0.78)
-		visual.set("hub_radius", _get_component_outer_radius(component_type) * 0.24)
-		visual.set("body_color", Color(0.34, 0.37, 0.41, 1.0))
-		visual.set("tooth_color", Color(0.52, 0.56, 0.60, 1.0))
-	elif component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-		visual.set("visual_mode", "clutch")
-		visual.set("use_module_profile", false)
-		visual.set("inner_radius", _get_component_outer_radius(component_type) * 0.56)
-		visual.set("hub_radius", _get_component_outer_radius(component_type) * 0.2)
-		visual.set("body_color", Color(0.64, 0.55, 0.36, 1.0))
-		visual.set("tooth_color", Color(0.86, 0.72, 0.46, 1.0))
-	elif component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-		visual.set("visual_mode", "differential")
-		visual.set("use_module_profile", false)
-		visual.set("inner_radius", _get_component_outer_radius(component_type) * 0.62)
-		visual.set("hub_radius", _get_component_outer_radius(component_type) * 0.22)
-		visual.set("body_color", Color(0.41, 0.47, 0.55, 1.0))
-		visual.set("tooth_color", Color(0.62, 0.7, 0.8, 1.0))
-	else:
-		visual.set("visual_mode", "gear")
-		visual.set("use_module_profile", true)
+	visual.set("visual_mode", "gear")
+	visual.set("use_module_profile", true)
 	if visual.has_method("_sync_module_profile"):
 		visual.call("_sync_module_profile")
 
@@ -959,16 +791,6 @@ func _get_scene_for_component(component_type: String) -> PackedScene:
 			return medium_gear_scene if medium_gear_scene != null else null
 		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE:
 			return large_gear_scene if large_gear_scene != null else null
-		PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-			return shaft_scene if shaft_scene != null else null
-		PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
-			return flywheel_scene if flywheel_scene != null else null
-		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-			return clutch_scene if clutch_scene != null else null
-		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-			return differential_scene if differential_scene != null else null
-		PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
-			return chain_scene if chain_scene != null else null
 		_:
 			return null
 
@@ -979,31 +801,20 @@ func _get_component_outer_radius(component_type: String) -> float:
 			return PROJECT_PATHS_SCRIPT.SMALL_GEAR_OUTER_RADIUS
 		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE:
 			return PROJECT_PATHS_SCRIPT.LARGE_GEAR_OUTER_RADIUS
-		PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-			return PROJECT_PATHS_SCRIPT.SHAFT_OUTER_RADIUS
-		PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL:
-			return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS * 1.45
-		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-			return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS * 1.05
-		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-			return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS * 1.25
 		_:
 			return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
 
-func _get_node_connection_radius(node: Node2D) -> float:
-	if node == null:
-		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
+func _is_supported_component_type(component_type: String) -> bool:
+	return component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL \
+		or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM \
+		or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
 
-	if node.has_meta("shaft_connection_radius"):
-		return maxf(0.0, float(node.get_meta("shaft_connection_radius")))
 
-	var visual := node.get_node_or_null("Visual")
-	if visual == null:
-		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
-
-	var outer_radius := float(visual.get("outer_radius"))
-	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
+func _normalize_loaded_component_type(component_type: String) -> String:
+	if _is_supported_component_type(component_type):
+		return component_type
+	return ""
 
 
 func _array_to_vec2(raw: Variant) -> Vector2:

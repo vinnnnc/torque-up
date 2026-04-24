@@ -96,4 +96,4 @@ func emit_feedback(message: String) -> void:
 
 
 func set_active_mode(mode: String) -> void:
-	active_mode = mode if mode == "compound" else "mesh"
+	active_mode = "mesh"

@@ -155,7 +155,7 @@ func _draw() -> void:
 		var tooth_poly := PackedVector2Array([base_left, top_left, top_right, base_right])
 		draw_colored_polygon(tooth_poly, tooth_color)
 
-    # Base wheel body below the teeth ring.
+	# Base wheel body below the teeth ring.
 	draw_circle(Vector2.ZERO, root_radius, body_color)
 
 	# Subtle contour strokes that do not cut through the tooth faces.

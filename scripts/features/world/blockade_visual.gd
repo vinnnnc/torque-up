@@ -24,7 +24,7 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var require_rpm_ramp: bool = PROJECT_PATHS_SCRIPT.FRONTIER_REQUIRE_RPM_RAMP
 @export var rpm_gate_soft_min: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_SOFT_MIN
 @export var rpm_gate_full: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_FULL
-@export var rpm_gate_min_factor: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_MIN_FACTOR
+@export var rpm_gate_min_factor: float = 0.1
 
 @export var live_tuning_enabled: bool = false
 @export var live_tuning_poll_interval: float = 0.25
@@ -58,7 +58,7 @@ func _ready() -> void:
 	if _game_state != null and _game_state.has_signal("state_changed"):
 		if not _game_state.state_changed.is_connected(_on_state_changed):
 			_game_state.state_changed.connect(_on_state_changed)
-		_on_state_changed(_game_state.horsepower, _game_state.available_torque, _game_state.efficiency, _game_state.rpm)
+		_on_state_changed(_game_state.horsepower, _game_state.available_torque, _game_state.efficiency, _game_state.total_score, _game_state.lifetime_hp, _game_state.reliability_multiplier)
 
 	queue_redraw()
 
@@ -72,7 +72,7 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-func _on_state_changed(horsepower: float, available_torque: float, _efficiency: float, rpm: float) -> void:
+func _on_state_changed(horsepower: float, available_torque: float, _efficiency: float, _total_score: float, _lifetime_hp: float, _reliability_multiplier: float) -> void:
 	var delivered_torque := maxf(0.0, available_torque)
 	if PROJECT_PATHS_SCRIPT.ENGINE_MECHANICAL_COUPLED_MODE:
 		delivered_torque = (
@@ -80,8 +80,9 @@ func _on_state_changed(horsepower: float, available_torque: float, _efficiency: 
 		) + (
 			maxf(0.0, horsepower) * PROJECT_PATHS_SCRIPT.FRONTIER_COUPLED_HP_TO_TORQUE
 		)
-	if require_rpm_ramp:
-		delivered_torque *= _compute_rpm_gate_factor(rpm)
+	if require_rpm_ramp and _game_state != null:
+		var current_rpm : Variant = _game_state.rpm
+		delivered_torque *= _compute_rpm_gate_factor(current_rpm)
 	_smoothed_torque = (alpha * delivered_torque) + ((1.0 - alpha) * _smoothed_torque)
 
 	var candidate_radius := base_radius + (radius_scale_k * sqrt(_smoothed_torque))

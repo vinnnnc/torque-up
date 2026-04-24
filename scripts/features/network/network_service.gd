@@ -59,14 +59,12 @@ func build_graph_snapshot(
 
 	var nodes_by_id: Dictionary = {}
 	var adjacency: Dictionary = {}
-	var runtime_nodes_by_id: Dictionary = {}
 	var max_node_radius := 0.0
 	for node_raw in runtime_nodes:
 		var node_data := node_raw as Dictionary
 		var node_id := int(node_data.get("key", -1))
 		if node_id < 0:
 			continue
-		runtime_nodes_by_id[node_id] = node_data
 		var node_radius := float(node_data.get("radius", COMPONENT_RADIUS))
 		max_node_radius = maxf(max_node_radius, node_radius)
 		nodes_by_id[node_id] = {
@@ -125,101 +123,12 @@ func build_graph_snapshot(
 				"ratio": ratio_ba
 			})
 
-	# Connectors (chain/belt) can be visually centered away from both pulleys.
-	# Explicitly add endpoint edges so snapshot culling never drops drivetrain links.
-	for node_id_raw in runtime_nodes_by_id.keys():
-		var connector_node_data := runtime_nodes_by_id.get(int(node_id_raw), {}) as Dictionary
-		if connector_node_data.is_empty():
-			continue
-		var connector_type := str(connector_node_data.get("component_type", ""))
-		if connector_type != PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN and connector_type != PROJECT_PATHS_SCRIPT.COMPONENT_BELT:
-			continue
-		var connector_node := connector_node_data.get("node", null) as Node2D
-		if connector_node == null:
-			continue
-
-		var connector_component := _get_connector_component_node(connector_node)
-		if connector_component == null:
-			continue
-
-		var pulley_a := connector_component.get("pulley_a") as Node2D
-		var pulley_b := connector_component.get("pulley_b") as Node2D
-		if pulley_a != null:
-			_add_snapshot_edge_pair(runtime_nodes_by_id, adjacency, connector_node.get_instance_id(), pulley_a.get_instance_id())
-		if pulley_b != null:
-			_add_snapshot_edge_pair(runtime_nodes_by_id, adjacency, connector_node.get_instance_id(), pulley_b.get_instance_id())
-
 	return {
 		"nodes_by_id": nodes_by_id,
 		"adjacency": adjacency,
 		"component_ids": component_ids,
 		"connection_tolerance": connection_tolerance
 	}
-
-
-func _add_snapshot_edge_pair(
-	runtime_nodes_by_id: Dictionary,
-	adjacency: Dictionary,
-	from_instance_id: int,
-	to_instance_id: int
-) -> void:
-	if from_instance_id < 0 or to_instance_id < 0:
-		return
-
-	var from_node_id := -1
-	var to_node_id := -1
-	for runtime_id_raw in runtime_nodes_by_id.keys():
-		var runtime_id := int(runtime_id_raw)
-		var runtime_node_data := runtime_nodes_by_id.get(runtime_id, {}) as Dictionary
-		if runtime_node_data.is_empty():
-			continue
-		var runtime_node := runtime_node_data.get("node", null) as Node2D
-		if runtime_node == null:
-			continue
-		var runtime_instance_id := runtime_node.get_instance_id()
-		if runtime_instance_id == from_instance_id:
-			from_node_id = runtime_id
-		elif runtime_instance_id == to_instance_id:
-			to_node_id = runtime_id
-		if from_node_id >= 0 and to_node_id >= 0:
-			break
-
-	if from_node_id < 0 or to_node_id < 0:
-		return
-
-	var from_data := runtime_nodes_by_id.get(from_node_id, {}) as Dictionary
-	var to_data := runtime_nodes_by_id.get(to_node_id, {}) as Dictionary
-	if from_data.is_empty() or to_data.is_empty():
-		return
-
-	if not adjacency.has(from_node_id):
-		adjacency[from_node_id] = []
-	if not adjacency.has(to_node_id):
-		adjacency[to_node_id] = []
-
-	if not _snapshot_has_edge(adjacency.get(from_node_id, []) as Array, to_node_id):
-		(adjacency[from_node_id] as Array).append({
-			"to": to_node_id,
-			"sign": _get_connection_sign_multiplier(from_data, to_data),
-			"ratio": _compute_edge_ratio(from_data, to_data)
-		})
-
-	if not _snapshot_has_edge(adjacency.get(to_node_id, []) as Array, from_node_id):
-		(adjacency[to_node_id] as Array).append({
-			"to": from_node_id,
-			"sign": _get_connection_sign_multiplier(to_data, from_data),
-			"ratio": _compute_edge_ratio(to_data, from_data)
-		})
-
-
-func _snapshot_has_edge(edges: Array, to_id: int) -> bool:
-	for edge_raw in edges:
-		if not edge_raw is Dictionary:
-			continue
-		var edge := edge_raw as Dictionary
-		if int(edge.get("to", -1)) == to_id:
-			return true
-	return false
 
 
 func get_reachable_component_ids_from_snapshot(snapshot: Dictionary, source_id: int) -> Array:
@@ -916,6 +825,66 @@ func _snapshot_grid_query(grid: Dictionary, world_pos: Vector2, radius: float, c
 				result.append(idx)
 	return result
 
+
+func _build_runtime_graph_nodes(components_container: Node, extra_nodes: Array = []) -> Dictionary:
+	var graph_nodes: Array = []
+	var max_radius := 0.0
+
+	if components_container != null:
+		for child in components_container.get_children():
+			var gear := child as Node2D
+			if not gear:
+				continue
+			var radius := _get_node_connection_radius(gear)
+			max_radius = maxf(max_radius, radius)
+			graph_nodes.append({
+				"key": gear.get_instance_id(),
+				"node": gear,
+				"position": gear.global_position,
+				"radius": radius,
+				"drive_radius": _get_node_outer_radius(gear),
+				"drive_teeth": _get_node_tooth_count(gear),
+				"component_type": _get_component_type(gear)
+			})
+
+	for extra_raw in extra_nodes:
+		if not extra_raw is Dictionary:
+			continue
+		var extra_node := extra_raw as Dictionary
+		var extra_radius := float(extra_node.get("radius", COMPONENT_RADIUS))
+		max_radius = maxf(max_radius, extra_radius)
+		graph_nodes.append(extra_node)
+
+	var cell_size := maxf(64.0, (max_radius * 2.0) + 12.0)
+	var spatial_grid: Dictionary = {}
+	for node_index in range(graph_nodes.size()):
+		var node_data := graph_nodes[node_index] as Dictionary
+		_snapshot_grid_insert(
+			spatial_grid,
+			node_data.get("position", Vector2.ZERO) as Vector2,
+			node_index,
+			cell_size
+		)
+
+	return {
+		"nodes": graph_nodes,
+		"grid": spatial_grid,
+		"cell_size": cell_size,
+		"max_radius": max_radius,
+	}
+
+
+func _query_runtime_neighbor_indices(
+	spatial_grid: Dictionary,
+	world_pos: Vector2,
+	node_radius: float,
+	max_radius: float,
+	connection_tolerance: float,
+	cell_size: float
+) -> Array:
+	var query_radius := maxf(node_radius, 0.0) + maxf(max_radius, 0.0) + connection_tolerance + 2.0
+	return _snapshot_grid_query(spatial_grid, world_pos, query_radius, cell_size)
+
 func get_component_count_from_container(components_container: Node) -> int:
 	if components_container == null:
 		return 0
@@ -1019,8 +988,7 @@ func get_component_profile(node: Node2D) -> Dictionary:
 		"tooth_count": _get_node_tooth_count(node),
 		"friction": _get_component_friction_load(node),
 		"inertia": _get_component_inertia(node),
-		"max_torque": _get_component_max_torque(node),
-		"compound_added_layers": _get_compound_added_layers(node)
+		"max_torque": _get_component_max_torque(node)
 	}
 
 	return profile
@@ -1107,26 +1075,15 @@ func get_network_spin_signs(
 	if components_container == null:
 		return signs
 
-	var graph_nodes: Array = []
-	for child in components_container.get_children():
-		var gear := child as Node2D
-		if not gear:
-			continue
-		graph_nodes.append({
-			"key": gear.get_instance_id(),
-			"node": gear,
-			"component_type": _get_component_type(gear),
-			"position": gear.global_position,
-			"radius": _get_node_connection_radius(gear)
-		})
-
-	for extra_raw in extra_nodes:
-		if extra_raw is Dictionary:
-			graph_nodes.append(extra_raw)
+	var runtime_graph := _build_runtime_graph_nodes(components_container, extra_nodes)
+	var graph_nodes := runtime_graph.get("nodes", []) as Array
+	var spatial_grid := runtime_graph.get("grid", {}) as Dictionary
+	var cell_size := float(runtime_graph.get("cell_size", 64.0))
+	var max_radius := float(runtime_graph.get("max_radius", COMPONENT_RADIUS))
 
 	var queue: Array = []
-	for node_raw in graph_nodes:
-		var node_data := node_raw as Dictionary
+	for node_index in _query_runtime_neighbor_indices(spatial_grid, source_world_pos, source_radius, max_radius, connection_tolerance, cell_size):
+		var node_data := graph_nodes[int(node_index)] as Dictionary
 		var node_key: Variant = node_data.get("key", null)
 		if node_key == null:
 			continue
@@ -1142,8 +1099,15 @@ func get_network_spin_signs(
 		var current_key: Variant = current.get("key", null)
 		var current_sign := float(signs.get(current_key, 1.0))
 
-		for neighbor_raw in graph_nodes:
-			var neighbor: Dictionary = neighbor_raw as Dictionary
+		for neighbor_index in _query_runtime_neighbor_indices(
+			spatial_grid,
+			current.get("position", Vector2.ZERO) as Vector2,
+			float(current.get("radius", COMPONENT_RADIUS)),
+			max_radius,
+			connection_tolerance,
+			cell_size
+		):
+			var neighbor: Dictionary = graph_nodes[int(neighbor_index)] as Dictionary
 			var neighbor_key: Variant = neighbor.get("key", null)
 			if neighbor_key == null or neighbor_key == current_key or signs.has(neighbor_key):
 				continue
@@ -1170,30 +1134,19 @@ func get_direction_conflicts(
 	if components_container == null:
 		return []
 
-	var graph_nodes: Array = []
-	for child in components_container.get_children():
-		var gear := child as Node2D
-		if not gear:
-			continue
-		graph_nodes.append({
-			"key": gear.get_instance_id(),
-			"node": gear,
-			"component_type": _get_component_type(gear),
-			"position": gear.global_position,
-			"radius": _get_node_connection_radius(gear)
-		})
-
-	for extra_raw in extra_nodes:
-		if extra_raw is Dictionary:
-			graph_nodes.append(extra_raw)
+	var runtime_graph := _build_runtime_graph_nodes(components_container, extra_nodes)
+	var graph_nodes := runtime_graph.get("nodes", []) as Array
+	var spatial_grid := runtime_graph.get("grid", {}) as Dictionary
+	var cell_size := float(runtime_graph.get("cell_size", 64.0))
+	var max_radius := float(runtime_graph.get("max_radius", COMPONENT_RADIUS))
 
 	var assigned: Dictionary = {}
 	var conflict_ids: Dictionary = {}
 	var queue: Array = []
 
 	# Seed directly from source.
-	for node_raw in graph_nodes:
-		var node_data := node_raw as Dictionary
+	for node_index in _query_runtime_neighbor_indices(spatial_grid, source_world_pos, source_radius, max_radius, connection_tolerance, cell_size):
+		var node_data := graph_nodes[int(node_index)] as Dictionary
 		var node_key: Variant = node_data.get("key", null)
 		if node_key == null:
 			continue
@@ -1208,8 +1161,15 @@ func get_direction_conflicts(
 		var current_key: Variant = current.get("key", null)
 		var current_sign := float(assigned.get(current_key, 1.0))
 
-		for neighbor_raw in graph_nodes:
-			var neighbor: Dictionary = neighbor_raw as Dictionary
+		for neighbor_index in _query_runtime_neighbor_indices(
+			spatial_grid,
+			current.get("position", Vector2.ZERO) as Vector2,
+			float(current.get("radius", COMPONENT_RADIUS)),
+			max_radius,
+			connection_tolerance,
+			cell_size
+		):
+			var neighbor: Dictionary = graph_nodes[int(neighbor_index)] as Dictionary
 			var neighbor_key: Variant = neighbor.get("key", null)
 			if neighbor_key == null or neighbor_key == current_key:
 				continue
@@ -1245,24 +1205,11 @@ func get_network_drive_multipliers(
 	if components_container == null:
 		return multipliers
 
-	var graph_nodes: Array = []
-	for child in components_container.get_children():
-		var gear := child as Node2D
-		if not gear:
-			continue
-		graph_nodes.append({
-			"key": gear.get_instance_id(),
-			"node": gear,
-			"position": gear.global_position,
-			"radius": _get_node_connection_radius(gear),
-			"drive_radius": _get_node_outer_radius(gear),
-			"drive_teeth": _get_node_tooth_count(gear),
-			"component_type": _get_component_type(gear)
-		})
-
-	for extra_raw in extra_nodes:
-		if extra_raw is Dictionary:
-			graph_nodes.append(extra_raw)
+	var runtime_graph := _build_runtime_graph_nodes(components_container, extra_nodes)
+	var graph_nodes := runtime_graph.get("nodes", []) as Array
+	var spatial_grid := runtime_graph.get("grid", {}) as Dictionary
+	var cell_size := float(runtime_graph.get("cell_size", 64.0))
+	var max_radius := float(runtime_graph.get("max_radius", COMPONENT_RADIUS))
 
 	var queue: Array = []
 	var source_key: int = -1
@@ -1283,10 +1230,16 @@ func get_network_drive_multipliers(
 		var current_radius: float = float(current.get("radius", COMPONENT_RADIUS))
 		var current_drive_radius: float = float(current.get("drive_radius", current_radius))
 		var current_drive_teeth: int = int(current.get("drive_teeth", 0))
-		var current_component_type: String = str(current.get("component_type", ""))
 
-		for neighbor_raw in graph_nodes:
-			var neighbor: Dictionary = neighbor_raw as Dictionary
+		for neighbor_index in _query_runtime_neighbor_indices(
+			spatial_grid,
+			current.get("position", Vector2.ZERO) as Vector2,
+			float(current.get("radius", COMPONENT_RADIUS)),
+			max_radius,
+			connection_tolerance,
+			cell_size
+		):
+			var neighbor: Dictionary = graph_nodes[int(neighbor_index)] as Dictionary
 			var neighbor_key: Variant = neighbor.get("key", null)
 			if neighbor_key == null or visited.has(neighbor_key):
 				continue
@@ -1296,27 +1249,8 @@ func get_network_drive_multipliers(
 
 			var neighbor_drive_teeth: int = int(neighbor.get("drive_teeth", 0))
 			var neighbor_drive_radius: float = float(neighbor.get("drive_radius", neighbor.get("radius", COMPONENT_RADIUS)))
-			var neighbor_component_type: String = str(neighbor.get("component_type", ""))
-			var current_node_ref := current.get("node", null) as Node2D
-			var neighbor_node_ref := neighbor.get("node", null) as Node2D
-			var current_is_connector := current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-			var neighbor_is_connector := neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
 			var ratio := 1.0
-			if current_node_ref and neighbor_node_ref and _stack_links_nodes(current_node_ref, neighbor_node_ref):
-				ratio = 1.0
-			elif current_is_connector and not neighbor_is_connector:
-				ratio = _get_connector_to_pulley_ratio(current_node_ref, neighbor_node_ref)
-			elif neighbor_is_connector and not current_is_connector:
-				ratio = 1.0
-			elif current_is_connector and neighbor_is_connector:
-				ratio = 1.0
-			elif current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-				ratio = 1.0
-			elif current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-				ratio = 1.0
-			elif current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-				ratio = 1.0
-			elif current_drive_teeth > 0 and neighbor_drive_teeth > 0:
+			if current_drive_teeth > 0 and neighbor_drive_teeth > 0:
 				ratio = float(current_drive_teeth) / float(neighbor_drive_teeth)
 			elif neighbor_drive_radius > 0.0001:
 				ratio = current_drive_radius / neighbor_drive_radius
@@ -1333,24 +1267,6 @@ func get_network_drive_multipliers(
 ## Returns the scalar by which current's angular speed maps to neighbor's
 ## angular speed (sign handled separately by _get_connection_sign_multiplier).
 func _compute_edge_ratio(current: Dictionary, neighbor: Dictionary) -> float:
-	var current_node_ref := current.get("node", null) as Node2D
-	var neighbor_node_ref := neighbor.get("node", null) as Node2D
-	var current_component_type := str(current.get("component_type", _get_component_type(current_node_ref)))
-	var neighbor_component_type := str(neighbor.get("component_type", _get_component_type(neighbor_node_ref)))
-	var current_is_connector := current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	var neighbor_is_connector := neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	if current_node_ref and neighbor_node_ref and _stack_links_nodes(current_node_ref, neighbor_node_ref):
-		return 1.0
-	if current_is_connector and not neighbor_is_connector:
-		return _get_connector_to_pulley_ratio(current_node_ref, neighbor_node_ref)
-	if neighbor_is_connector or current_is_connector:
-		return 1.0
-	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-		return 1.0
-	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-		return 1.0
-	if current_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT or neighbor_component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-		return 1.0
 	var current_drive_teeth := int(current.get("drive_teeth", 0))
 	var neighbor_drive_teeth := int(neighbor.get("drive_teeth", 0))
 	if current_drive_teeth > 0 and neighbor_drive_teeth > 0:
@@ -1460,40 +1376,6 @@ func propagate_speeds_from_settled(
 	return resolved
 
 
-func _get_connector_to_pulley_ratio(connector_node: Node2D, target_pulley: Node2D) -> float:
-	if connector_node == null or target_pulley == null:
-		return 1.0
-
-	var connector := _get_connector_component_node(connector_node)
-	if connector == null:
-		return 1.0
-
-	var pulley_a := connector.get("pulley_a") as Node2D
-	var pulley_b := connector.get("pulley_b") as Node2D
-	if pulley_a == null or pulley_b == null:
-		return 1.0
-
-	var other_pulley: Node2D = null
-	if target_pulley == pulley_a:
-		other_pulley = pulley_b
-	elif target_pulley == pulley_b:
-		other_pulley = pulley_a
-	else:
-		return 1.0
-
-	var other_teeth := _get_node_tooth_count(other_pulley)
-	var target_teeth := _get_node_tooth_count(target_pulley)
-	if other_teeth > 0 and target_teeth > 0:
-		return float(other_teeth) / float(target_teeth)
-
-	var other_radius := _get_node_outer_radius(other_pulley)
-	var target_radius := _get_node_outer_radius(target_pulley)
-	if target_radius > 0.0001:
-		return other_radius / target_radius
-
-	return 1.0
-
-
 func get_reachable_components_from_source(
 	components_container: Node,
 	source_world_pos: Vector2,
@@ -1506,16 +1388,20 @@ func get_reachable_components_from_source(
 	if components_container == null:
 		return reachable
 
-	var all_components: Array = []
-	for child in components_container.get_children():
-		var gear := child as Node2D
-		if gear:
-			all_components.append(gear)
+	var runtime_graph := _build_runtime_graph_nodes(components_container)
+	var graph_nodes := runtime_graph.get("nodes", []) as Array
+	var spatial_grid := runtime_graph.get("grid", {}) as Dictionary
+	var cell_size := float(runtime_graph.get("cell_size", 64.0))
+	var max_radius := float(runtime_graph.get("max_radius", COMPONENT_RADIUS))
 
 	# Find all components directly adjacent to source
 	var queue: Array = []
 	var visited: Dictionary = {}
-	for gear_node in all_components:
+	for node_index in _query_runtime_neighbor_indices(spatial_grid, source_world_pos, source_radius, max_radius, connection_tolerance, cell_size):
+		var gear_data := graph_nodes[int(node_index)] as Dictionary
+		var gear_node := gear_data.get("node", null) as Node2D
+		if gear_node == null:
+			continue
 		var gear_radius := _get_node_connection_radius(gear_node)
 		var source_distance: float = gear_node.global_position.distance_to(source_world_pos)
 		if absf(source_distance - (source_radius + gear_radius)) <= connection_tolerance:
@@ -1530,7 +1416,11 @@ func get_reachable_components_from_source(
 		if not current:
 			continue
 
-		for neighbor in all_components:
+		for node_index in _query_runtime_neighbor_indices(spatial_grid, current.global_position, _get_node_connection_radius(current), max_radius, connection_tolerance, cell_size):
+			var neighbor_data := graph_nodes[int(node_index)] as Dictionary
+			var neighbor := neighbor_data.get("node", null) as Node2D
+			if neighbor == null:
+				continue
 			var neighbor_id: int = neighbor.get_instance_id()
 			if visited.has(neighbor_id):
 				continue
@@ -1540,12 +1430,12 @@ func get_reachable_components_from_source(
 				"position": current.global_position,
 				"radius": _get_node_connection_radius(current)
 			}
-			var neighbor_data := {
+			var neighbor_connection_data := {
 				"node": neighbor,
 				"position": neighbor.global_position,
 				"radius": _get_node_connection_radius(neighbor)
 			}
-			if not _nodes_are_connected(current_data, neighbor_data, connection_tolerance):
+			if not _nodes_are_connected(current_data, neighbor_connection_data, connection_tolerance):
 				continue
 
 			visited[neighbor_id] = true
@@ -1603,21 +1493,6 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 	var type_a := str(node_a.get("component_type", _get_component_type(node_a_ref)))
 	var type_b := str(node_b.get("component_type", _get_component_type(node_b_ref)))
 
-	var is_connector_a := type_a == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or type_a == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	var is_connector_b := type_b == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	if is_connector_a or is_connector_b:
-		if node_a_ref and node_b_ref:
-			return _connector_links_node(node_a_ref, node_b_ref) or _connector_links_node(node_b_ref, node_a_ref)
-		return false
-
-	if node_a_ref and node_b_ref:
-		if _shaft_links_node(node_a_ref, node_b_ref) or _shaft_links_node(node_b_ref, node_a_ref):
-			return true
-
-	if node_a_ref and node_b_ref:
-		if _stack_links_nodes(node_a_ref, node_b_ref):
-			return true
-
 	var pos_a: Vector2 = node_a.get("position", Vector2.ZERO)
 	var pos_b: Vector2 = node_b.get("position", Vector2.ZERO)
 	var radius_a: float = float(node_a.get("radius", COMPONENT_RADIUS))
@@ -1626,42 +1501,6 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 	if absf(edge_distance - (radius_a + radius_b)) > tolerance:
 		return false
 
-	# Cross-compound compound-layer conflict check.
-	# When two compound stacks are placed such that (L1-A + L2-B) and (L2-A + L1-B)
-	# satisfy the same tangent-distance condition simultaneously (same physical tangent
-	# point, symmetric radii), both pairs fire and produce contradictory speed ratios.
-	# Rule: keep the L2→L1 direction (the foreground gear of each compound connects to
-	# the base gear of the other). Block the mirrored L1→L2 connection.
-	if node_a_ref != null and node_b_ref != null:
-		var layer_a := _get_node_compound_layer(node_a_ref)
-		var layer_b := _get_node_compound_layer(node_b_ref)
-		var root_a := int(node_a_ref.get_meta("stack_root_id", node_a_ref.get_instance_id()))
-		var root_b := int(node_b_ref.get_meta("stack_root_id", node_b_ref.get_instance_id()))
-		if root_a != root_b:
-			if layer_a == 2 and layer_b == 2:
-				return false
-			if layer_a != layer_b:
-				# Mixed L1+L2 cross-compound: check for symmetric phantom.
-				var partner_a := _find_compound_partner_node(node_a_ref)
-				var partner_b := _find_compound_partner_node(node_b_ref)
-				if partner_a != null and partner_b != null:
-					var r_pa := _get_node_connection_radius(partner_a)
-					var r_pb := _get_node_connection_radius(partner_b)
-					var dist_partners := partner_a.global_position.distance_to(partner_b.global_position)
-					if absf(dist_partners - (r_pa + r_pb)) <= tolerance:
-						# Symmetric phantom: both L1+L2 and L2+L1 satisfy the distance.
-						# Block the L1-A→L2-B direction; keep L2-A→L1-B.
-						if layer_a == 1:
-							return false
-
-	if node_a_ref and _is_port_limited_component(type_a):
-		if not _neighbor_matches_component_ports(node_a_ref, node_b_ref, type_a):
-			return false
-
-	if node_b_ref and _is_port_limited_component(type_b):
-		if not _neighbor_matches_component_ports(node_b_ref, node_a_ref, type_b):
-			return false
-
 	if _mesh_blocked_by_sprocket_mode(node_a_ref, node_b_ref, type_a, type_b):
 		return false
 
@@ -1669,166 +1508,9 @@ func _nodes_are_connected(node_a: Dictionary, node_b: Dictionary, tolerance: flo
 
 
 func _get_connection_sign_multiplier(node_a: Dictionary, node_b: Dictionary) -> float:
-	var node_a_ref := node_a.get("node", null) as Node2D
-	var node_b_ref := node_b.get("node", null) as Node2D
-	if node_a_ref and node_b_ref and _stack_links_nodes(node_a_ref, node_b_ref):
-		return 1.0
-
-	var type_a := str(node_a.get("component_type", ""))
-	var type_b := str(node_b.get("component_type", ""))
-	var is_connector_a := type_a == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or type_a == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	var is_connector_b := type_b == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
-	if is_connector_a or is_connector_b:
-		return 1.0
-	if type_a == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-		return 1.0
-	if type_a == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-		return 1.0
-	if type_a == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL or type_b == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-		return 1.0
+	var _node_a_ref := node_a.get("node", null) as Node2D
+	var _node_b_ref := node_b.get("node", null) as Node2D
 	return -1.0
-
-
-func _is_port_limited_component(component_type: String) -> bool:
-	return component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL
-
-
-func _neighbor_matches_component_ports(component_node: Node2D, neighbor_node: Node2D, component_type: String) -> bool:
-	if component_node == null or neighbor_node == null:
-		return false
-
-	var local_ports := _get_component_local_ports(component_type)
-	if local_ports.is_empty():
-		return true
-
-	var local_angle := (neighbor_node.global_position - component_node.global_position).angle() - component_node.global_rotation
-	local_angle = wrapf(local_angle, -PI, PI)
-	var tolerance := 0.34
-
-	for port_raw in local_ports:
-		var port_angle := wrapf(float(port_raw), -PI, PI)
-		var delta := absf(wrapf(local_angle - port_angle, -PI, PI))
-		if delta <= tolerance:
-			return true
-
-	return false
-
-
-func _get_node_compound_layer(node: Node2D) -> int:
-	if node == null:
-		return 1
-	if node.has_meta("compound_layer"):
-		return clampi(int(node.get_meta("compound_layer")), 1, 2)
-	if int(node.get_meta("stack_parent_id", -1)) >= 0:
-		return 2
-	return 1
-
-
-## Returns the other gear node in the same compound stack, or null if none.
-func _find_compound_partner_node(node: Node2D) -> Node2D:
-	if node == null:
-		return null
-	var parent := node.get_parent()
-	if parent == null:
-		return null
-	var layer := _get_node_compound_layer(node)
-	if layer == 2:
-		# Layer-2 gear knows its layer-1 partner via stack_parent_id.
-		var parent_id := int(node.get_meta("stack_parent_id", -1))
-		if parent_id < 0:
-			return null
-		for sibling in parent.get_children():
-			var s := sibling as Node2D
-			if s != null and s.get_instance_id() == parent_id:
-				return s
-	else:
-		# Layer-1 gear: find the sibling that has this node as its stack_parent.
-		var node_id := node.get_instance_id()
-		for sibling in parent.get_children():
-			var s := sibling as Node2D
-			if s != null and s != node:
-				if int(s.get_meta("stack_parent_id", -1)) == node_id:
-					return s
-	return null
-
-
-func _get_component_local_ports(component_type: String) -> Array:
-	match component_type:
-		PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH:
-			return [-PI * 0.5, PI * 0.5]
-		PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL:
-			return [-2.35, -0.79, PI * 0.5]
-		_:
-			return []
-
-
-func _stack_links_nodes(node_a: Node2D, node_b: Node2D) -> bool:
-	if node_a == null or node_b == null:
-		return false
-
-	var a_parent := int(node_a.get_meta("stack_parent_id", -1))
-	var b_parent := int(node_b.get_meta("stack_parent_id", -1))
-	if a_parent == node_b.get_instance_id() or b_parent == node_a.get_instance_id():
-		return true
-
-	var a_root := int(node_a.get_meta("stack_root_id", -1))
-	var b_root := int(node_b.get_meta("stack_root_id", -1))
-	if a_root == -1 or b_root == -1:
-		return false
-
-	if a_root != b_root:
-		return false
-
-	return node_a.global_position.distance_to(node_b.global_position) <= 0.001
-
-
-func _connector_links_node(connector_node: Node2D, other_node: Node2D) -> bool:
-	if connector_node == null or other_node == null:
-		return false
-	var ctype := _get_component_type(connector_node)
-	if ctype != PROJECT_PATHS_SCRIPT.COMPONENT_BELT and ctype != PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
-		return false
-
-	var connector := _get_connector_component_node(connector_node)
-	if connector == null:
-		return false
-
-	var pulley_a := connector.get("pulley_a") as Node2D
-	var pulley_b := connector.get("pulley_b") as Node2D
-	return pulley_a == other_node or pulley_b == other_node
-
-
-func _shaft_links_node(shaft_node: Node2D, other_node: Node2D) -> bool:
-	if shaft_node == null or other_node == null:
-		return false
-	if _get_component_type(shaft_node) != PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-		return false
-
-	if shaft_node.has_meta("shaft_end_a_id"):
-		var end_a := int(shaft_node.get_meta("shaft_end_a_id"))
-		var end_b := int(shaft_node.get_meta("shaft_end_b_id", -1))
-		var other_id := other_node.get_instance_id()
-		return other_id == end_a or other_id == end_b
-
-	return false
-
-
-func _get_connector_component_node(connector_node: Node2D) -> Node:
-	"""Finds the connector component node on direct chain nodes or wrapper children."""
-	if connector_node == null:
-		return null
-
-	# Support direct scripted connector nodes (no wrapper child).
-	if connector_node.has_method("set_tension_state") or connector_node.has_method("set_jam_state"):
-		return connector_node
-	if connector_node.get("pulley_a") != null or connector_node.get("pulley_b") != null:
-		return connector_node
-
-	for child in connector_node.get_children():
-		if child and (child.has_method("set_tension_state") or child.has_method("set_jam_state")):
-			return child
-
-	return null
 
 
 func _get_node_outer_radius(node: Node2D) -> float:
@@ -1847,14 +1529,6 @@ func _get_node_outer_radius(node: Node2D) -> float:
 
 
 func _get_node_connection_radius(node: Node2D) -> float:
-	var ctype := _get_component_type(node)
-	if ctype == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or ctype == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
-		return 0.01
-	if ctype == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT and node and node.has_meta("shaft_end_a_id"):
-		return 0.01
-	if ctype == PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL and node and node.has_meta("shaft_connection_radius"):
-		return maxf(2.0, float(node.get_meta("shaft_connection_radius")))
-
 	var outer_radius := _get_node_outer_radius(node)
 	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
 
@@ -1875,15 +1549,6 @@ func _get_component_friction_load(node: Node2D) -> float:
 			return PROJECT_PATHS_SCRIPT.FRICTION_LARGE_GEAR
 		PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM:
 			return PROJECT_PATHS_SCRIPT.FRICTION_MEDIUM_GEAR
-		PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
-			var shaft_radius := _get_shaft_connection_radius(node)
-			var shaft_min_radius := PROJECT_PATHS_SCRIPT.SHAFT_OUTER_RADIUS - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN
-			var extra_radius := maxf(0.0, shaft_radius - shaft_min_radius)
-			return PROJECT_PATHS_SCRIPT.FRICTION_SHAFT + (extra_radius * 0.085)
-		PROJECT_PATHS_SCRIPT.COMPONENT_BELT:
-			return PROJECT_PATHS_SCRIPT.BELT_FRICTION_BASE
-		PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
-			return PROJECT_PATHS_SCRIPT.CHAIN_FRICTION_BASE
 
 	var radius := _get_node_outer_radius(node)
 	var radius_ratio := radius / PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
@@ -1910,37 +1575,7 @@ func _get_component_type(node: Node2D) -> String:
 	return str(node.get_meta("component_type"))
 
 
-func _get_shaft_connection_radius(node: Node2D) -> float:
-	if node == null:
-		return PROJECT_PATHS_SCRIPT.SHAFT_MIN_CONNECTION_RADIUS
-
-	if node.has_meta("shaft_connection_radius"):
-		return maxf(0.0, float(node.get_meta("shaft_connection_radius")))
-
-	return _get_node_connection_radius(node)
-
-
-func _get_compound_added_layers(node: Node2D) -> int:
-	if node == null:
-		return 0
-	if node.has_meta("compound_added_layers"):
-		return max(0, int(node.get_meta("compound_added_layers")))
-	if node.has_meta("stack_parent_id"):
-		return 1
-	var container := node.get_parent()
-	if container == null:
-		return 0
-	var node_id := node.get_instance_id()
-	for child in container.get_children():
-		var child_node := child as Node2D
-		if child_node == null:
-			continue
-		if int(child_node.get_meta("stack_parent_id", -1)) == node_id:
-			return 1
-	return 0
-
-
-func _mesh_blocked_by_sprocket_mode(node_a: Node2D, node_b: Node2D, type_a: String, type_b: String) -> bool:
+func _mesh_blocked_by_sprocket_mode(_node_a: Node2D, _node_b: Node2D, _type_a: String, _type_b: String) -> bool:
 	# Allow sprocket-mode gears to continue meshing so chain-connected islands
 	# can still relay through existing gear trains.
 	return false

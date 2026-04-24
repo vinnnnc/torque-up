@@ -1,6 +1,6 @@
 extends Node
 
-signal state_changed(horsepower: float, available_torque: float, efficiency: float, rpm: float)
+signal state_changed(horsepower: float, available_torque: float, efficiency: float, total_score: float, lifetime_hp: float, reliability_multiplier: float)
 signal lifetime_hp_changed(lifetime_hp: float, reliability_multiplier: float)
 signal jam_registered(total_jams: int)
 
@@ -8,12 +8,18 @@ signal jam_registered(total_jams: int)
 var horsepower: float = 0.0
 var available_torque: float = 0.0
 var efficiency: float = 1.0
+
+## Internal RPM tracking (not exposed in signal; used by frontier logic).
 var rpm: float = 0.0
 
 ## Sandbox / endless scoring — never decrements.
 var lifetime_hp: float = 0.0
 ## Modulates how quickly lifetime_hp accumulates based on network reliability.
 var reliability_multiplier: float = 1.0
+
+## Score accumulation.
+var total_score: float = 0.0
+var last_score_delta: float = 0.0
 
 ## Jam tracking for reliability calculation.
 var total_jams: int = 0
@@ -29,20 +35,23 @@ func set_state(
 	new_horsepower: float,
 	new_available_torque: float,
 	new_efficiency: float,
-	new_rpm: float,
-	tick_delta: float = 0.0
+	new_score_delta: float,
+	tick_delta: float = 0.0,
+	new_rpm: float = 0.0
 ) -> void:
 	horsepower = maxf(new_horsepower, 0.0)
 	available_torque = new_available_torque
 	efficiency = clampf(new_efficiency, 0.0, 1.0)
 	rpm = maxf(new_rpm, 0.0)
+	last_score_delta = maxf(new_score_delta, 0.0)
 
 	if tick_delta > 0.0:
 		_purge_old_jams()
 		lifetime_hp += horsepower * tick_delta * reliability_multiplier
+		total_score += last_score_delta
 		lifetime_hp_changed.emit(lifetime_hp, reliability_multiplier)
 
-	state_changed.emit(horsepower, available_torque, efficiency, rpm)
+	state_changed.emit(horsepower, available_torque, efficiency, total_score, lifetime_hp, reliability_multiplier)
 
 
 ## Record a jam event at the current time. Reliability multiplier updates

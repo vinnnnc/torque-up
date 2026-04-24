@@ -4,27 +4,13 @@ class_name PlacementController
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const PLACEMENT_RULES_SCRIPT = preload("res://scripts/features/placement/placement_rules.gd")
 const NETWORK_SERVICE_SCRIPT = preload("res://scripts/features/network/network_service.gd")
-const CHAIN_COMPONENT_SCRIPT_PATH := "res://scripts/components/chain.gd"
-const SHAFT_COMPONENT_SCRIPT_PATH := "res://scripts/components/shaft_link.gd"
-# Handler type preloads — gives the IDE concrete references for all class_name types.
-const PlacementHandlerContext = preload("res://scripts/features/placement/handlers/placement_handler_context.gd")
-const PlacementHandlerBase = preload("res://scripts/features/placement/handlers/placement_handler_base.gd")
+# Handler type preloads
 const GearPlacementHandler = preload("res://scripts/features/placement/handlers/gear_placement_handler.gd")
-const ShaftPlacementHandler = preload("res://scripts/features/placement/handlers/shaft_placement_handler.gd")
-const ChainPlacementHandler = preload("res://scripts/features/placement/handlers/chain_placement_handler.gd")
-const FlywheelPlacementHandler = preload("res://scripts/features/placement/handlers/flywheel_placement_handler.gd")
-const ClutchPlacementHandler = preload("res://scripts/features/placement/handlers/clutch_placement_handler.gd")
-const DifferentialPlacementHandler = preload("res://scripts/features/placement/handlers/differential_placement_handler.gd")
 
 @export var gear_scene: PackedScene
 @export var small_gear_scene: PackedScene
 @export var medium_gear_scene: PackedScene
 @export var large_gear_scene: PackedScene
-@export var shaft_scene: PackedScene
-@export var flywheel_scene: PackedScene
-@export var clutch_scene: PackedScene
-@export var differential_scene: PackedScene
-@export var chain_scene: PackedScene
 @export var components_container_path: NodePath = PROJECT_PATHS_SCRIPT.COMPONENTS_CONTAINER_PATH
 @export var power_source_path: NodePath = PROJECT_PATHS_SCRIPT.POWER_SOURCE_PATH
 @export var socket_count: int = PROJECT_PATHS_SCRIPT.DEFAULT_SOCKET_COUNT
@@ -43,12 +29,7 @@ const OVERLAY_ARC_MAX_POINTS := 220
 const COMPONENT_GEAR_SMALL := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_SMALL
 const COMPONENT_GEAR_MEDIUM := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_MEDIUM
 const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
-const COMPONENT_SHAFT := PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT
-const COMPONENT_CHAIN := PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN
 const COMPONENT_DELETE := PROJECT_PATHS_SCRIPT.COMPONENT_DELETE
-const COMPONENT_FLYWHEEL := PROJECT_PATHS_SCRIPT.COMPONENT_FLYWHEEL
-const COMPONENT_CLUTCH := PROJECT_PATHS_SCRIPT.COMPONENT_CLUTCH
-const COMPONENT_DIFFERENTIAL := PROJECT_PATHS_SCRIPT.COMPONENT_DIFFERENTIAL
 
 var _placement_rules = PLACEMENT_RULES_SCRIPT.new()
 var _preview_gear: Node2D
@@ -79,7 +60,6 @@ const DENSE_MESH_PREVIEW_COMPONENT_THRESHOLD := 240
 const DENSE_MESH_PREVIEW_REFRESH_INTERVAL_MSEC := 90
 const DENSE_MESH_PREVIEW_MIN_MOUSE_DELTA_SQ := 9.0
 const DRAG_RELEASE_DEADZONE := 14.0
-const SHAFT_PLACEMENT_BLOCK_RADIUS := PROJECT_PATHS_SCRIPT.SHAFT_MIN_CONNECTION_RADIUS
 
 
 func _ready() -> void:
@@ -116,11 +96,6 @@ func _setup_handler_context() -> void:
 		COMPONENT_GEAR_SMALL: small_gear_scene if small_gear_scene != null else gear_scene,
 		COMPONENT_GEAR_MEDIUM: medium_gear_scene if medium_gear_scene != null else gear_scene,
 		COMPONENT_GEAR_LARGE: large_gear_scene if large_gear_scene != null else gear_scene,
-		COMPONENT_SHAFT: shaft_scene if shaft_scene != null else gear_scene,
-		COMPONENT_CHAIN: chain_scene,
-		COMPONENT_FLYWHEEL: flywheel_scene if flywheel_scene != null else gear_scene,
-		COMPONENT_CLUTCH: clutch_scene if clutch_scene != null else gear_scene,
-		COMPONENT_DIFFERENTIAL: differential_scene if differential_scene != null else gear_scene,
 	}
 	_handler_ctx.fn_get_node_connection_radius = _get_node_connection_radius
 	_handler_ctx.fn_get_node_outer_radius = _get_node_outer_radius
@@ -148,26 +123,10 @@ func _setup_handlers() -> void:
 	gear_large_handler.init(_handler_ctx)
 	gear_large_handler.component_id = COMPONENT_GEAR_LARGE
 
-	var chain_handler := ChainPlacementHandler.new()
-	chain_handler.init(_handler_ctx)
-
-	var flywheel_handler := FlywheelPlacementHandler.new()
-	flywheel_handler.init(_handler_ctx)
-
-	var clutch_handler := ClutchPlacementHandler.new()
-	clutch_handler.init(_handler_ctx)
-
-	var diff_handler := DifferentialPlacementHandler.new()
-	diff_handler.init(_handler_ctx)
-
 	_handlers = {
 		COMPONENT_GEAR_SMALL: gear_small_handler,
 		COMPONENT_GEAR_MEDIUM: gear_medium_handler,
 		COMPONENT_GEAR_LARGE: gear_large_handler,
-		COMPONENT_CHAIN: chain_handler,
-		COMPONENT_FLYWHEEL: flywheel_handler,
-		COMPONENT_CLUTCH: clutch_handler,
-		COMPONENT_DIFFERENTIAL: diff_handler,
 	}
 
 
@@ -195,11 +154,6 @@ func _process(_delta: float) -> void:
 	# Unthrottled per-frame hook (e.g., gear drag auto-place).
 	if get_viewport().gui_get_hovered_control() == null and handler != null:
 		handler.process(mouse_world_pos)
-
-	if _selected_component == COMPONENT_CHAIN:
-		var chain_handler := _handlers.get(COMPONENT_CHAIN, null) as ChainPlacementHandler
-		if chain_handler != null and chain_handler.get_first_pulley() != null:
-			queue_redraw()
 
 	var should_refresh_preview := _should_refresh_preview(mouse_world_pos)
 	if should_refresh_preview and handler != null:
@@ -307,10 +261,7 @@ func _input(event: InputEvent) -> void:
 	if active_handler == null:
 		return
 
-	if _selected_component == COMPONENT_FLYWHEEL:
-		active_handler.on_click(world_pos)
-	else:
-		active_handler.on_mouse_down(world_pos)
+	active_handler.on_mouse_down(world_pos)
 	_has_last_preview_mouse = false
 	queue_redraw()
 
@@ -349,11 +300,6 @@ func _should_refresh_preview(mouse_world_pos: Vector2) -> bool:
 
 	if _last_preview_mouse_pos.distance_squared_to(mouse_world_pos) >= 1.0:
 		return true
-
-	if _selected_component == COMPONENT_CHAIN:
-		var chain_handler := _handlers.get(COMPONENT_CHAIN, null) as ChainPlacementHandler
-		if chain_handler != null and chain_handler.get_first_pulley() != null:
-			return (Time.get_ticks_msec() - _last_preview_refresh_msec) >= PREVIEW_REFRESH_INTERVAL_MSEC
 
 	return false
 
@@ -409,10 +355,6 @@ func _on_component_selected(component_id: String) -> void:
 		old_handler.deactivate()
 
 	_selected_component = component_id
-	if _selected_component == COMPONENT_SHAFT:
-		_selected_component = COMPONENT_CHAIN
-		if _signal_bus and _signal_bus.has_signal("placement_feedback"):
-			_signal_bus.placement_feedback.emit("Shaft placement is deprecated. Switched to Chain.")
 	_handler_ctx.socket_markers.clear()
 	_handler_ctx.has_active_socket = false
 	_handler_ctx.active_socket_valid = false
@@ -469,7 +411,7 @@ func _on_layout_changed(_component: Node2D = null) -> void:
 
 func _update_preview_visibility() -> void:
 	if _preview_gear:
-		_preview_gear.visible = _is_selected_placeable_component() and _selected_component != COMPONENT_CHAIN
+		_preview_gear.visible = _is_selected_placeable_component()
 
 func place_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	if not _is_inside_frontier(pos):
@@ -523,61 +465,14 @@ func find_component_at(world_pos: Vector2, max_distance: float = -1.0) -> Node2D
 
 
 func _collect_attached_connectors(component: Node2D) -> Array:
-	var attached_connectors: Array = []
 	if component == null:
-		return attached_connectors
-
-	var ctype := str(component.get_meta("component_type", ""))
-	if ctype == COMPONENT_CHAIN or ctype == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or ctype == COMPONENT_SHAFT:
-		attached_connectors.append(component)
-		return attached_connectors
-
-	for child in _components_container.get_children():
-		var candidate := child as Node2D
-		if candidate == null:
-			continue
-		var candidate_type := str(candidate.get_meta("component_type", ""))
-		if candidate_type == COMPONENT_SHAFT and candidate.has_meta("shaft_end_a_id"):
-			var a := int(candidate.get_meta("shaft_end_a_id", -1))
-			var b := int(candidate.get_meta("shaft_end_b_id", -1))
-			var cid := component.get_instance_id()
-			if a == cid or b == cid:
-				attached_connectors.append(candidate)
-			continue
-		if candidate_type != COMPONENT_CHAIN and candidate_type != PROJECT_PATHS_SCRIPT.COMPONENT_BELT:
-			continue
-
-		# Direct connector node path (current chain scenes).
-		var direct_pulley_a := candidate.get("pulley_a") as Node2D
-		var direct_pulley_b := candidate.get("pulley_b") as Node2D
-		if direct_pulley_a == component or direct_pulley_b == component:
-			attached_connectors.append(candidate)
-			continue
-
-		for connector_child in candidate.get_children():
-			if connector_child == null:
-				continue
-			var pulley_a := connector_child.get("pulley_a") as Node2D
-			var pulley_b := connector_child.get("pulley_b") as Node2D
-			if pulley_a == component or pulley_b == component:
-				attached_connectors.append(candidate)
-				break
-
-	return attached_connectors
+		return []
+	return [component]
 
 
 func _get_delete_distance_for_component(component: Node2D, world_pos: Vector2) -> float:
 	if component == null:
 		return INF
-
-	var component_type := str(component.get_meta("component_type", ""))
-	if component_type == COMPONENT_CHAIN or component_type == PROJECT_PATHS_SCRIPT.COMPONENT_BELT or component_type == COMPONENT_SHAFT:
-		if component.has_method("get_distance_to_world_point"):
-			return float(component.call("get_distance_to_world_point", world_pos))
-		for child in component.get_children():
-			if child and child.has_method("get_distance_to_world_point"):
-				return float(child.call("get_distance_to_world_point", world_pos))
-
 	return component.global_position.distance_to(world_pos)
 
 
@@ -690,47 +585,31 @@ func _get_node_outer_radius(node: Node2D) -> float:
 			if engine_radius_value != null:
 				return maxf(2.0, float(engine_radius_value))
 
-	# Anchor nodes can use a smaller mechanical mesh radius than their visuals.
-	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
-	if anchor_mesh_radius != null:
-		var mesh_radius := float(anchor_mesh_radius)
-		if mesh_radius > 0.0:
-			return mesh_radius
-
 	var visual := node.get_node_or_null("Visual")
 	if visual == null:
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
+	var mesh_radius := 0.0
+	var anchor_mesh_radius: Variant = node.get("source_outer_radius")
+	if anchor_mesh_radius != null:
+		mesh_radius = maxf(float(anchor_mesh_radius), 0.0)
+
 	var radius_value: Variant = visual.get("outer_radius")
 	if radius_value == null:
+		if mesh_radius > 0.0:
+			return mesh_radius
 		return PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_OUTER_RADIUS
 
-	return float(radius_value)
+	var visual_radius := maxf(float(radius_value), 0.0)
+	if mesh_radius <= 0.0:
+		return visual_radius
+	# Keep mechanics from becoming smaller than the rendered shell.
+	return maxf(mesh_radius, visual_radius)
 
 
 func _get_node_connection_radius(node: Node2D) -> float:
-	if _is_shaft_component(node):
-		if node and node.has_meta("shaft_end_a_id"):
-			return 2.0
-		return _get_shaft_block_radius(node)
-	if node and str(node.get_meta("component_type", "")) == COMPONENT_FLYWHEEL and node.has_meta("shaft_connection_radius"):
-		return maxf(2.0, float(node.get_meta("shaft_connection_radius")))
-
 	var outer_radius := _get_node_outer_radius(node)
 	return maxf(2.0, outer_radius - PROJECT_PATHS_SCRIPT.GEAR_MESH_CONTACT_MARGIN)
-
-
-func _get_shaft_block_radius(node: Node2D) -> float:
-	if node and node.has_meta("flywheel_block_radius"):
-		return maxf(2.0, float(node.get_meta("flywheel_block_radius")))
-	if node and node.has_meta("shaft_block_radius"):
-		return maxf(2.0, float(node.get_meta("shaft_block_radius")))
-
-	if node and node.has_meta("shaft_connection_radius"):
-		var legacy_radius := float(node.get_meta("shaft_connection_radius"))
-		return maxf(2.0, minf(legacy_radius, SHAFT_PLACEMENT_BLOCK_RADIUS))
-
-	return SHAFT_PLACEMENT_BLOCK_RADIUS
 
 
 func _get_node_tooth_count(node: Node2D) -> int:
@@ -749,11 +628,7 @@ func _get_node_tooth_count(node: Node2D) -> int:
 
 
 func _is_selected_placeable_component() -> bool:
-	return _selected_component == COMPONENT_GEAR_SMALL or _selected_component == COMPONENT_GEAR_MEDIUM or _selected_component == COMPONENT_GEAR_LARGE or _selected_component == COMPONENT_CHAIN or _selected_component == COMPONENT_FLYWHEEL or _selected_component == COMPONENT_CLUTCH or _selected_component == COMPONENT_DIFFERENTIAL
-
-
-func place_shaft(world_pos: Vector2) -> void:
-	place_chain_step(world_pos)
+	return _selected_component == COMPONENT_GEAR_SMALL or _selected_component == COMPONENT_GEAR_MEDIUM or _selected_component == COMPONENT_GEAR_LARGE
 
 
 func _cancel_active_drags() -> void:
@@ -764,37 +639,6 @@ func _cancel_active_drags() -> void:
 	queue_redraw()
 
 
-func place_flywheel_between_gears(first_gear: GearComponent, second_gear: GearComponent) -> void:
-	var handler := _handlers.get(COMPONENT_FLYWHEEL, null) as FlywheelPlacementHandler
-	if handler != null:
-		handler.place(first_gear, second_gear)
-
-
-func place_shaft_between_gears(first_gear: GearComponent, second_gear: GearComponent) -> void:
-	place_chain(first_gear, second_gear)
-
-
-func place_chain_step(world_pos: Vector2) -> void:
-	if not _is_inside_frontier(world_pos):
-		return
-	var handler := _handlers.get(COMPONENT_CHAIN, null) as ChainPlacementHandler
-	if handler != null:
-		handler.on_click(world_pos)
-
-
-func place_chain(pulley_a: GearComponent, pulley_b: GearComponent) -> void:
-	var handler := _handlers.get(COMPONENT_CHAIN, null) as ChainPlacementHandler
-	if handler != null:
-		handler.place(pulley_a, pulley_b)
-
-
-# Legacy wrappers for older call sites.
-func place_belt_step(world_pos: Vector2) -> void:
-	place_chain_step(world_pos)
-
-
-func place_belt(pulley_a: GearComponent, pulley_b: GearComponent) -> void:
-	place_chain(pulley_a, pulley_b)
 
 func _get_all_snap_origins() -> Array:
 	var origins = _placement_rules.get_snap_origins(_components_container, _get_cached_seed_positions())
@@ -828,20 +672,6 @@ func _is_inside_frontier(world_pos: Vector2, clearance_radius: float = 0.0) -> b
 	if _frontier_node != null and _frontier_node.has_method("is_position_unlocked"):
 		return bool(_frontier_node.call("is_position_unlocked", world_pos, clearance_radius))
 	return true
-
-
-func _is_shaft_component(node: Node2D) -> bool:
-	if node == null or not node.has_meta("component_type"):
-		return false
-
-	return str(node.get_meta("component_type")) == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT
-
-
-func _get_shaft_connection_radius(node: Node2D) -> float:
-	if node and node.has_meta("shaft_connection_radius"):
-		return maxf(0.0, float(node.get_meta("shaft_connection_radius")))
-
-	return _get_node_connection_radius(node)
 
 
 func get_perf_stats() -> Dictionary:

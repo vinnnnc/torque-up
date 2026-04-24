@@ -163,9 +163,9 @@ func _get_component_rpm(component: Node2D) -> float:
 	if component == null:
 		return 0.0
 	var component_type := str(component.get_meta("component_type", ""))
-	if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_CHAIN:
+	if component_type == "chain":
 		return _get_average_endpoint_rpm(component.get("pulley_a") as Node2D, component.get("pulley_b") as Node2D)
-	if component_type == PROJECT_PATHS_SCRIPT.COMPONENT_SHAFT:
+	if component_type == "shaft":
 		return _get_average_endpoint_rpm(component.get("gear_a") as Node2D, component.get("gear_b") as Node2D)
 	if component.has_method("get_angular_velocity"):
 		return _to_rpm(float(component.call("get_angular_velocity")))

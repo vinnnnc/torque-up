@@ -7,7 +7,8 @@ The HUD currently exposes:
 - Horsepower
 - Torque
 - Efficiency
-- RPM
+- Energy (kJ)
+- Generator (kW)
 
 The HUD also now exposes two inspection layers:
 
@@ -51,7 +52,8 @@ The overlay currently summarizes:
 
 - horsepower
 - delivered torque
-- engine RPM
+- generator output RPM (debug/tuning)
+- generator power output (kW)
 - aggregate efficiency
 - friction load
 - connected source count vs total source count
@@ -86,6 +88,9 @@ Meaning:
 - but still remain outside the engine-scoring route
 
 The engine route uses a separate highlight state from basic local activity.
+
+Frontier progression now also uses a generator RPM ramp gate, so early weak spin
+produces slower distance/brightness growth and stronger networks unlock space faster.
 
 ## Power Node Presentation
 

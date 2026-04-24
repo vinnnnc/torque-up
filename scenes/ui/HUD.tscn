@@ -65,17 +65,30 @@ layout_mode = 2
 text = "0.0"
 horizontal_alignment = 2
 
-[node name="RpmRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=610932774]
+[node name="ScoreRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/RpmRow" unique_id=1468102298]
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/ScoreRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "RPM"
+text = "Energy (kJ)"
 
-[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/RpmRow" unique_id=1145279084]
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/ScoreRow"]
 layout_mode = 2
-text = "0"
+text = "0.0"
+horizontal_alignment = 2
+
+[node name="LifetimeHpRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/LifetimeHpRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Generator (kW)"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/LifetimeHpRow"]
+layout_mode = 2
+text = "0.0"
 horizontal_alignment = 2
 
 [node name="HotbarPanel" type="PanelContainer" parent="." unique_id=2049472253]
