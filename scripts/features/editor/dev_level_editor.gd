@@ -412,19 +412,19 @@ func _apply_power_node_size(node: Node2D, radius: float, rated_torque: float = -
 		if is_giant:
 			visual.set("body_color", Color(0.26, 0.3, 0.22, 1.0))
 			visual.set("tooth_color", Color(0.53, 0.62, 0.34, 1.0))
-			visual.set("outline_color", Color(0.12, 0.15, 0.09, 1.0))
+			visual.set("outline_color", PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 		elif radius >= PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_4_RADIUS:
-			visual.set("body_color", Color(0.27, 0.4, 0.72, 1.0))
+			visual.set("body_color", PROJECT_PATHS_SCRIPT.PALETTE_BLUE)
 			visual.set("tooth_color", Color(0.52, 0.74, 1.0, 1.0))
-			visual.set("outline_color", Color(0.09, 0.14, 0.27, 1.0))
+			visual.set("outline_color", PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 		elif radius >= PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_3_RADIUS:
-			visual.set("body_color", Color(0.28, 0.47, 0.68, 1.0))
+			visual.set("body_color", PROJECT_PATHS_SCRIPT.PALETTE_SLATE)
 			visual.set("tooth_color", Color(0.46, 0.74, 0.94, 1.0))
-			visual.set("outline_color", Color(0.09, 0.18, 0.24, 1.0))
+			visual.set("outline_color", PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 		else:
-			visual.set("body_color", Color(0.31, 0.52, 0.82, 1.0))
+			visual.set("body_color", PROJECT_PATHS_SCRIPT.PALETTE_BLUE)
 			visual.set("tooth_color", Color(0.48, 0.76, 1.0, 1.0))
-			visual.set("outline_color", Color(0.09, 0.18, 0.3, 1.0))
+			visual.set("outline_color", PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 		if visual.has_method("queue_redraw"):
 			visual.call("queue_redraw")
 
@@ -756,9 +756,9 @@ func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> Node2
 	visual.name = "Visual"
 	visual.set_script(visual_script)
 	visual.set("use_module_profile", true)
-	visual.set("body_color", Color(0.26, 0.48, 0.78, 1.0))
+	visual.set("body_color", PROJECT_PATHS_SCRIPT.PALETTE_BLUE)
 	visual.set("tooth_color", Color(0.4, 0.68, 1.0, 1.0))
-	visual.set("outline_color", Color(0.07, 0.14, 0.23, 1.0))
+	visual.set("outline_color", PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 	power_node.add_child(visual)
 	_apply_power_node_size(power_node, radius, rated)
 

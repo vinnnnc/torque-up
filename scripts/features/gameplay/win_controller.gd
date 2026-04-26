@@ -14,6 +14,7 @@ const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
 @export var lever_pick_radius: float = 28.0
 @export var lever_stem_height: float = 28.0
 @export var lever_tip_radius: float = 9.0
+@export var lever_rest_angle_degrees: float = -32.0
 @export var lever_tip_color: Color = Color(1.0, 0.78, 0.28, 1.0)
 @export var lever_base_color: Color = Color(0.42, 0.32, 0.2, 1.0)
 
@@ -28,6 +29,8 @@ const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
 @onready var _game_state: Node = get_node_or_null("/root/GameState")
 
 var _lever_world_pos: Vector2 = Vector2.ZERO
+var _lever_angle: float = 0.0
+var _lever_animating: bool = false
 var _won: bool = false
 
 var _score_layer: CanvasLayer = null
@@ -40,9 +43,19 @@ func _ready() -> void:
 	z_as_relative = false
 	z_index = PROJECT_PATHS_SCRIPT.PLACEMENT_OVERLAY_Z_INDEX + 1
 	set_process_unhandled_input(true)
+	_reset_lever_pose()
 	_compute_lever_position()
 	_build_score_screen()
 	queue_redraw()
+
+
+func _process(_delta: float) -> void:
+	if _lever_animating:
+		queue_redraw()
+
+
+func _reset_lever_pose() -> void:
+	_lever_angle = deg_to_rad(lever_rest_angle_degrees)
 
 
 func _compute_lever_position() -> void:
@@ -113,7 +126,7 @@ func _build_score_screen() -> void:
 
 func _draw() -> void:
 	var base := _lever_world_pos
-	var tip := base + Vector2(0.0, -lever_stem_height)
+	var tip := base + Vector2(sin(_lever_angle), -cos(_lever_angle)) * lever_stem_height
 	draw_circle(base, 12.0, lever_base_color)
 	draw_line(base, tip, lever_base_color, 5.0, true)
 	draw_circle(tip, lever_tip_radius, lever_tip_color)
@@ -155,9 +168,19 @@ func _trigger_win() -> void:
 	if audio_manager != null and audio_manager.has_method("play_win"):
 		audio_manager.call("play_win")
 	_set_gameplay_input_enabled(false)
+	_animate_lever_flick()
 	_update_score_text()
 	if _score_panel != null:
 		_score_panel.visible = true
+
+
+func _animate_lever_flick() -> void:
+	_lever_animating = true
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "_lever_angle", PI * 0.42, 0.35)
+	tween.tween_callback(func() -> void: _lever_animating = false; queue_redraw())
 
 
 func _update_score_text() -> void:
@@ -193,6 +216,8 @@ func _restart_run() -> void:
 		elif _dev_level_editor.has_method("generate_procedural_map"):
 			await _dev_level_editor.call("generate_procedural_map", -1, -1, -1)
 	_won = false
+	_reset_lever_pose()
+	_lever_animating = false
 	_compute_lever_position()
 	_set_gameplay_input_enabled(true)
 	queue_redraw()

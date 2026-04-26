@@ -43,9 +43,9 @@ outer_radius = 100.0
 inner_radius = 97.0
 hub_radius = 31.04
 tooth_depth = 3.0
-body_color = Color(0.46, 0.34, 0.22, 1)
-tooth_color = Color(0.74, 0.58, 0.36, 1)
-outline_color = Color(0.16, 0.1, 0.06, 1)
+body_color = Color(0.267, 0.576, 0.537, 1)
+tooth_color = Color(0.561, 0.8, 0.796, 1)
+outline_color = Color(0.173, 0.106, 0.18, 1)
 
 [node name="Art" type="Sprite2D" parent="Network/CentralEngine" unique_id=279898127]
 z_index = 321

@@ -127,7 +127,7 @@ static func draw_shaft_port_collar(canvas: CanvasItem, port_angle: float, inner_
     var collar_pos: Vector2 = Vector2.RIGHT.rotated(port_angle) * inner_radius
     var collar_radius: float = 5.5
     var collar_inner: float = 3.2
-    var port_color: Color = Color(0.48, 0.86, 1.0, 0.92) if role == "input" else Color(1.0, 0.8, 0.36, 0.92)
+    var port_color: Color = Color(PROJECT_PATHS_SCRIPT.PALETTE_TEAL, 0.92) if role == "input" else Color(PROJECT_PATHS_SCRIPT.PALETTE_AMBER, 0.92)
 
     canvas.draw_circle(collar_pos, collar_radius, outline_color)
     canvas.draw_arc(collar_pos, collar_radius, 0.0, TAU, 32, Color(0.3, 0.35, 0.38, 1.0), 2.2)

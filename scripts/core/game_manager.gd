@@ -1513,7 +1513,7 @@ func _update_anchor_rotors(
 	network_spin_signs: Dictionary,
 	network_drive_multipliers: Dictionary,
 	component_drive_targets: Dictionary,
-	source_drive_speed: float,
+	_source_drive_speed: float,
 	local_source_drive_speeds: Dictionary,
 	engine_drive_multiplier: float,
 	anchor_multipliers_by_id: Dictionary = {},

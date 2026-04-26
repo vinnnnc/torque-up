@@ -3,8 +3,8 @@ class_name AnchorVisual
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 
-@export var fill_color: Color = Color(0.18, 0.56, 1.0, 0.35)
-@export var ring_color: Color = Color(0.4, 0.8, 1.0, 1.0)
+@export var fill_color: Color = Color(0.271, 0.486, 0.839, 0.35)
+@export var ring_color: Color = Color(0.561, 0.8, 0.796, 1.0)
 @export var radius: float = 20.0
 @export var ring_thickness: float = 3.0
 @export var show_neighbor_slots: bool = false

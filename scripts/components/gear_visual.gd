@@ -413,7 +413,7 @@ func _draw_port_gears(port_angles: Array, port_roles: Array, orbit_radius: float
 
 
 func _draw_mini_gear(center: Vector2, radius: float, role: String) -> void:
-	var ring_color: Color = Color(0.42, 0.78, 1.0, 0.95) if role == "input" else Color(0.98, 0.72, 0.3, 0.95)
+	var ring_color: Color = Color(PROJECT_PATHS_SCRIPT.PALETTE_TEAL, 0.95) if role == "input" else Color(PROJECT_PATHS_SCRIPT.PALETTE_AMBER, 0.95)
 	if role == "io":
 		ring_color = Color(0.9, 0.9, 0.95, 0.95)
 	var fill_color := Color(0.21, 0.24, 0.28, 1.0)
@@ -431,7 +431,7 @@ func _draw_mini_gear(center: Vector2, radius: float, role: String) -> void:
 		draw_line(inner, outer, ring_color, 1.4)
 
 	# Role dot to make IO role readable at a glance.
-	var role_dot: Color = Color(0.48, 0.86, 1.0, 1.0) if role == "input" else Color(1.0, 0.8, 0.36, 1.0)
+	var role_dot: Color = PROJECT_PATHS_SCRIPT.PALETTE_TEAL if role == "input" else PROJECT_PATHS_SCRIPT.PALETTE_AMBER
 	if role == "io":
 		role_dot = Color(0.9, 0.92, 0.98, 1.0)
 	draw_circle(center + Vector2(0.0, -radius * 0.2), maxf(1.3, radius * 0.24), role_dot)
@@ -494,7 +494,7 @@ func _draw_hub_face(radius: float) -> void:
 func _draw_shell_port_gear(angle: float, shell_radius: float, gear_radius: float, exposed_teeth: int, role: String) -> void:
 	var center := Vector2.RIGHT.rotated(angle) * (shell_radius - gear_radius * 0.36)
 	var base_color := Color(0.24, 0.27, 0.31, 1.0)
-	var tooth_tint: Color = Color(0.48, 0.86, 1.0, 1.0) if role == "input" else Color(1.0, 0.78, 0.34, 1.0)
+	var tooth_tint: Color = PROJECT_PATHS_SCRIPT.PALETTE_TEAL if role == "input" else PROJECT_PATHS_SCRIPT.PALETTE_AMBER
 	if role == "io":
 		tooth_tint = Color(0.88, 0.9, 0.96, 1.0)
 	draw_circle(center, gear_radius, base_color)
@@ -508,7 +508,7 @@ func _draw_shell_port_gear(angle: float, shell_radius: float, gear_radius: float
 
 
 func _draw_port_arrow(angle: float, radius: float, role: String) -> void:
-	var color: Color = Color(0.48, 0.86, 1.0, 0.95) if role == "input" else Color(1.0, 0.78, 0.34, 0.95)
+	var color: Color = Color(PROJECT_PATHS_SCRIPT.PALETTE_TEAL, 0.95) if role == "input" else Color(PROJECT_PATHS_SCRIPT.PALETTE_AMBER, 0.95)
 	var dir: Vector2 = Vector2.RIGHT.rotated(angle)
 	var tip: Vector2 = dir * radius
 	var stem: Vector2 = tip + (dir * (4.2 if role == "input" else -4.2))
@@ -521,8 +521,8 @@ func _draw_dual_port_arrows(angle: float, radius: float) -> void:
 	var stem_out: Vector2 = tip_out - (dir * 4.0)
 	var tip_in: Vector2 = dir * (radius - 8.0)
 	var stem_in: Vector2 = tip_in + (dir * 4.0)
-	_draw_arrow_shape(stem_in, tip_in, Color(0.48, 0.86, 1.0, 0.9))
-	_draw_arrow_shape(stem_out, tip_out, Color(1.0, 0.78, 0.34, 0.9))
+	_draw_arrow_shape(stem_in, tip_in, Color(PROJECT_PATHS_SCRIPT.PALETTE_TEAL, 0.9))
+	_draw_arrow_shape(stem_out, tip_out, Color(PROJECT_PATHS_SCRIPT.PALETTE_AMBER, 0.9))
 
 
 func _draw_arrow_shape(from: Vector2, to: Vector2, color: Color) -> void:
