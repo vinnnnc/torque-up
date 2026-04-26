@@ -2,14 +2,19 @@ extends CanvasLayer
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const MINIMAP_VIEW_SCRIPT = preload("res://scripts/features/ui/minimap_view.gd")
+const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
+const HUD_FONT_SIZE_LABEL := 18
+const HUD_FONT_SIZE_BUTTON := 17
 const HOVER_PICK_RADIUS := 30.0
 const TOOLTIP_OFFSET := Vector2(18.0, 18.0)
 const OVERLAY_REFRESH_INTERVAL := 0.12
 const FEEDBACK_DURATION := 2.4
 
+@onready var _stats_panel: PanelContainer = $PanelContainer
 @onready var _energy_value: Label = $PanelContainer/MarginContainer/Stats/EnergyRow/Value
 @onready var _horsepower_value: Label = $PanelContainer/MarginContainer/Stats/HorsepowerRow/Value
 @onready var _timer_value: Label = $PanelContainer/MarginContainer/Stats/TimerRow/Value
+@onready var _hotbar_panel_container: PanelContainer = $HotbarPanel
 @onready var _none_button: Button = $HotbarPanel/MarginContainer/Hotbar/NoneButton
 @onready var _small_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/SmallGearButton
 @onready var _medium_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/MediumGearButton
@@ -53,12 +58,13 @@ var _overlay_visible: bool = false
 var _overlay_refresh_accum: float = 0.0
 var _feedback_label: Label = null
 var _feedback_timer: float = 0.0
-var _layer_indicator_label: Label = null
 var _minimap_panel: PanelContainer = null
 var _minimap_view: Control = null
 
 
 func _ready() -> void:
+	_apply_hud_style()
+
 	var game_state := get_node_or_null("/root/GameState")
 	if game_state:
 		if not game_state.state_changed.is_connected(_on_state_changed):
@@ -89,7 +95,6 @@ func _ready() -> void:
 	_build_hover_tooltip()
 	_build_network_overlay()
 	_build_feedback_toast()
-	_build_layer_indicator()
 	_build_minimap()
 
 	var signal_bus := get_node_or_null("/root/SignalBus")
@@ -100,6 +105,31 @@ func _ready() -> void:
 
 	_select_component(COMPONENT_NONE)
 	_update_network_overlay()
+
+
+func _apply_hud_style() -> void:
+	_apply_font_to_tree(self)
+	_remove_panel_background(_stats_panel)
+	_remove_panel_background(_hotbar_panel_container)
+
+
+func _apply_font_to_tree(node: Node) -> void:
+	if node is Label:
+		var label := node as Label
+		label.add_theme_font_override("font", HUD_FONT)
+		label.add_theme_font_size_override("font_size", HUD_FONT_SIZE_LABEL)
+	elif node is Button:
+		var button := node as Button
+		button.add_theme_font_override("font", HUD_FONT)
+		button.add_theme_font_size_override("font_size", HUD_FONT_SIZE_BUTTON)
+	for child in node.get_children():
+		_apply_font_to_tree(child)
+
+
+func _remove_panel_background(panel: PanelContainer) -> void:
+	if panel == null:
+		return
+	panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
 
 func _process(delta: float) -> void:
@@ -142,14 +172,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, total_score: float, lifetime_hp: float, reliability_multiplier: float) -> void:
-	_energy_value.text = "%.1f" % total_score
-	_horsepower_value.text = "%.1f" % horsepower
+	_energy_value.text = "%.0f" % (total_score * 1000.0)
+	_horsepower_value.text = "%.1f" % available_torque
 	
 	# Format run_time as MM:SS
 	var game_state := get_node_or_null("/root/GameState")
 	if game_state:
-		var seconds := int(game_state.run_time)
-		var minutes := seconds / 60
+		var seconds := maxi(int(game_state.run_time), 0)
+		var minutes := int(seconds / 60)
 		var secs := seconds % 60
 		_timer_value.text = "%d:%02d" % [minutes, secs]
 	
@@ -459,38 +489,34 @@ func _build_feedback_toast() -> void:
 	_feedback_label.offset_top = 18.0
 	_feedback_label.offset_bottom = 74.0
 	_feedback_label.modulate = Color(1.0, 0.86, 0.62, 1.0)
+	_feedback_label.add_theme_font_override("font", HUD_FONT)
+	_feedback_label.add_theme_font_size_override("font_size", HUD_FONT_SIZE_LABEL)
 	add_child(_feedback_label)
-
-
-func _build_layer_indicator() -> void:
-	_layer_indicator_label = Label.new()
-	_layer_indicator_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_layer_indicator_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_layer_indicator_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_layer_indicator_label.anchor_left = 0.0
-	_layer_indicator_label.anchor_right = 0.0
-	_layer_indicator_label.anchor_top = 0.0
-	_layer_indicator_label.anchor_bottom = 0.0
-	_layer_indicator_label.offset_left = 20.0
-	_layer_indicator_label.offset_top = 18.0
-	_layer_indicator_label.offset_right = 220.0
-	_layer_indicator_label.offset_bottom = 42.0
-	_layer_indicator_label.modulate = Color(0.86, 0.92, 1.0, 0.92)
-	add_child(_layer_indicator_label)
-	_update_layer_indicator()
 
 
 func _build_minimap() -> void:
 	_minimap_panel = PanelContainer.new()
+	_minimap_panel.clip_contents = true
 	_minimap_panel.anchor_left = 1.0
 	_minimap_panel.anchor_right = 1.0
 	_minimap_panel.anchor_top = 1.0
 	_minimap_panel.anchor_bottom = 1.0
-	_minimap_panel.offset_left = -272.0
+	_minimap_panel.offset_left = -236.0
 	_minimap_panel.offset_top = -262.0
 	_minimap_panel.offset_right = -18.0
 	_minimap_panel.offset_bottom = -84.0
-	_minimap_panel.custom_minimum_size = Vector2(240.0, 160.0)
+	_minimap_panel.custom_minimum_size = Vector2(204.0, 160.0)
+	var minimap_panel_style := StyleBoxFlat.new()
+	minimap_panel_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	minimap_panel_style.border_width_left = 0
+	minimap_panel_style.border_width_top = 0
+	minimap_panel_style.border_width_right = 0
+	minimap_panel_style.border_width_bottom = 0
+	minimap_panel_style.corner_radius_top_left = 12
+	minimap_panel_style.corner_radius_top_right = 12
+	minimap_panel_style.corner_radius_bottom_left = 12
+	minimap_panel_style.corner_radius_bottom_right = 12
+	_minimap_panel.add_theme_stylebox_override("panel", minimap_panel_style)
 	add_child(_minimap_panel)
 
 	var margin := MarginContainer.new()
@@ -501,22 +527,15 @@ func _build_minimap() -> void:
 	margin.add_theme_constant_override("margin_bottom", 8)
 	_minimap_panel.add_child(margin)
 
-	var minimap_title := Label.new()
-	minimap_title.text = "Minimap"
-	minimap_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	minimap_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	minimap_title.modulate = Color(0.9, 0.94, 1.0, 0.95)
-
 	var stack := VBoxContainer.new()
 	stack.layout_mode = 2
 	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.add_theme_constant_override("separation", 6)
+	stack.add_theme_constant_override("separation", 0)
 	margin.add_child(stack)
-	stack.add_child(minimap_title)
 
 	_minimap_view = MINIMAP_VIEW_SCRIPT.new()
-	_minimap_view.custom_minimum_size = Vector2(220.0, 130.0)
+	_minimap_view.custom_minimum_size = Vector2(188.0, 130.0)
 	_minimap_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_minimap_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stack.add_child(_minimap_view)
@@ -530,13 +549,6 @@ func _build_minimap() -> void:
 			_components_container,
 			_engine_node
 		)
-
-
-func _update_layer_indicator() -> void:
-	if _layer_indicator_label == null:
-		return
-	_layer_indicator_label.text = "Mesh"
-
 
 func _show_feedback(message: String) -> void:
 	if _feedback_label == null:

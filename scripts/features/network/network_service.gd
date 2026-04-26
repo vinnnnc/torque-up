@@ -1013,16 +1013,6 @@ func _get_component_efficiency_multiplier(component_type: String) -> float:
 			return PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_MEDIUM
 		"gear_large":
 			return PROJECT_PATHS_SCRIPT.EFFICIENCY_GEAR_LARGE
-		"shaft":
-			return PROJECT_PATHS_SCRIPT.EFFICIENCY_SHAFT
-		"chain", "belt":
-			return PROJECT_PATHS_SCRIPT.EFFICIENCY_CHAIN
-		"flywheel":
-			return PROJECT_PATHS_SCRIPT.EFFICIENCY_FLYWHEEL
-		"clutch":
-			return PROJECT_PATHS_SCRIPT.EFFICIENCY_CLUTCH
-		"differential":
-			return PROJECT_PATHS_SCRIPT.EFFICIENCY_DIFFERENTIAL
 		_:
 			return PROJECT_PATHS_SCRIPT.EFFICIENCY_DEFAULT_COMPONENT
 

@@ -1,6 +1,8 @@
 extends CanvasLayer
 class_name MainMenuController
 
+const STARTUP_SNAPSHOT_PATH := "res://data/menu_startup_snapshot.json"
+
 @export var camera_path: NodePath = NodePath("../Camera2D")
 @export var engine_path: NodePath = NodePath("../Network/CentralEngine")
 @export var placement_controller_path: NodePath = NodePath("../PlacementController")
@@ -49,6 +51,7 @@ func _ready() -> void:
 		_start_button.pressed.connect(_on_start_pressed)
 
 	_open_startup_menu()
+	call_deferred("_load_startup_snapshot_background")
 
 
 
@@ -61,7 +64,7 @@ func _ensure_restart_button() -> void:
 	_restart_button.visible = false
 	_restart_button.pressed.connect(_on_restart_pressed)
 	_restart_button.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
-	_panel_vbox.add_child(_restart_button)
+	_panel_vbox.call_deferred("add_child", _restart_button)
 
 
 func _open_startup_menu() -> void:
@@ -73,6 +76,9 @@ func _open_startup_menu() -> void:
 func _open_pause_menu() -> void:
 	_menu_mode = MENU_MODE_PAUSE
 	_show_menu_state(false)
+	var gm := get_node_or_null("../GameManager")
+	if gm != null:
+		gm.set("_gameplay_paused", true)
 
 
 func _show_menu_state(startup_mode: bool) -> void:
@@ -123,6 +129,10 @@ func _resume_gameplay(restore_start_camera: bool) -> void:
 		_panel.visible = false
 	if _hud != null:
 		_hud.visible = true
+
+	var gm := get_node_or_null("../GameManager")
+	if gm != null:
+		gm.set("_gameplay_paused", false)
 
 	if restore_start_camera:
 		# Keep gameplay input disabled during startup camera tween.
@@ -221,3 +231,84 @@ func _restore_gameplay_camera_pose() -> void:
 
 func is_menu_active() -> bool:
 	return _menu_active
+
+
+func _load_startup_snapshot_background() -> void:
+	if _menu_mode != MENU_MODE_STARTUP:
+		push_warning("MainMenu: startup snapshot skipped (not in startup mode)")
+		return
+	if _dev_level_editor == null:
+		push_warning("MainMenu: startup snapshot skipped (DevLevelEditor missing)")
+		return
+	if not _dev_level_editor.has_method("load_level_from_path"):
+		push_warning("MainMenu: startup snapshot skipped (load_level_from_path missing)")
+		return
+	if not FileAccess.file_exists(STARTUP_SNAPSHOT_PATH):
+		push_warning("MainMenu: startup snapshot file not found at %s" % [STARTUP_SNAPSHOT_PATH])
+		return
+
+	# Wait one frame so main-scene startup nodes settle before mutating world state.
+	await get_tree().process_frame
+	if _menu_mode != MENU_MODE_STARTUP:
+		push_warning("MainMenu: startup snapshot aborted (menu mode changed)")
+		return
+	_dev_level_editor.call("load_level_from_path", STARTUP_SNAPSHOT_PATH)
+	await get_tree().process_frame
+	_focus_camera_on_snapshot(STARTUP_SNAPSHOT_PATH)
+
+
+func _focus_camera_on_snapshot(path: String) -> void:
+	if _camera == null:
+		return
+
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return
+
+	var json_text := file.get_as_text()
+	var json := JSON.new()
+	if json.parse(json_text) != OK:
+		return
+
+	var payload := json.data as Dictionary
+	if payload.is_empty():
+		return
+
+	var points: Array[Vector2] = []
+	for component_raw in (payload.get("components", []) as Array):
+		if component_raw is Dictionary:
+			var component := component_raw as Dictionary
+			var p := component.get("position", []) as Array
+			if p.size() >= 2:
+				points.append(Vector2(float(p[0]), float(p[1])))
+
+	for power_raw in (payload.get("dev_power_nodes", []) as Array):
+		if power_raw is Dictionary:
+			var power := power_raw as Dictionary
+			var p := power.get("position", []) as Array
+			if p.size() >= 2:
+				points.append(Vector2(float(p[0]), float(p[1])))
+
+	if points.is_empty():
+		return
+
+	var min_x := INF
+	var max_x := -INF
+	var min_y := INF
+	var max_y := -INF
+	for p in points:
+		min_x = minf(min_x, p.x)
+		max_x = maxf(max_x, p.x)
+		min_y = minf(min_y, p.y)
+		max_y = maxf(max_y, p.y)
+
+	var center := Vector2((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
+	var span_x := maxf(120.0, max_x - min_x)
+	var span_y := maxf(120.0, max_y - min_y)
+	var viewport_size := get_viewport().get_visible_rect().size
+	var fit_x := span_x / maxf(1.0, viewport_size.x * 0.80)
+	var fit_y := span_y / maxf(1.0, viewport_size.y * 0.80)
+	var fit_zoom := maxf(0.8, maxf(fit_x, fit_y))
+
+	_camera.position = center
+	_camera.zoom = Vector2.ONE * maxf(menu_camera_zoom, fit_zoom)

@@ -123,17 +123,25 @@ func save_level() -> void:
 
 
 func load_level() -> void:
+	load_level_from_path(SAVE_PATH)
+
+
+func load_level_from_path(path: String) -> void:
 	if _components_container == null:
 		push_warning("DevLevelEditor: components container not found")
 		return
 
-	if not FileAccess.file_exists(SAVE_PATH):
-		push_warning("DevLevelEditor: no saved level found at %s" % [SAVE_PATH])
+	if path.is_empty():
+		push_warning("DevLevelEditor: load path is empty")
 		return
 
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if not FileAccess.file_exists(path):
+		push_warning("DevLevelEditor: no saved level found at %s" % [path])
+		return
+
+	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		push_warning("DevLevelEditor: failed to read save file")
+		push_warning("DevLevelEditor: failed to read save file at %s" % [path])
 		return
 
 	var json_text := file.get_as_text()
@@ -149,7 +157,7 @@ func load_level() -> void:
 		return
 
 	_apply_serialized_level(payload)
-	print("DevLevelEditor: loaded level from %s" % [SAVE_PATH])
+	print("DevLevelEditor: loaded level from %s" % [path])
 
 
 func clear_level() -> void:

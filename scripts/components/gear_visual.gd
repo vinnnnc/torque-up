@@ -174,16 +174,14 @@ func _draw() -> void:
 
 	if _should_draw_high_speed_gear(absf(_mode_spin_speed), root_radius):
 		_draw_high_speed_ring(root_radius)
-		draw_circle(Vector2.ZERO, hub_radius, Color(0.2, 0.22, 0.24, 1.0))
-		draw_arc(Vector2.ZERO, hub_radius, 0.0, TAU, 36, outline_color, 1.2)
+		draw_circle(Vector2.ZERO, hub_radius, PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 		if pulley_mode:
 			_draw_pulley_ring()
 		if is_stacked_top:
 			_draw_stacked_ring()
 		return
 
-	draw_circle(Vector2.ZERO, hub_radius, Color(0.2, 0.22, 0.24, 1.0))
-	draw_arc(Vector2.ZERO, hub_radius, 0.0, TAU, 36, outline_color, 1.2)
+	draw_circle(Vector2.ZERO, hub_radius, PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 
 	if pulley_mode:
 		_draw_pulley_ring()
@@ -330,8 +328,7 @@ func _draw_shaft() -> void:
 	_draw_shaft_end_coupler(-half_length, -1.0, rod_half_length, half_thickness, coupler_radius)
 	_draw_shaft_end_coupler(half_length, 1.0, rod_half_length, half_thickness, coupler_radius)
 
-	draw_circle(Vector2.ZERO, hub_radius, Color(0.2, 0.22, 0.24, 1.0))
-	draw_arc(Vector2.ZERO, hub_radius, 0.0, TAU, 24, outline_color, 1.1)
+	draw_circle(Vector2.ZERO, hub_radius, PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 
 
 func set_shaft_spin_speed(speed: float) -> void:

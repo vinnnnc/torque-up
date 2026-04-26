@@ -28,6 +28,7 @@ var condition_service = CONDITION_SERVICE_SCRIPT.new()
 
 var _network_dirty: bool = true
 var _recalc_timer: float = 0.0
+var _gameplay_paused: bool = false
 var _perf_last_recalc_ms: float = 0.0
 var _perf_avg_recalc_ms: float = 0.0
 var _perf_peak_recalc_ms: float = 0.0
@@ -1901,9 +1902,6 @@ func _get_zone_condition_at(world_pos: Vector2) -> Dictionary:
 
 
 func _process(_delta: float) -> void:
-	if not _network_dirty:
-		return
-
 	var runtime_sim_hz := simulation_tick_hz
 	var runtime_underpowered_hz := underpowered_tick_hz
 	var runtime_underpowered_threshold := underpowered_tick_component_threshold
@@ -1920,9 +1918,29 @@ func _process(_delta: float) -> void:
 	if _recalc_timer < tick_interval:
 		return
 
+	if _gameplay_paused:
+		_recalc_timer = 0.0
+		return
+
 	_recalc_timer = 0.0
-	var completed := _recalculate_and_publish_state()
-	_network_dirty = not completed
+
+	if _network_dirty:
+		var completed := _recalculate_and_publish_state()
+		_network_dirty = not completed
+		return
+
+	if _game_state == null:
+		return
+
+	# Keep run-time progression and score accumulation alive even when topology is stable.
+	_game_state.set_state(
+		_game_state.horsepower,
+		_game_state.available_torque,
+		_game_state.efficiency,
+		_game_state.last_score_delta,
+		tick_interval,
+		_game_state.rpm
+	)
 
 
 func get_perf_stats() -> Dictionary:

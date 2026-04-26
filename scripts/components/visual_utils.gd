@@ -19,6 +19,8 @@ Prefer calling via preload: `const VisualUtils = preload("res://scripts/componen
 
 class_name VisualUtils
 
+const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+
 static func signed_angle_delta(from_angle: float, to_angle: float, ccw: bool) -> float:
     var delta: float = to_angle - from_angle
     if ccw:
@@ -118,10 +120,8 @@ static func draw_clutch_disc_pack(canvas: CanvasItem, outer: float, inner: float
         var flash := 0.66 + (0.22 * maxf(0.0, sin(mode_pulse + (float(idx) * 0.8))))
         canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 72, Color(0.9, 0.94, 0.98, flash), 2.0)
 
-static func draw_hub_face(canvas: CanvasItem, radius: float, outline_color: Color) -> void:
-    canvas.draw_circle(Vector2.ZERO, radius, Color(0.18, 0.2, 0.24, 1.0))
-    canvas.draw_arc(Vector2.ZERO, radius, 0.0, TAU, 36, outline_color, 1.1)
-    canvas.draw_circle(Vector2.ZERO, maxf(1.2, radius * 0.28), Color(0.84, 0.88, 0.93, 0.94))
+static func draw_hub_face(canvas: CanvasItem, radius: float, _outline_color: Color) -> void:
+    canvas.draw_circle(Vector2.ZERO, radius, PROJECT_PATHS_SCRIPT.PALETTE_VOID)
 
 static func draw_shaft_port_collar(canvas: CanvasItem, port_angle: float, inner_radius: float, role: String, outline_color: Color) -> void:
     var collar_pos: Vector2 = Vector2.RIGHT.rotated(port_angle) * inner_radius

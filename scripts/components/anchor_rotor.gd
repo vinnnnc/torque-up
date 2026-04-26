@@ -349,6 +349,10 @@ func _ensure_generator_top_assembly() -> void:
 		Vector2(-36.0, 6.0)
 	])
 
+	_generator_top_gear_a.visible = false
+	_generator_top_gear_b.visible = false
+	_generator_cover.visible = false
+
 
 func _configure_top_gear_visual(
 	gear_node: Node2D,

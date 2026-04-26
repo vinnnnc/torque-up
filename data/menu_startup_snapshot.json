@@ -1,0 +1,3804 @@
+{
+	"component_count": 216,
+	"components": [
+		{
+			"component_type": "gear_large",
+			"position": [
+				567.389709472656,
+				150.76969909668
+			],
+			"rotation": -14.3884696960449
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				591.49560546875,
+				196.970397949219
+			],
+			"rotation": 64.2876815795898
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				599.213806152344,
+				215.500610351563
+			],
+			"rotation": -58.0865592956543
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				521.562561035156,
+				-154.768737792969
+			],
+			"rotation": -17.7955284118652
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				559.871704101563,
+				41.1578178405762
+			],
+			"rotation": -16.0079555511475
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				555.466430664063,
+				-44.727954864502
+			],
+			"rotation": 18.3939895629883
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				569.205993652344,
+				-103.105857849121
+			],
+			"rotation": -38.7447814941406
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				568.289123535156,
+				-131.090286254883
+			],
+			"rotation": 64.0740814208984
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				561.325988769531,
+				-230.894439697266
+			],
+			"rotation": 23.9994792938232
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				623.579895019531,
+				-289.768920898438
+			],
+			"rotation": -19.5687484741211
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				662.140319824219,
+				-335.424194335938
+			],
+			"rotation": 58.5553321838379
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				685.469055175781,
+				-350.017211914063
+			],
+			"rotation": -86.8973693847656
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				513.410461425781,
+				-482.104949951172
+			],
+			"rotation": -22.5187683105469
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				639.291748046875,
+				-401.742248535156
+			],
+			"rotation": -19.5609703063965
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				598.20166015625,
+				-477.150604248047
+			],
+			"rotation": 24.0466804504395
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				417.819122314453,
+				-537.617736816406
+			],
+			"rotation": -27.2124633789063
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				423.571197509766,
+				-647.278076171875
+			],
+			"rotation": -30.4708442687988
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				485.493530273438,
+				-590.048950195313
+			],
+			"rotation": 29.1255741119385
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				497.058898925781,
+				-690.992919921875
+			],
+			"rotation": 33.4660263061523
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				557.54345703125,
+				-751.714172363281
+			],
+			"rotation": -30.2387714385986
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				639.063232421875,
+				-776.78759765625
+			],
+			"rotation": 32.3433151245117
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				761.230224609375,
+				-759.989196777344
+			],
+			"rotation": -25.0480346679688
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				687.397521972656,
+				-811.622436523438
+			],
+			"rotation": -71.1694946289063
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				718.544128417969,
+				-801.718688964844
+			],
+			"rotation": 70.9416275024414
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				608.076477050781,
+				-924.832702636719
+			],
+			"rotation": -22.9786987304688
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				614.621520996094,
+				-867.196838378906
+			],
+			"rotation": 69.7772979736328
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				623.080871582031,
+				-836.299499511719
+			],
+			"rotation": -58.7531623840332
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				419.634094238281,
+				-951.025512695313
+			],
+			"rotation": -20.0137538909912
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				544.11279296875,
+				-1003.92834472656
+			],
+			"rotation": -25.2933254241943
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				461.732421875,
+				-1025.8681640625
+			],
+			"rotation": 23.9683780670166
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				493.555023193359,
+				-1105.6865234375
+			],
+			"rotation": -23.2312755584717
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				535.678283691406,
+				-1180.51489257813
+			],
+			"rotation": 23.3508815765381
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				579.361755371094,
+				-1254.43103027344
+			],
+			"rotation": -18.7603740692139
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				636.008605957031,
+				-1271.92749023438
+			],
+			"rotation": 54.1955146789551
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				646.854187011719,
+				-1297.65356445313
+			],
+			"rotation": -79.8337707519531
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				766.905029296875,
+				-1271.59057617188
+			],
+			"rotation": -12.3362770080566
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				659.6142578125,
+				-1249.86730957031
+			],
+			"rotation": -39.682991027832
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				705.516052246094,
+				-1213.79943847656
+			],
+			"rotation": 16.1200542449951
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				876.446350097656,
+				-1149.68884277344
+			],
+			"rotation": -13.4774532318115
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				838.476013183594,
+				-1226.73645019531
+			],
+			"rotation": 13.8965263366699
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				893.151306152344,
+				-1292.81811523438
+			],
+			"rotation": -15.0179443359375
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				925.809692382813,
+				-1381.56372070313
+			],
+			"rotation": -10.124228477478
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				942.599487304688,
+				-1326.00317382813
+			],
+			"rotation": 39.4275398254395
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				806.096252441406,
+				-1435.71264648438
+			],
+			"rotation": -12.1060934066772
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				888.181457519531,
+				-1458.78125
+			],
+			"rotation": 15.1903696060181
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				894.80126953125,
+				-1544.52307128906
+			],
+			"rotation": -14.3382730484009
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				709.282653808594,
+				-1716.74353027344
+			],
+			"rotation": -9.60613822937012
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				829.425598144531,
+				-1599.84631347656
+			],
+			"rotation": 9.80379390716553
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				786.015319824219,
+				-1681.17712402344
+			],
+			"rotation": 14.6964054107666
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				832.209777832031,
+				-1653.77319335938
+			],
+			"rotation": -42.152458190918
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				733.421875,
+				-1891.53552246094
+			],
+			"rotation": -12.9288539886475
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				669.656311035156,
+				-1808.87731933594
+			],
+			"rotation": -15.0161237716675
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				723.315063476563,
+				-1834.40759277344
+			],
+			"rotation": 39.4570846557617
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				795.122375488281,
+				-1976.92724609375
+			],
+			"rotation": -23.5753498077393
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				903.506713867188,
+				-1986.3828125
+			],
+			"rotation": -20.3753643035889
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				851.299987792969,
+				-1959.89733886719
+			],
+			"rotation": 64.9300765991211
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				961.555969238281,
+				-2070.86767578125
+			],
+			"rotation": -21.5747261047363
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1100.70471191406,
+				-2038.67004394531
+			],
+			"rotation": -16.25439453125
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				840.322265625,
+				-2187.07250976563
+			],
+			"rotation": -27.4731483459473
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				910.085388183594,
+				-2139.51220703125
+			],
+			"rotation": 22.0645122528076
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1041.52294921875,
+				-2100.68237304688
+			],
+			"rotation": 14.4175281524658
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				904.327514648438,
+				-2244.00390625
+			],
+			"rotation": 39.2380409240723
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1002.71984863281,
+				-2319.1806640625
+			],
+			"rotation": -38.5855827331543
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				975.082946777344,
+				-2268.05395507813
+			],
+			"rotation": 94.7163467407227
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				957.188903808594,
+				-2248.83520507813
+			],
+			"rotation": -140.433944702148
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				737.424072265625,
+				-2344.154296875
+			],
+			"rotation": -54.7005577087402
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				748.79833984375,
+				-2243.89379882813
+			],
+			"rotation": -33.1074829101563
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				773.504089355469,
+				-2298.47192382813
+			],
+			"rotation": 98.9083862304688
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				600.009155273438,
+				-2280.60473632813
+			],
+			"rotation": -34.8243103027344
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				641.418640136719,
+				-2382.53442382813
+			],
+			"rotation": -56.3160705566406
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				640.473815917969,
+				-2324.5419921875
+			],
+			"rotation": 93.8778991699219
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				375.887176513672,
+				-2110.67333984375
+			],
+			"rotation": -7.63278150558472
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				512.010131835938,
+				-2224.5390625
+			],
+			"rotation": -12.669734954834
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				443.227569580078,
+				-2163.54125976563
+			],
+			"rotation": 11.9179048538208
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				496.075469970703,
+				-2160.52880859375
+			],
+			"rotation": -29.6184349060059
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				513.936096191406,
+				-2172.57397460938
+			],
+			"rotation": 30.0394325256348
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				400.535980224609,
+				-2348.53540039063
+			],
+			"rotation": -26.8083000183105
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				468.596405029297,
+				-2298.61596679688
+			],
+			"rotation": 16.4449310302734
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				608.668518066406,
+				-2492.02807617188
+			],
+			"rotation": -62.0393676757813
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				685.330261230469,
+				-2456.31323242188
+			],
+			"rotation": 63.5324554443359
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				766.641662597656,
+				-2482.08129882813
+			],
+			"rotation": -62.3673934936523
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				871.692321777344,
+				-2518.49169921875
+			],
+			"rotation": -60.5001449584961
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				825.639770507813,
+				-2482.611328125
+			],
+			"rotation": 159.089202880859
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				817.332153320313,
+				-2633.94555664063
+			],
+			"rotation": -62.6544380187988
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				895.321105957031,
+				-2601.1416015625
+			],
+			"rotation": 65.5730667114258
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				975.117492675781,
+				-2535.56201171875
+			],
+			"rotation": -57.0341873168945
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1050.85620117188,
+				-2575.14501953125
+			],
+			"rotation": 60.0410499572754
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1130.54455566406,
+				-2605.72143554688
+			],
+			"rotation": -44.3851737976074
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1189.07836914063,
+				-2599.31884765625
+			],
+			"rotation": 121.686172485352
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1189.3779296875,
+				-2627.31713867188
+			],
+			"rotation": -185.143081665039
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1213.85791015625,
+				-2546.77465820313
+			],
+			"rotation": -38.7973251342773
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1304.41027832031,
+				-2504.77465820313
+			],
+			"rotation": -28.1560382843018
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1266.63806152344,
+				-2542.95361328125
+			],
+			"rotation": 124.477027893066
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1214.0361328125,
+				-2681.64575195313
+			],
+			"rotation": -40.1046028137207
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1294.4609375,
+				-2765.1640625
+			],
+			"rotation": -29.3673076629639
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1209.47180175781,
+				-2767.52294921875
+			],
+			"rotation": 39.0545234680176
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				987.772521972656,
+				-2810.61669921875
+			],
+			"rotation": -48.1976280212402
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1026.50170898438,
+				-2735.95263671875
+			],
+			"rotation": 53.3588600158691
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1103.95446777344,
+				-2701.9375
+			],
+			"rotation": -35.6106109619141
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1134.43395996094,
+				-2659.57861328125
+			],
+			"rotation": 131.041290283203
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1092.45056152344,
+				-2964.19873046875
+			],
+			"rotation": -34.7929344177246
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1042.31921386719,
+				-2876.80615234375
+			],
+			"rotation": 49.1680641174316
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1020.87420654297,
+				-2932.77075195313
+			],
+			"rotation": -110.998146057129
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1040.11877441406,
+				-2952.70874023438
+			],
+			"rotation": 172.375671386719
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				671.455078125,
+				-2703.61572265625
+			],
+			"rotation": -31.2589950561523
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				733.060852050781,
+				-2646.05200195313
+			],
+			"rotation": 28.6907901763916
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				421.351013183594,
+				-2709.50634765625
+			],
+			"rotation": -29.2698745727539
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				575.547912597656,
+				-2720.76879882813
+			],
+			"rotation": -20.5479049682617
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				495.874908447266,
+				-2751.38671875
+			],
+			"rotation": 27.882869720459
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				475.5458984375,
+				-2834.919921875
+			],
+			"rotation": -28.6740398406982
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				604.446166992188,
+				-2981.90991210938
+			],
+			"rotation": -23.8849353790283
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				476.888916015625,
+				-2935.53735351563
+			],
+			"rotation": -31.8289623260498
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				523.180114746094,
+				-3007.82641601563
+			],
+			"rotation": 31.3336772918701
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				383.622589111328,
+				-2980.72827148438
+			],
+			"rotation": -31.1832485198975
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				417.954956054688,
+				-2933.74609375
+			],
+			"rotation": 79.7624130249023
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				250.533325195313,
+				-2897.26586914063
+			],
+			"rotation": -28.6013927459717
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				299.818725585938,
+				-2967.5185546875
+			],
+			"rotation": 31.6119689941406
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				116.378219604492,
+				-2944.72412109375
+			],
+			"rotation": -22.7463245391846
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				198.964706420898,
+				-2965.83569335938
+			],
+			"rotation": 28.4444179534912
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-27.7667427062988,
+				-3090.94409179688
+			],
+			"rotation": -25.6867542266846
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				88.0487899780273,
+				-3039.00073242188
+			],
+			"rotation": -23.7228946685791
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				7.00192642211914,
+				-3014.38037109375
+			],
+			"rotation": 23.9267959594727
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-143.044937133789,
+				-2996.73168945313
+			],
+			"rotation": -20.1105003356934
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-111.372222900391,
+				-3076.6103515625
+			],
+			"rotation": 26.7439708709717
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-179.564804077148,
+				-2805.25219726563
+			],
+			"rotation": -8.32656478881836
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-191.649826049805,
+				-2910.11328125
+			],
+			"rotation": -11.9905662536621
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				-159.407897949219,
+				-2861.7021484375
+			],
+			"rotation": 22.666934967041
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				589.268249511719,
+				-3150.74340820313
+			],
+			"rotation": -21.6540489196777
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				666.26708984375,
+				-3065.27197265625
+			],
+			"rotation": -16.0305061340332
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				637.524536132813,
+				-3117.79736328125
+			],
+			"rotation": 44.8053359985352
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-273.364532470703,
+				-3178.78930664063
+			],
+			"rotation": -6.24661207199097
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				-185.809432983398,
+				-3118.64819335938
+			],
+			"rotation": -16.083646774292
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				-244.135818481445,
+				-3128.5380859375
+			],
+			"rotation": 24.1613216400146
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				282.023986816406,
+				-3284.59838867188
+			],
+			"rotation": -14.3676252365112
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				502.38427734375,
+				-3186.1494140625
+			],
+			"rotation": -12.634370803833
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				362.412048339844,
+				-3257.98022460938
+			],
+			"rotation": 20.5229587554932
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				465.951385498047,
+				-3263.94555664063
+			],
+			"rotation": 18.7052211761475
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				412.56298828125,
+				-3290.05883789063
+			],
+			"rotation": -43.5034141540527
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				232.683151245117,
+				-3437.79223632813
+			],
+			"rotation": -14.1922044754028
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				192.060836791992,
+				-3338.3916015625
+			],
+			"rotation": -16.9528522491455
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				187.084045410156,
+				-3398.18139648438
+			],
+			"rotation": 39.726375579834
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				84.0863571166992,
+				-3424.58569335938
+			],
+			"rotation": -7.36149215698242
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				154.77668762207,
+				-3472.7861328125
+			],
+			"rotation": 12.4401044845581
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				295.494537353516,
+				-3511.46655273438
+			],
+			"rotation": -15.2065620422363
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				319.949493408203,
+				-3616.52075195313
+			],
+			"rotation": -18.0022888183594
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				331.023742675781,
+				-3559.5693359375
+			],
+			"rotation": 43.4405250549316
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				413.399841308594,
+				-3597.46801757813
+			],
+			"rotation": -19.5945224761963
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				499.425415039063,
+				-3543.56762695313
+			],
+			"rotation": -16.4043369293213
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				472.381683349609,
+				-3597.00463867188
+			],
+			"rotation": 57.8720092773438
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				575.396240234375,
+				-3473.03076171875
+			],
+			"rotation": -15.2891330718994
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				653.573608398438,
+				-3440.66479492188
+			],
+			"rotation": 20.954532623291
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				699.851684570313,
+				-3467.49755859375
+			],
+			"rotation": -69.9617614746094
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				724.269653320313,
+				-3534.93969726563
+			],
+			"rotation": -15.1590852737427
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				867.106567382813,
+				-3593.814453125
+			],
+			"rotation": -20.5817928314209
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				782.172729492188,
+				-3598.16674804688
+			],
+			"rotation": 25.7687854766846
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				900.322509765625,
+				-3733.4169921875
+			],
+			"rotation": -23.3035087585449
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				839.378540039063,
+				-3675.16479492188
+			],
+			"rotation": 24.0581951141357
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				985.229125976563,
+				-3730.43310546875
+			],
+			"rotation": 28.0867595672607
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1119.46960449219,
+				-3731.77197265625
+			],
+			"rotation": -18.5384407043457
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1041.95288085938,
+				-3747.6630859375
+			],
+			"rotation": -56.6330223083496
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1066.71936035156,
+				-3737.90991210938
+			],
+			"rotation": 92.3350982666016
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1125.32153320313,
+				-3888.53393554688
+			],
+			"rotation": -24.5202980041504
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1155.12744140625,
+				-3809.93090820313
+			],
+			"rotation": 26.1808815002441
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1213.84130859375,
+				-3734.087890625
+			],
+			"rotation": -15.4595232009888
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1298.50134277344,
+				-3727.49267578125
+			],
+			"rotation": 21.5362720489502
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1362.20776367188,
+				-3784.76416015625
+			],
+			"rotation": -21.7536354064941
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1379.4169921875,
+				-3869.00390625
+			],
+			"rotation": 22.5094566345215
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1395.44067382813,
+				-4011.71264648438
+			],
+			"rotation": -25.5157623291016
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1334.06481933594,
+				-3953.90795898438
+			],
+			"rotation": 33.2185401916504
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1337.16381835938,
+				-3901.99877929688
+			],
+			"rotation": -75.049560546875
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1077.10583496094,
+				-3973.56591796875
+			],
+			"rotation": -21.7702732086182
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1054.654296875,
+				-4071.48779296875
+			],
+			"rotation": -21.4437103271484
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1035.71435546875,
+				-4016.6103515625
+			],
+			"rotation": 57.5008354187012
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				939.951843261719,
+				-4118.64599609375
+			],
+			"rotation": -23.8009853363037
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1019.40966796875,
+				-4149.83642578125
+			],
+			"rotation": 25.1791496276855
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1039.3515625,
+				-4233.4638671875
+			],
+			"rotation": -28.4886646270752
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1082.62548828125,
+				-4307.6240234375
+			],
+			"rotation": 33.4349174499512
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1163.59399414063,
+				-4334.49072265625
+			],
+			"rotation": -33.7058753967285
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1231.83666992188,
+				-4284.81591796875
+			],
+			"rotation": 30.1233901977539
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1316.60168457031,
+				-4279.49951171875
+			],
+			"rotation": -25.3480472564697
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1121.95556640625,
+				-4424.57568359375
+			],
+			"rotation": -32.0478248596191
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1120.71411132813,
+				-4510.56640625
+			],
+			"rotation": 34.7598419189453
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1144.22338867188,
+				-4565.6806640625
+			],
+			"rotation": -85.5673904418945
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				989.554809570313,
+				-4559.00732421875
+			],
+			"rotation": -25.7354946136475
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1036.92224121094,
+				-4524.83154296875
+			],
+			"rotation": 76.8400497436523
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1067.75939941406,
+				-4537.58203125
+			],
+			"rotation": -69.0528411865234
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				858.378601074219,
+				-4265.10791015625
+			],
+			"rotation": -8.67610263824463
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				959.846069335938,
+				-4279.80712890625
+			],
+			"rotation": -11.1716642379761
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				904.924865722656,
+				-4302.36328125
+			],
+			"rotation": 27.4268646240234
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1243.10705566406,
+				-4551.25
+			],
+			"rotation": -9.36167621612549
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1367.25231933594,
+				-4517.58984375
+			],
+			"rotation": -5.98240900039673
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1319.72326660156,
+				-4589.0595703125
+			],
+			"rotation": 13.0322904586792
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1329.08996582031,
+				-4798.90771484375
+			],
+			"rotation": -11.7104873657227
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1336.71313476563,
+				-4715.25
+			],
+			"rotation": 20.5990734100342
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1384.03369140625,
+				-4645.64013671875
+			],
+			"rotation": -11.7700242996216
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1413.56628417969,
+				-4809.328125
+			],
+			"rotation": 16.5790824890137
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1496.45935058594,
+				-4791.52001953125
+			],
+			"rotation": -10.2248792648315
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1571.12976074219,
+				-4833.1318359375
+			],
+			"rotation": 15.5666122436523
+		},
+		{
+			"component_type": "gear_small",
+			"position": [
+				1617.826171875,
+				-4809.35546875
+			],
+			"rotation": -47.2395095825195
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1496.00439453125,
+				-4940.90771484375
+			],
+			"rotation": -10.9926595687866
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1539.41882324219,
+				-4901.95556640625
+			],
+			"rotation": 36.8217849731445
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1570.92260742188,
+				-4893.1318359375
+			],
+			"rotation": -32.7963981628418
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1566.10583496094,
+				-4989.978515625
+			],
+			"rotation": 16.720100402832
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1612.84069824219,
+				-5061.9775390625
+			],
+			"rotation": -13.891209602356
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1671.71264648438,
+				-5066.86328125
+			],
+			"rotation": 36.9912109375
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1715.64294433594,
+				-5107.24755859375
+			],
+			"rotation": -16.5859870910645
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1753.29711914063,
+				-5199.23095703125
+			],
+			"rotation": -12.1321973800659
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1763.90051269531,
+				-5142.19140625
+			],
+			"rotation": 39.0705528259277
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1726.42163085938,
+				-5294.7900390625
+			],
+			"rotation": -8.71671485900879
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1772.9296875,
+				-5371.47314453125
+			],
+			"rotation": -8.66204071044922
+		},
+		{
+			"component_type": "gear_medium",
+			"position": [
+				1782.46008300781,
+				-5314.248046875
+			],
+			"rotation": 23.4865627288818
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1590.68627929688,
+				-5562.51318359375
+			],
+			"rotation": -1.62031257152557
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1704.45056152344,
+				-5447.236328125
+			],
+			"rotation": -5.16060256958008
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1665.95373535156,
+				-5524.01904296875
+			],
+			"rotation": 4.87948942184448
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1652.66821289063,
+				-5667.703125
+			],
+			"rotation": 2.64812779426575
+		},
+		{
+			"component_type": "gear_large",
+			"position": [
+				1570.71899414063,
+				-5646.134765625
+			],
+			"rotation": 2.29268383979797
+		}
+	],
+	"dev_barriers": [],
+	"dev_power_nodes": [
+		{
+			"brake_torque_cap": 22.006784362793,
+			"position": [
+				571.513366699219,
+				96.4231033325195
+			],
+			"rated_torque_output": 100.030838012695,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 135.041631317139
+		},
+		{
+			"brake_torque_cap": 11.4443975830078,
+			"position": [
+				497.119995117188,
+				-197.387084960938
+			],
+			"rated_torque_output": 52.0199890136719,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 70.226985168457
+		},
+		{
+			"brake_torque_cap": 6.35799530029297,
+			"position": [
+				671.997619628906,
+				-362.922607421875
+			],
+			"rated_torque_output": 28.8999786376953,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 39.0149711608887
+		},
+		{
+			"brake_torque_cap": 22.6490110778809,
+			"position": [
+				463.083557128906,
+				-504.502624511719
+			],
+			"rated_torque_output": 102.950050354004,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 138.982567977905
+		},
+		{
+			"brake_torque_cap": 24.9543650817871,
+			"position": [
+				368.609741210938,
+				-653.990905761719
+			],
+			"rated_torque_output": 113.428932189941,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 153.129058456421
+		},
+		{
+			"brake_torque_cap": 15.3921179199219,
+			"position": [
+				584.871032714844,
+				-705.88720703125
+			],
+			"rated_torque_output": 69.9641723632813,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 94.4516326904297
+		},
+		{
+			"brake_torque_cap": 15.6053402709961,
+			"position": [
+				805.7373046875,
+				-803.577514648438
+			],
+			"rated_torque_output": 70.9333648681641,
+			"source_outer_radius": 22.0,
+			"stall_torque_output": 95.7600425720215
+		},
+		{
+			"brake_torque_cap": 13.5693046569824,
+			"position": [
+				373.322143554688,
+				-968.872314453125
+			],
+			"rated_torque_output": 61.6786575317383,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 83.2661876678467
+		},
+		{
+			"brake_torque_cap": 20.432830657959,
+			"position": [
+				593.366027832031,
+				-977.34765625
+			],
+			"rated_torque_output": 92.8765029907227,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 125.383279037476
+		},
+		{
+			"brake_torque_cap": 11.4577464294434,
+			"position": [
+				243.316772460938,
+				-1121.59069824219
+			],
+			"rated_torque_output": 52.0806655883789,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 70.3088985443115
+		},
+		{
+			"brake_torque_cap": 13.7353192901611,
+			"position": [
+				469.171569824219,
+				-1154.54321289063
+			],
+			"rated_torque_output": 62.4332695007324,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 84.2849138259888
+		},
+		{
+			"brake_torque_cap": 8.72075958251953,
+			"position": [
+				902.865966796875,
+				-1099.88049316406
+			],
+			"rated_torque_output": 39.6398162841797,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 53.5137519836426
+		},
+		{
+			"brake_torque_cap": 13.8648683929443,
+			"position": [
+				627.5673828125,
+				-1310.07995605469
+			],
+			"rated_torque_output": 63.0221290588379,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 85.0798742294312
+		},
+		{
+			"brake_torque_cap": 5.75323783874512,
+			"position": [
+				814.752502441406,
+				-1285.10327148438
+			],
+			"rated_torque_output": 26.1510810852051,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 35.3039594650269
+		},
+		{
+			"brake_torque_cap": 6.81318584442139,
+			"position": [
+				231.269104003906,
+				-1409.95434570313
+			],
+			"rated_torque_output": 30.9690265655518,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 41.8081858634949
+		},
+		{
+			"brake_torque_cap": 9.06750144958496,
+			"position": [
+				756.869079589844,
+				-1460.34338378906
+			],
+			"rated_torque_output": 41.2159156799316,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 55.6414861679077
+		},
+		{
+			"brake_torque_cap": 10.19081199646,
+			"position": [
+				982.4765625,
+				-1396.9912109375
+			],
+			"rated_torque_output": 46.3218727111816,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 62.5345281600952
+		},
+		{
+			"brake_torque_cap": 23.1729696655273,
+			"position": [
+				205.383819580078,
+				-1585.49841308594
+			],
+			"rated_torque_output": 105.331680297852,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 142.1977684021
+		},
+		{
+			"brake_torque_cap": 12.3893366241455,
+			"position": [
+				390.374725341797,
+				-1630.50085449219
+			],
+			"rated_torque_output": 56.3151664733887,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 76.0254747390747
+		},
+		{
+			"brake_torque_cap": 19.4651307678223,
+			"position": [
+				933.893798828125,
+				-1582.91882324219
+			],
+			"rated_torque_output": 88.4778671264648,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 119.445120620728
+		},
+		{
+			"brake_torque_cap": 16.5272280883789,
+			"position": [
+				86.2948608398438,
+				-1732.12915039063
+			],
+			"rated_torque_output": 75.1237640380859,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 101.417081451416
+		},
+		{
+			"brake_torque_cap": 24.5903291320801,
+			"position": [
+				667.62353515625,
+				-1752.41455078125
+			],
+			"rated_torque_output": 111.774223327637,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 150.89520149231
+		},
+		{
+			"brake_torque_cap": 13.7200242614746,
+			"position": [
+				994.75341796875,
+				-1743.91796875
+			],
+			"rated_torque_output": 62.3637466430664,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 84.1910579681397
+		},
+		{
+			"brake_torque_cap": 23.574474029541,
+			"position": [
+				167.478973388672,
+				-1897.43286132813
+			],
+			"rated_torque_output": 107.156700134277,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 144.661545181274
+		},
+		{
+			"brake_torque_cap": 18.4081381225586,
+			"position": [
+				750.103149414063,
+				-1943.46923828125
+			],
+			"rated_torque_output": 83.6733551025391,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 112.959029388428
+		},
+		{
+			"brake_torque_cap": 8.19711654663086,
+			"position": [
+				8.44415283203125,
+				-1998.14721679688
+			],
+			"rated_torque_output": 37.2596206665039,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 50.3004878997803
+		},
+		{
+			"brake_torque_cap": 22.7595481872559,
+			"position": [
+				331.831268310547,
+				-2075.91943359375
+			],
+			"rated_torque_output": 103.452491760254,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 139.660863876343
+		},
+		{
+			"brake_torque_cap": 18.1158717346191,
+			"position": [
+				914.981628417969,
+				-2039.68359375
+			],
+			"rated_torque_output": 82.3448715209961,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 111.165576553345
+		},
+		{
+			"brake_torque_cap": 20.3937576293945,
+			"position": [
+				1153.04309082031,
+				-2033.55395507813
+			],
+			"rated_torque_output": 92.6988983154297,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 125.14351272583
+		},
+		{
+			"brake_torque_cap": 14.820458984375,
+			"position": [
+				-38.8494873046875,
+				-2174.6494140625
+			],
+			"rated_torque_output": 67.36572265625,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 90.9437255859375
+		},
+		{
+			"brake_torque_cap": 18.6139685058594,
+			"position": [
+				559.163696289063,
+				-2246.62133789063
+			],
+			"rated_torque_output": 84.6089477539063,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 114.222079467773
+		},
+		{
+			"brake_torque_cap": 13.2784700012207,
+			"position": [
+				801.615661621094,
+				-2225.84741210938
+			],
+			"rated_torque_output": 60.3566818237305,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 81.4815204620361
+		},
+		{
+			"brake_torque_cap": 19.6206944274902,
+			"position": [
+				370.561950683594,
+				-2398.35424804688
+			],
+			"rated_torque_output": 89.1849746704102,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 120.399715805054
+		},
+		{
+			"brake_torque_cap": 10.3825457763672,
+			"position": [
+				696.916870117188,
+				-2381.09399414063
+			],
+			"rated_torque_output": 47.1933898925781,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 63.7110763549805
+		},
+		{
+			"brake_torque_cap": 15.5616732788086,
+			"position": [
+				1052.20166015625,
+				-2343.31640625
+			],
+			"rated_torque_output": 70.7348785400391,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 95.4920860290527
+		},
+		{
+			"brake_torque_cap": 23.5442481994629,
+			"position": [
+				48.134765625,
+				-2507.87280273438
+			],
+			"rated_torque_output": 107.019309997559,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 144.476068496704
+		},
+		{
+			"brake_torque_cap": 12.1503674316406,
+			"position": [
+				610.721435546875,
+				-2543.48803710938
+			],
+			"rated_torque_output": 55.2289428710938,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 74.5590728759766
+		},
+		{
+			"brake_torque_cap": 9.83519523620605,
+			"position": [
+				922.910766601563,
+				-2529.02075195313
+			],
+			"rated_torque_output": 44.7054328918457,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 60.3523344039917
+		},
+		{
+			"brake_torque_cap": 11.5544311523437,
+			"position": [
+				1265.71655273438,
+				-2454.05737304688
+			],
+			"rated_torque_output": 52.5201416015625,
+			"source_outer_radius": 22.0,
+			"stall_torque_output": 70.9021911621094
+		},
+		{
+			"brake_torque_cap": 13.5884870147705,
+			"position": [
+				369.773895263672,
+				-2698.70581054688
+			],
+			"rated_torque_output": 61.7658500671387,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 83.3838975906372
+		},
+		{
+			"brake_torque_cap": 8.04816772460937,
+			"position": [
+				625.484741210938,
+				-2722.28100585938
+			],
+			"rated_torque_output": 36.5825805664063,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 49.3864837646484
+		},
+		{
+			"brake_torque_cap": 16.2670388793945,
+			"position": [
+				810.782348632813,
+				-2685.03540039063
+			],
+			"rated_torque_output": 73.9410858154297,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 99.8204658508301
+		},
+		{
+			"brake_torque_cap": 22.1944218444824,
+			"position": [
+				1175.93127441406,
+				-2644.53100585938
+			],
+			"rated_torque_output": 100.883735656738,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 136.193043136597
+		},
+		{
+			"brake_torque_cap": 15.9832470703125,
+			"position": [
+				-181.203979492188,
+				-2754.27905273438
+			],
+			"rated_torque_output": 72.651123046875,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 98.0790161132813
+		},
+		{
+			"brake_torque_cap": 13.2904626464844,
+			"position": [
+				221.200469970703,
+				-2855.77416992188
+			],
+			"rated_torque_output": 60.4111938476563,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 81.5551116943359
+		},
+		{
+			"brake_torque_cap": 14.8964414978027,
+			"position": [
+				464.869659423828,
+				-2886.00341796875
+			],
+			"rated_torque_output": 67.7110977172852,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 91.409981918335
+		},
+		{
+			"brake_torque_cap": 12.4691233825684,
+			"position": [
+				935.71923828125,
+				-2837.39184570313
+			],
+			"rated_torque_output": 56.6778335571289,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 76.515075302124
+		},
+		{
+			"brake_torque_cap": 17.3407641601563,
+			"position": [
+				1345.32165527344,
+				-2751.1474609375
+			],
+			"rated_torque_output": 78.8216552734375,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 106.409234619141
+		},
+		{
+			"brake_torque_cap": 9.17283782958984,
+			"position": [
+				-162.284973144531,
+				-2949.58178710938
+			],
+			"rated_torque_output": 41.6947174072266,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 56.2878684997559
+		},
+		{
+			"brake_torque_cap": 6.17666297912598,
+			"position": [
+				77.6546630859375,
+				-2983.48266601563
+			],
+			"rated_torque_output": 28.075740814209,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 37.9022500991821
+		},
+		{
+			"brake_torque_cap": 11.8604567718506,
+			"position": [
+				350.072570800781,
+				-3016.80102539063
+			],
+			"rated_torque_output": 53.9111671447754,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 72.7800756454468
+		},
+		{
+			"brake_torque_cap": 16.0483950805664,
+			"position": [
+				651.167785644531,
+				-3010.86547851563
+			],
+			"rated_torque_output": 72.9472503662109,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 98.4787879943848
+		},
+		{
+			"brake_torque_cap": 22.943907623291,
+			"position": [
+				1132.43981933594,
+				-2993.21313476563
+			],
+			"rated_torque_output": 104.290489196777,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 140.792160415649
+		},
+		{
+			"brake_torque_cap": 24.2340409851074,
+			"position": [
+				-48.1314697265625,
+				-3138.33349609375
+			],
+			"rated_torque_output": 110.154731750488,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 148.708887863159
+		},
+		{
+			"brake_torque_cap": 7.74927139282227,
+			"position": [
+				557.018859863281,
+				-3194.91235351563
+			],
+			"rated_torque_output": 35.2239608764648,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 47.5523471832275
+		},
+		{
+			"brake_torque_cap": 19.7541744995117,
+			"position": [
+				959.498657226563,
+				-3177.08764648438
+			],
+			"rated_torque_output": 89.7917022705078,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 121.218798065186
+		},
+		{
+			"brake_torque_cap": 14.6229202270508,
+			"position": [
+				1425.61633300781,
+				-3050.81127929688
+			],
+			"rated_torque_output": 66.4678192138672,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 89.7315559387207
+		},
+		{
+			"brake_torque_cap": 8.90675888061523,
+			"position": [
+				-316.872741699219,
+				-3212.24633789063
+			],
+			"rated_torque_output": 40.4852676391602,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 54.6551113128662
+		},
+		{
+			"brake_torque_cap": 9.23298904418945,
+			"position": [
+				235.462371826172,
+				-3307.8525390625
+			],
+			"rated_torque_output": 41.968132019043,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 56.656978225708
+		},
+		{
+			"brake_torque_cap": 13.8137892913818,
+			"position": [
+				871.4814453125,
+				-3345.21044921875
+			],
+			"rated_torque_output": 62.7899513244629,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 84.7664342880249
+		},
+		{
+			"brake_torque_cap": 13.6191844940186,
+			"position": [
+				1171.71704101563,
+				-3267.70849609375
+			],
+			"rated_torque_output": 61.9053840637207,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 83.5722684860229
+		},
+		{
+			"brake_torque_cap": 22.2994569396973,
+			"position": [
+				1473.60913085938,
+				-3229.9228515625
+			],
+			"rated_torque_output": 101.361167907715,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 136.837576675415
+		},
+		{
+			"brake_torque_cap": 12.3252259063721,
+			"position": [
+				-364.541625976563,
+				-3390.14916992188
+			],
+			"rated_torque_output": 56.023754119873,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 75.6320680618286
+		},
+		{
+			"brake_torque_cap": 20.0451870727539,
+			"position": [
+				41.3070678710938,
+				-3449.46875
+			],
+			"rated_torque_output": 91.1144866943359,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 123.004557037354
+		},
+		{
+			"brake_torque_cap": 9.30032409667969,
+			"position": [
+				254.562744140625,
+				-3481.7509765625
+			],
+			"rated_torque_output": 42.2742004394531,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 57.0701705932617
+		},
+		{
+			"brake_torque_cap": 16.8354013061523,
+			"position": [
+				700.804504394531,
+				-3486.9755859375
+			],
+			"rated_torque_output": 76.5245513916016,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 103.308144378662
+		},
+		{
+			"brake_torque_cap": 10.2399105072021,
+			"position": [
+				523.913635253906,
+				-3492.76220703125
+			],
+			"rated_torque_output": 46.5450477600098,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 62.8358144760132
+		},
+		{
+			"brake_torque_cap": 11.4902197265625,
+			"position": [
+				1021.82775878906,
+				-3459.64819335938
+			],
+			"rated_torque_output": 52.228271484375,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 70.5081665039063
+		},
+		{
+			"brake_torque_cap": 12.0758586120605,
+			"position": [
+				373.615081787109,
+				-3640.0361328125
+			],
+			"rated_torque_output": 54.890266418457,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 74.101859664917
+		},
+		{
+			"brake_torque_cap": 18.3116665649414,
+			"position": [
+				911.918334960938,
+				-3614.99340820313
+			],
+			"rated_torque_output": 83.2348480224609,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 112.367044830322
+		},
+		{
+			"brake_torque_cap": 6.84855827331543,
+			"position": [
+				1549.50354003906,
+				-3513.16455078125
+			],
+			"rated_torque_output": 31.129810333252,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 42.0252439498901
+		},
+		{
+			"brake_torque_cap": 8.91026184082031,
+			"position": [
+				-395.251281738281,
+				-3666.73657226563
+			],
+			"rated_torque_output": 40.5011901855469,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 54.6766067504883
+		},
+		{
+			"brake_torque_cap": 23.540347442627,
+			"position": [
+				-140.735656738281,
+				-3722.89624023438
+			],
+			"rated_torque_output": 107.001579284668,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 144.452132034302
+		},
+		{
+			"brake_torque_cap": 14.2265905761719,
+			"position": [
+				176.415100097656,
+				-3785.90551757813
+			],
+			"rated_torque_output": 64.6663208007813,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 87.2995330810547
+		},
+		{
+			"brake_torque_cap": 11.2125232696533,
+			"position": [
+				886.346801757813,
+				-3786.12841796875
+			],
+			"rated_torque_output": 50.9660148620605,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 68.8041200637817
+		},
+		{
+			"brake_torque_cap": 18.0212767028809,
+			"position": [
+				1381.41540527344,
+				-3727.97827148438
+			],
+			"rated_torque_output": 81.9148941040039,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 110.585107040405
+		},
+		{
+			"brake_torque_cap": 15.2237240600586,
+			"position": [
+				1166.25073242188,
+				-3748.42211914063
+			],
+			"rated_torque_output": 69.1987457275391,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 93.4183067321777
+		},
+		{
+			"brake_torque_cap": 21.9381266784668,
+			"position": [
+				180.783050537109,
+				-3962.76318359375
+			],
+			"rated_torque_output": 99.7187576293945,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 134.620322799683
+		},
+		{
+			"brake_torque_cap": 21.6925015258789,
+			"position": [
+				-254.614013671875,
+				-3884.21313476563
+			],
+			"rated_torque_output": 98.6022796630859,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 133.113077545166
+		},
+		{
+			"brake_torque_cap": 8.27825866699219,
+			"position": [
+				-59.6110229492188,
+				-3898.88305664063
+			],
+			"rated_torque_output": 37.6284484863281,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 50.798405456543
+		},
+		{
+			"brake_torque_cap": 23.4539215087891,
+			"position": [
+				558.227844238281,
+				-3953.79077148438
+			],
+			"rated_torque_output": 106.608734130859,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 143.92179107666
+		},
+		{
+			"brake_torque_cap": 19.628537902832,
+			"position": [
+				1092.04040527344,
+				-3924.84838867188
+			],
+			"rated_torque_output": 89.2206268310547,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 120.447846221924
+		},
+		{
+			"brake_torque_cap": 16.504850769043,
+			"position": [
+				1615.2939453125,
+				-3830.00439453125
+			],
+			"rated_torque_output": 75.0220489501953,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 101.279766082764
+		},
+		{
+			"brake_torque_cap": 20.2763404846191,
+			"position": [
+				-516.11279296875,
+				-3955.82006835938
+			],
+			"rated_torque_output": 92.1651840209961,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 124.422998428345
+		},
+		{
+			"brake_torque_cap": 23.6113751220703,
+			"position": [
+				18.1508178710938,
+				-4061.4814453125
+			],
+			"rated_torque_output": 107.324432373047,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 144.887983703613
+		},
+		{
+			"brake_torque_cap": 23.6279096984863,
+			"position": [
+				322.319091796875,
+				-4119.6337890625
+			],
+			"rated_torque_output": 107.399589538574,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 144.989445877075
+		},
+		{
+			"brake_torque_cap": 13.346965713501,
+			"position": [
+				1099.79211425781,
+				-4097.298828125
+			],
+			"rated_torque_output": 60.668025970459,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 81.9018350601196
+		},
+		{
+			"brake_torque_cap": 14.3596627807617,
+			"position": [
+				891.628845214844,
+				-4083.794921875
+			],
+			"rated_torque_output": 65.2711944580078,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 88.1161125183106
+		},
+		{
+			"brake_torque_cap": 20.8758720397949,
+			"position": [
+				1364.26953125,
+				-4056.63232421875
+			],
+			"rated_torque_output": 94.8903274536133,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 128.101942062378
+		},
+		{
+			"brake_torque_cap": 17.3750485229492,
+			"position": [
+				-65.4757690429688,
+				-4230.68798828125
+			],
+			"rated_torque_output": 78.9774932861328,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 106.619615936279
+		},
+		{
+			"brake_torque_cap": 7.09951675415039,
+			"position": [
+				128.159759521484,
+				-4256.69482421875
+			],
+			"rated_torque_output": 32.2705307006836,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 43.5652164459229
+		},
+		{
+			"brake_torque_cap": 21.0742735290527,
+			"position": [
+				438.102783203125,
+				-4265.03076171875
+			],
+			"rated_torque_output": 95.7921524047852,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 129.31940574646
+		},
+		{
+			"brake_torque_cap": 17.2711413574219,
+			"position": [
+				804.901489257813,
+				-4278.95556640625
+			],
+			"rated_torque_output": 78.5051879882813,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 105.98200378418
+		},
+		{
+			"brake_torque_cap": 21.2277239990234,
+			"position": [
+				989.74609375,
+				-4238.732421875
+			],
+			"rated_torque_output": 96.4896545410156,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 130.261033630371
+		},
+		{
+			"brake_torque_cap": 23.8878907775879,
+			"position": [
+				1295.52514648438,
+				-4230.416015625
+			],
+			"rated_torque_output": 108.581321716309,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 146.584784317017
+		},
+		{
+			"brake_torque_cap": 13.7107767486572,
+			"position": [
+				1714.69860839844,
+				-4129.68115234375
+			],
+			"rated_torque_output": 62.3217124938965,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 84.1343118667603
+		},
+		{
+			"brake_torque_cap": 13.0372138977051,
+			"position": [
+				-434.741638183594,
+				-4293.41845703125
+			],
+			"rated_torque_output": 59.2600631713867,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 80.0010852813721
+		},
+		{
+			"brake_torque_cap": 23.5390130615234,
+			"position": [
+				343.766235351563,
+				-4415.57373046875
+			],
+			"rated_torque_output": 106.995513916016,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 144.443943786621
+		},
+		{
+			"brake_torque_cap": 9.13364562988281,
+			"position": [
+				565.499084472656,
+				-4443.8232421875
+			],
+			"rated_torque_output": 41.5165710449219,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 56.0473709106445
+		},
+		{
+			"brake_torque_cap": 14.378715057373,
+			"position": [
+				1137.19836425781,
+				-4375.95556640625
+			],
+			"rated_torque_output": 65.357795715332,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 88.2330242156983
+		},
+		{
+			"brake_torque_cap": 25.1555393981934,
+			"position": [
+				-261.536987304688,
+				-4499.34814453125
+			],
+			"rated_torque_output": 114.343360900879,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 154.363537216187
+		},
+		{
+			"brake_torque_cap": 24.6417674255371,
+			"position": [
+				-566.86865234375,
+				-4427.8134765625
+			],
+			"rated_torque_output": 112.008033752441,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 151.210845565796
+		},
+		{
+			"brake_torque_cap": 22.1674488830566,
+			"position": [
+				72.2830810546875,
+				-4558.7646484375
+			],
+			"rated_torque_output": 100.761131286621,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 136.027527236938
+		},
+		{
+			"brake_torque_cap": 15.3776596069336,
+			"position": [
+				941.161743164063,
+				-4578.36328125
+			],
+			"rated_torque_output": 69.8984527587891,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 94.3629112243652
+		},
+		{
+			"brake_torque_cap": 20.3986235046387,
+			"position": [
+				1180.53381347656,
+				-4557.5703125
+			],
+			"rated_torque_output": 92.7210159301758,
+			"source_outer_radius": 22.0,
+			"stall_torque_output": 125.173371505737
+		},
+		{
+			"brake_torque_cap": 11.5730973815918,
+			"position": [
+				1419.69677734375,
+				-4519.0048828125
+			],
+			"rated_torque_output": 52.6049880981445,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 71.0167339324951
+		},
+		{
+			"brake_torque_cap": 13.6786735534668,
+			"position": [
+				-685.84033203125,
+				-4589.251953125
+			],
+			"rated_torque_output": 62.1757888793945,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 83.9373149871826
+		},
+		{
+			"brake_torque_cap": 20.9578953552246,
+			"position": [
+				269.999328613281,
+				-4718.68701171875
+			],
+			"rated_torque_output": 95.2631607055664,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 128.605266952515
+		},
+		{
+			"brake_torque_cap": 19.5936811828613,
+			"position": [
+				495.995849609375,
+				-4751.95068359375
+			],
+			"rated_torque_output": 89.0621871948242,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 120.233952713013
+		},
+		{
+			"brake_torque_cap": 20.0067082214355,
+			"position": [
+				1751.07470703125,
+				-4601.18408203125
+			],
+			"rated_torque_output": 90.939582824707,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 122.768436813355
+		},
+		{
+			"brake_torque_cap": 23.1798463439941,
+			"position": [
+				-252.357116699219,
+				-4816.8564453125
+			],
+			"rated_torque_output": 105.362937927246,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 142.239966201782
+		},
+		{
+			"brake_torque_cap": 19.0225207519531,
+			"position": [
+				327.524261474609,
+				-4881.17578125
+			],
+			"rated_torque_output": 86.4660034179688,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 116.729104614258
+		},
+		{
+			"brake_torque_cap": 9.37623359680176,
+			"position": [
+				154.738616943359,
+				-4881.728515625
+			],
+			"rated_torque_output": 42.6192436218262,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 57.5359788894653
+		},
+		{
+			"brake_torque_cap": 14.8695742797852,
+			"position": [
+				659.712890625,
+				-4877.267578125
+			],
+			"rated_torque_output": 67.5889739990234,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 91.2451148986816
+		},
+		{
+			"brake_torque_cap": 13.7595454406738,
+			"position": [
+				860.911865234375,
+				-4873.4619140625
+			],
+			"rated_torque_output": 62.5433883666992,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 84.433574295044
+		},
+		{
+			"brake_torque_cap": 15.7036061096191,
+			"position": [
+				1335.09716796875,
+				-4850.06298828125
+			],
+			"rated_torque_output": 71.3800277709961,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 96.3630374908447
+		},
+		{
+			"brake_torque_cap": 18.4668139648438,
+			"position": [
+				1621.95324707031,
+				-4788.275390625
+			],
+			"rated_torque_output": 83.9400634765625,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 113.319085693359
+		},
+		{
+			"brake_torque_cap": 23.8734693908691,
+			"position": [
+				1874.0302734375,
+				-4724.31494140625
+			],
+			"rated_torque_output": 108.515769958496,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 146.49628944397
+		},
+		{
+			"brake_torque_cap": 11.867345199585,
+			"position": [
+				-759.186889648438,
+				-4862.9853515625
+			],
+			"rated_torque_output": 53.9424781799316,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 72.8223455429077
+		},
+		{
+			"brake_torque_cap": 10.6792449951172,
+			"position": [
+				-582.486694335938,
+				-4928.8857421875
+			],
+			"rated_torque_output": 48.5420227050781,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 65.5317306518555
+		},
+		{
+			"brake_torque_cap": 7.37552719116211,
+			"position": [
+				-41.9096069335938,
+				-5013.734375
+			],
+			"rated_torque_output": 33.5251235961914,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 45.2589168548584
+		},
+		{
+			"brake_torque_cap": 23.5619778442383,
+			"position": [
+				567.758666992188,
+				-5065.541015625
+			],
+			"rated_torque_output": 107.099899291992,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 144.584864044189
+		},
+		{
+			"brake_torque_cap": 15.9218856811523,
+			"position": [
+				1162.48291015625,
+				-5005.1533203125
+			],
+			"rated_torque_output": 72.3722076416016,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 97.7024803161621
+		},
+		{
+			"brake_torque_cap": 6.25030864715576,
+			"position": [
+				809.544250488281,
+				-5043.15625
+			],
+			"rated_torque_output": 28.410493850708,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 38.3541666984558
+		},
+		{
+			"brake_torque_cap": 18.1761622619629,
+			"position": [
+				1466.673828125,
+				-4980.4013671875
+			],
+			"rated_torque_output": 82.6189193725586,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 111.535541152954
+		},
+		{
+			"brake_torque_cap": 21.971012878418,
+			"position": [
+				-771.203369140625,
+				-5049.619140625
+			],
+			"rated_torque_output": 99.8682403564453,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 134.822124481201
+		},
+		{
+			"brake_torque_cap": 21.4383883666992,
+			"position": [
+				-482.397705078125,
+				-5082.80029296875
+			],
+			"rated_torque_output": 97.4472198486328,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 131.553746795654
+		},
+		{
+			"brake_torque_cap": 9.5327783203125,
+			"position": [
+				51.5519409179688,
+				-5173.52490234375
+			],
+			"rated_torque_output": 43.330810546875,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 58.4965942382813
+		},
+		{
+			"brake_torque_cap": 14.412057800293,
+			"position": [
+				659.647094726563,
+				-5219.642578125
+			],
+			"rated_torque_output": 65.5093536376953,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 88.4376274108887
+		},
+		{
+			"brake_torque_cap": 17.8607867431641,
+			"position": [
+				1139.99340820313,
+				-5183.111328125
+			],
+			"rated_torque_output": 81.1853942871094,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 109.600282287598
+		},
+		{
+			"brake_torque_cap": 19.5162635803223,
+			"position": [
+				1735.61877441406,
+				-5060.7685546875
+			],
+			"rated_torque_output": 88.7102890014648,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 119.758890151978
+		},
+		{
+			"brake_torque_cap": 21.9002000427246,
+			"position": [
+				1909.35607910156,
+				-5060.24658203125
+			],
+			"rated_torque_output": 99.5463638305664,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 134.387591171265
+		},
+		{
+			"brake_torque_cap": 14.996630859375,
+			"position": [
+				-658.665893554688,
+				-5225.4853515625
+			],
+			"rated_torque_output": 68.16650390625,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 92.0247802734375
+		},
+		{
+			"brake_torque_cap": 19.0431423950195,
+			"position": [
+				-241.236511230469,
+				-5281.82373046875
+			],
+			"rated_torque_output": 86.5597381591797,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 116.855646514893
+		},
+		{
+			"brake_torque_cap": 13.837466583252,
+			"position": [
+				210.545440673828,
+				-5367.7529296875
+			],
+			"rated_torque_output": 62.897575378418,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 84.9117267608643
+		},
+		{
+			"brake_torque_cap": 23.8829040527344,
+			"position": [
+				34.165771484375,
+				-5349.66650390625
+			],
+			"rated_torque_output": 108.558654785156,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 146.554183959961
+		},
+		{
+			"brake_torque_cap": 15.4830404663086,
+			"position": [
+				527.58349609375,
+				-5349.771484375
+			],
+			"rated_torque_output": 70.3774566650391,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 95.0095664978027
+		},
+		{
+			"brake_torque_cap": 13.9436598205566,
+			"position": [
+				1426.7138671875,
+				-5315.80859375
+			],
+			"rated_torque_output": 63.3802719116211,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 85.5633670806885
+		},
+		{
+			"brake_torque_cap": 24.3400965881348,
+			"position": [
+				1715.95153808594,
+				-5239.28662109375
+			],
+			"rated_torque_output": 110.63680267334,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 149.359683609009
+		},
+		{
+			"brake_torque_cap": 15.924566192627,
+			"position": [
+				1041.21826171875,
+				-5351.05419921875
+			],
+			"rated_torque_output": 72.384391784668,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 97.7189289093018
+		},
+		{
+			"brake_torque_cap": 20.1593496704102,
+			"position": [
+				1219.9833984375,
+				-5340.296875
+			],
+			"rated_torque_output": 91.6334075927734,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 123.705100250244
+		},
+		{
+			"brake_torque_cap": 15.7699105834961,
+			"position": [
+				-821.982788085938,
+				-5366.51953125
+			],
+			"rated_torque_output": 71.6814117431641,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 96.7699058532715
+		},
+		{
+			"brake_torque_cap": 11.6257131195068,
+			"position": [
+				-581.492797851563,
+				-5394.845703125
+			],
+			"rated_torque_output": 52.8441505432129,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 71.3396032333374
+		},
+		{
+			"brake_torque_cap": 16.8860758972168,
+			"position": [
+				790.146667480469,
+				-5512.14697265625
+			],
+			"rated_torque_output": 76.7548904418945,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 103.619102096558
+		},
+		{
+			"brake_torque_cap": 8.97467636108398,
+			"position": [
+				546.424865722656,
+				-5540.07861328125
+			],
+			"rated_torque_output": 40.7939834594727,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 55.0718776702881
+		},
+		{
+			"brake_torque_cap": 14.6232189941406,
+			"position": [
+				1747.74279785156,
+				-5416.537109375
+			],
+			"rated_torque_output": 66.4691772460938,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 89.7333892822266
+		},
+		{
+			"brake_torque_cap": 6.91255611419678,
+			"position": [
+				2031.07543945313,
+				-5310.41552734375
+			],
+			"rated_torque_output": 31.4207096099854,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 42.4179579734802
+		},
+		{
+			"brake_torque_cap": 13.9554367828369,
+			"position": [
+				-670.357543945313,
+				-5545.69287109375
+			],
+			"rated_torque_output": 63.4338035583496,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 85.635634803772
+		},
+		{
+			"brake_torque_cap": 14.8245880126953,
+			"position": [
+				-118.807922363281,
+				-5640.90771484375
+			],
+			"rated_torque_output": 67.3844909667969,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 90.9690628051758
+		},
+		{
+			"brake_torque_cap": 6.06373657226562,
+			"position": [
+				355.807922363281,
+				-5658.85595703125
+			],
+			"rated_torque_output": 27.5624389648438,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 37.2092926025391
+		},
+		{
+			"brake_torque_cap": 9.97303009033203,
+			"position": [
+				687.970703125,
+				-5687.2314453125
+			],
+			"rated_torque_output": 45.3319549560547,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 61.1981391906738
+		},
+		{
+			"brake_torque_cap": 10.9806657409668,
+			"position": [
+				170.7890625,
+				-5664.52294921875
+			],
+			"rated_torque_output": 49.9121170043945,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 67.3813579559326
+		},
+		{
+			"brake_torque_cap": 10.213465423584,
+			"position": [
+				1155.82299804688,
+				-5661.7470703125
+			],
+			"rated_torque_output": 46.4248428344727,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 62.6735378265381
+		},
+		{
+			"brake_torque_cap": 16.2876068115234,
+			"position": [
+				1551.69458007813,
+				-5592.8125
+			],
+			"rated_torque_output": 74.0345764160156,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 99.9466781616211
+		},
+		{
+			"brake_torque_cap": 19.9857676696777,
+			"position": [
+				-525.305541992188,
+				-5721.443359375
+			],
+			"rated_torque_output": 90.8443984985352,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 122.639937973022
+		},
+		{
+			"brake_torque_cap": 22.2680679321289,
+			"position": [
+				-832.238159179688,
+				-5641.49072265625
+			],
+			"rated_torque_output": 101.218490600586,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 136.644962310791
+		},
+		{
+			"brake_torque_cap": 16.8742041015625,
+			"position": [
+				-285.727905273438,
+				-5774.16845703125
+			],
+			"rated_torque_output": 76.700927734375,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 103.546252441406
+		},
+		{
+			"brake_torque_cap": 15.766201171875,
+			"position": [
+				385.171081542969,
+				-5835.13134765625
+			],
+			"rated_torque_output": 71.66455078125,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 96.7471435546875
+		},
+		{
+			"brake_torque_cap": 13.4128346252441,
+			"position": [
+				78.37060546875,
+				-5811.6396484375
+			],
+			"rated_torque_output": 60.9674301147461,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 82.3060306549072
+		},
+		{
+			"brake_torque_cap": 18.915166015625,
+			"position": [
+				1044.13977050781,
+				-5827.34375
+			],
+			"rated_torque_output": 85.97802734375,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 116.070336914063
+		},
+		{
+			"brake_torque_cap": 8.12224349975586,
+			"position": [
+				1684.19384765625,
+				-5708.68408203125
+			],
+			"rated_torque_output": 36.9192886352539,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 49.8410396575928
+		},
+		{
+			"brake_torque_cap": 14.675026550293,
+			"position": [
+				2014.39953613281,
+				-5644.12451171875
+			],
+			"rated_torque_output": 66.7046661376953,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 90.0512992858887
+		},
+		{
+			"brake_torque_cap": 16.0470506286621,
+			"position": [
+				-1004.64489746094,
+				-5779.04736328125
+			],
+			"rated_torque_output": 72.9411392211914,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 98.4705379486084
+		},
+		{
+			"brake_torque_cap": 24.6009638977051,
+			"position": [
+				-209.393249511719,
+				-5945.65380859375
+			],
+			"rated_torque_output": 111.822563171387,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 150.960460281372
+		},
+		{
+			"brake_torque_cap": 11.2866972351074,
+			"position": [
+				71.6050415039063,
+				-5986.99169921875
+			],
+			"rated_torque_output": 51.3031692504883,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 69.2592784881592
+		},
+		{
+			"brake_torque_cap": 15.7913110351563,
+			"position": [
+				260.951812744141,
+				-5997.5986328125
+			],
+			"rated_torque_output": 71.7786865234375,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 96.9012268066406
+		},
+		{
+			"brake_torque_cap": 7.83235298156738,
+			"position": [
+				775.075073242188,
+				-5966.59375
+			],
+			"rated_torque_output": 35.6016044616699,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 48.0621660232544
+		},
+		{
+			"brake_torque_cap": 11.6175532531738,
+			"position": [
+				494.745056152344,
+				-5969.1162109375
+			],
+			"rated_torque_output": 52.8070602416992,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 71.289531326294
+		},
+		{
+			"brake_torque_cap": 13.48496925354,
+			"position": [
+				1424.29052734375,
+				-5926.8466796875
+			],
+			"rated_torque_output": 61.2953147888184,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 82.7486749649048
+		},
+		{
+			"brake_torque_cap": 5.81741149902344,
+			"position": [
+				1194.37890625,
+				-5956.1513671875
+			],
+			"rated_torque_output": 26.4427795410156,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 35.6977523803711
+		},
+		{
+			"brake_torque_cap": 16.7587020874023,
+			"position": [
+				1825.65026855469,
+				-5860.5673828125
+			],
+			"rated_torque_output": 76.1759185791016,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 102.837490081787
+		},
+		{
+			"brake_torque_cap": 11.4293132019043,
+			"position": [
+				1609.267578125,
+				-5897.59326171875
+			],
+			"rated_torque_output": 51.9514236450195,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 70.1344219207764
+		},
+		{
+			"brake_torque_cap": 25.2497735595703,
+			"position": [
+				-564.728393554688,
+				-6059.9228515625
+			],
+			"rated_torque_output": 114.771697998047,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 154.941792297363
+		},
+		{
+			"brake_torque_cap": 13.7008930969238,
+			"position": [
+				-753.507446289063,
+				-5996.7353515625
+			],
+			"rated_torque_output": 62.2767868041992,
+			"source_outer_radius": 22.0,
+			"stall_torque_output": 84.073662185669
+		},
+		{
+			"brake_torque_cap": 19.9833456420898,
+			"position": [
+				397.566253662109,
+				-6153.91796875
+			],
+			"rated_torque_output": 90.8333892822266,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 122.625075531006
+		},
+		{
+			"brake_torque_cap": 15.6620993041992,
+			"position": [
+				803.186157226563,
+				-6152.26416015625
+			],
+			"rated_torque_output": 71.1913604736328,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 96.1083366394043
+		},
+		{
+			"brake_torque_cap": 12.6140027618408,
+			"position": [
+				577.956298828125,
+				-6125.91015625
+			],
+			"rated_torque_output": 57.3363761901855,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 77.4041078567505
+		},
+		{
+			"brake_torque_cap": 11.551194229126,
+			"position": [
+				1562.10949707031,
+				-6076.4072265625
+			],
+			"rated_torque_output": 52.505428314209,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 70.8823282241821
+		},
+		{
+			"brake_torque_cap": 17.4683242797852,
+			"position": [
+				2200.01416015625,
+				-5940.9033203125
+			],
+			"rated_torque_output": 79.4014739990234,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 107.191989898682
+		},
+		{
+			"brake_torque_cap": 23.0755497741699,
+			"position": [
+				-988.1708984375,
+				-6111.28955078125
+			],
+			"rated_torque_output": 104.888862609863,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 141.599964523315
+		},
+		{
+			"brake_torque_cap": 13.7707861328125,
+			"position": [
+				-383.839904785156,
+				-6210.58251953125
+			],
+			"rated_torque_output": 62.594482421875,
+			"source_outer_radius": 11.5,
+			"stall_torque_output": 84.5025512695313
+		},
+		{
+			"brake_torque_cap": 10.4371891021729,
+			"position": [
+				-172.259338378906,
+				-6262.32666015625
+			],
+			"rated_torque_output": 47.4417686462402,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 64.0463876724243
+		},
+		{
+			"brake_torque_cap": 11.4629949951172,
+			"position": [
+				82.5518798828125,
+				-6297.93701171875
+			],
+			"rated_torque_output": 52.1045227050781,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 70.3411056518555
+		},
+		{
+			"brake_torque_cap": 11.5653797912598,
+			"position": [
+				653.139831542969,
+				-6303.279296875
+			],
+			"rated_torque_output": 52.5699081420898,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 70.9693759918213
+		},
+		{
+			"brake_torque_cap": 15.7505410766602,
+			"position": [
+				1134.59289550781,
+				-6276.80078125
+			],
+			"rated_torque_output": 71.5933685302734,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 96.6510475158692
+		},
+		{
+			"brake_torque_cap": 16.9393655395508,
+			"position": [
+				-576.756103515625,
+				-6344.83251953125
+			],
+			"rated_torque_output": 76.9971160888672,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 103.946106719971
+		},
+		{
+			"brake_torque_cap": 5.80501350402832,
+			"position": [
+				-342.257873535156,
+				-6377.51123046875
+			],
+			"rated_torque_output": 26.3864250183105,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 35.6216737747192
+		},
+		{
+			"brake_torque_cap": 15.6430319213867,
+			"position": [
+				196.209045410156,
+				-6461.974609375
+			],
+			"rated_torque_output": 71.1046905517578,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 95.9913322448731
+		},
+		{
+			"brake_torque_cap": 5.79640926361084,
+			"position": [
+				1080.09130859375,
+				-6451.6376953125
+			],
+			"rated_torque_output": 26.3473148345947,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 35.5688750267029
+		},
+		{
+			"brake_torque_cap": 7.19949714660645,
+			"position": [
+				568.895324707031,
+				-6469.8623046875
+			],
+			"rated_torque_output": 32.7249870300293,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 44.1787324905396
+		},
+		{
+			"brake_torque_cap": 22.7327380371094,
+			"position": [
+				1659.4580078125,
+				-6373.62646484375
+			],
+			"rated_torque_output": 103.330627441406,
+			"source_outer_radius": 22.0,
+			"stall_torque_output": 139.496347045898
+		},
+		{
+			"brake_torque_cap": 6.51193756103516,
+			"position": [
+				1935.95654296875,
+				-6328.6875
+			],
+			"rated_torque_output": 29.5997161865234,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 39.9596168518066
+		},
+		{
+			"brake_torque_cap": 23.396492767334,
+			"position": [
+				2188.896484375,
+				-6236.974609375
+			],
+			"rated_torque_output": 106.347694396973,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 143.569387435913
+		},
+		{
+			"brake_torque_cap": 19.2280741882324,
+			"position": [
+				-1063.75537109375,
+				-6388.6357421875
+			],
+			"rated_torque_output": 87.4003372192383,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 117.990455245972
+		},
+		{
+			"brake_torque_cap": 17.8120272827148,
+			"position": [
+				-120.556457519531,
+				-6582.30126953125
+			],
+			"rated_torque_output": 80.9637603759766,
+			"source_outer_radius": 18.0,
+			"stall_torque_output": 109.301076507568
+		},
+		{
+			"brake_torque_cap": 16.9010427856445,
+			"position": [
+				-392.930969238281,
+				-6548.126953125
+			],
+			"rated_torque_output": 76.8229217529297,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 103.710944366455
+		},
+		{
+			"brake_torque_cap": 15.024213104248,
+			"position": [
+				338.335754394531,
+				-6624.32861328125
+			],
+			"rated_torque_output": 68.291877746582,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 92.1940349578857
+		},
+		{
+			"brake_torque_cap": 22.6314324951172,
+			"position": [
+				877.533203125,
+				-6621.376953125
+			],
+			"rated_torque_output": 102.870147705078,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 138.874699401855
+		},
+		{
+			"brake_torque_cap": 21.5407144165039,
+			"position": [
+				1316.22741699219,
+				-6557.79443359375
+			],
+			"rated_torque_output": 97.9123382568359,
+			"source_outer_radius": 14.5,
+			"stall_torque_output": 132.181656646729
+		},
+		{
+			"brake_torque_cap": 9.99805938720703,
+			"position": [
+				2242.18212890625,
+				-6418.83203125
+			],
+			"rated_torque_output": 45.4457244873047,
+			"source_outer_radius": 9.0,
+			"stall_torque_output": 61.3517280578613
+		}
+	],
+	"dev_zones": [
+		{
+			"efficiency_multiplier": 0.96,
+			"friction_multiplier": 1.1,
+			"position": [
+				-1175.37158203125,
+				-7318.54150390625
+			],
+			"power_output_add": 0.0,
+			"power_output_multiplier": 0.98,
+			"radius": 180.0,
+			"torque_load_add": 0.15,
+			"zone_type": "heat"
+		},
+		{
+			"efficiency_multiplier": 0.97,
+			"friction_multiplier": 1.08,
+			"position": [
+				471.063079833984,
+				-424.00732421875
+			],
+			"power_output_add": -0.2,
+			"power_output_multiplier": 0.99,
+			"radius": 145.0,
+			"torque_load_add": 0.1,
+			"zone_type": "dust"
+		},
+		{
+			"efficiency_multiplier": 0.97,
+			"friction_multiplier": 1.08,
+			"position": [
+				851.694702148438,
+				-1070.4189453125
+			],
+			"power_output_add": -0.2,
+			"power_output_multiplier": 0.99,
+			"radius": 145.0,
+			"torque_load_add": 0.1,
+			"zone_type": "dust"
+		},
+		{
+			"efficiency_multiplier": 0.96,
+			"friction_multiplier": 1.1,
+			"position": [
+				-123.859497070313,
+				-5297.1484375
+			],
+			"power_output_add": 0.0,
+			"power_output_multiplier": 0.98,
+			"radius": 180.0,
+			"torque_load_add": 0.15,
+			"zone_type": "heat"
+		},
+		{
+			"efficiency_multiplier": 0.97,
+			"friction_multiplier": 1.08,
+			"position": [
+				-427.856506347656,
+				-5606.7626953125
+			],
+			"power_output_add": -0.2,
+			"power_output_multiplier": 0.99,
+			"radius": 145.0,
+			"torque_load_add": 0.1,
+			"zone_type": "dust"
+		}
+	],
+	"version": 2
+}

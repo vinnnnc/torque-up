@@ -124,17 +124,18 @@ const ENGINE_WORLD_Y: float = ENGINE_VISUAL_OUTER_RADIUS + 500.0
 const BLOCKADE_HALF_HEIGHT: float = 323.0
 const CAMERA_MIN_Y: float = WORLD_HALF_WIDTH * (-1.0) + VIEWPORT_HEIGHT
 const CAMERA_MAX_Y: float = 400.0
-const WORLD_HALF_WIDTH: float = 8000.0
+const WORLD_HALF_WIDTH: float = 4000.0
 const WORLD_VERTICAL_EXTENT: float = WORLD_HALF_WIDTH
 const WORLD_BLOCKADE_Z_INDEX: int = -50
+const WORLD_FRONTIER_OVERLAY_Z_INDEX: int = 100
 const ENGINE_FOREGROUND_Z_INDEX: int = 350
 const PLACEMENT_OVERLAY_Z_INDEX: int = 360
 
 # Torque frontier (fog progression)
 const FRONTIER_BASE_RADIUS: float = FRONTIER_CONE_APEX_Y_OFFSET + ENGINE_WORLD_Y
 const FRONTIER_SMOOTHING_ALPHA: float = 0.85
-const FRONTIER_RADIUS_SCALE_K: float = 500.0
-const FRONTIER_MIN_EXPANSION_STEP: float = 128.0
+const FRONTIER_RADIUS_SCALE_K: float = 650.0
+const FRONTIER_MIN_EXPANSION_STEP: float = 196.0
 # Set <= 0.0 to disable frontier radius clamping (endless progression mode).
 const FRONTIER_MAX_RADIUS_CLAMP: float = WORLD_HALF_WIDTH
 const FRONTIER_CONE_HALF_ANGLE_DEGREES: float = 15.0
@@ -143,10 +144,10 @@ const FRONTIER_VISUAL_RADIUS_SMOOTHING: float = 6.5
 const FRONTIER_FOG_FEATHER_WIDTH: float = 44.0
 const FRONTIER_FOG_FEATHER_STEPS: int = 4
 const FRONTIER_REQUIRE_RPM_RAMP: bool = true
-const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.5
+const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.2
 const FRONTIER_RPM_GATE_FULL: float = 15.0
 const FRONTIER_RPM_GATE_CURVE_EXPONENT: float = 0.55
-const FRONTIER_WIN_LEVER_TOP_MARGIN: float = 160.0
+const FRONTIER_WIN_LEVER_TOP_MARGIN: float = 100.0
 
 # Placement-time jam prevention: reject snap candidates with incompatible
 # meshing phase requirements from multiple neighbors.
@@ -211,11 +212,6 @@ const MIN_EFFICIENCY: float = 0.10
 const EFFICIENCY_GEAR_SMALL: float = 0.998
 const EFFICIENCY_GEAR_MEDIUM: float = 0.996
 const EFFICIENCY_GEAR_LARGE: float = 0.994
-const EFFICIENCY_SHAFT: float = 0.999
-const EFFICIENCY_CHAIN: float = 0.992
-const EFFICIENCY_FLYWHEEL: float = 0.995
-const EFFICIENCY_CLUTCH: float = 0.993
-const EFFICIENCY_DIFFERENTIAL: float = 0.993
 const EFFICIENCY_DEFAULT_COMPONENT: float = 0.995
 const EFFICIENCY_GEAR_VARIATION_BONUS_PER_TYPE: float = 0.006
 const EFFICIENCY_GEAR_VARIATION_MAX_TYPES: int = 3

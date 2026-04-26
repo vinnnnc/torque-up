@@ -4,7 +4,7 @@ class_name MinimapView
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_geometry.gd")
 
-@export var background_color: Color = Color(0.05, 0.07, 0.09, 0.9)
+@export var background_color: Color = Color(0.05, 0.07, 0.09, 0.0)
 @export var blocked_color: Color = Color(0.02, 0.03, 0.04, 0.92)
 @export var unlocked_fill_color: Color = Color(0.17, 0.25, 0.31, 0.72)
 @export var frontier_color: Color = Color(0.76, 0.9, 1.0, 0.95)

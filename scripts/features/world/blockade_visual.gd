@@ -5,7 +5,8 @@ extends Node2D
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_geometry.gd")
 
-@export var blockade_color: Color = Color(PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.r, PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.g, PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.b, 1.0)
+@export var blockade_color: Color = Color(PROJECT_PATHS_SCRIPT.PALETTE_VOID.r, PROJECT_PATHS_SCRIPT.PALETTE_VOID.g, PROJECT_PATHS_SCRIPT.PALETTE_VOID.b, 1.0)
+@export var outside_overlay_color: Color = Color(0.0, 0.0, 0.0, 0.5)
 @export var fog_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.28)
 @export var ring_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.72)
 @export var exploration_light_enabled: bool = true
@@ -39,6 +40,7 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var live_tuning_poll_interval: float = 0.25
 @export var live_tuning_cfg_path: String = "user://frontier_tuning.cfg"
 
+var _outside_overlay: Node2D = null
 var _center: Vector2 = Vector2(PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_X, PROJECT_PATHS_SCRIPT.ENGINE_WORLD_Y)
 var _cone_apex: Vector2 = Vector2(PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_X, PROJECT_PATHS_SCRIPT.ENGINE_WORLD_Y)
 var _smoothed_torque: float = 0.0
@@ -57,6 +59,13 @@ var _live_tuning_last_modified_time: int = -1
 func _ready() -> void:
 	z_as_relative = false
 	z_index = PROJECT_PATHS_SCRIPT.WORLD_BLOCKADE_Z_INDEX
+	_outside_overlay = Node2D.new()
+	_outside_overlay.z_as_relative = false
+	_outside_overlay.z_index = PROJECT_PATHS_SCRIPT.WORLD_FRONTIER_OVERLAY_Z_INDEX
+	var overlay_script := load("res://scripts/features/world/outside_overlay.gd") as GDScript
+	_outside_overlay.set_script(overlay_script)
+	add_child(_outside_overlay)
+	_outside_overlay.set("blockade", self)
 	if _engine != null:
 		_center = Vector2(_engine.global_position.x, PROJECT_PATHS_SCRIPT.ENGINE_WORLD_Y)
 	else:
@@ -75,7 +84,7 @@ func _ready() -> void:
 		_latest_available_torque = maxf(0.0, _game_state.available_torque)
 		_latest_rpm = maxf(0.0, _game_state.rpm)
 
-	queue_redraw()
+	_queue_redraw()
 
 
 func _process(delta: float) -> void:
@@ -85,7 +94,7 @@ func _process(delta: float) -> void:
 	var next_visual := lerpf(_visual_unlocked_radius, _unlocked_radius, min(delta * smoothing, 1.0))
 	if absf(next_visual - _visual_unlocked_radius) > 0.01:
 		_visual_unlocked_radius = next_visual
-		queue_redraw()
+		_queue_redraw()
 
 
 func _on_state_changed(horsepower: float, available_torque: float, _efficiency: float, _total_score: float, _lifetime_hp: float, _reliability_multiplier: float) -> void:
@@ -95,7 +104,7 @@ func _on_state_changed(horsepower: float, available_torque: float, _efficiency: 
 	else:
 		_latest_rpm = 0.0
 	if _advance_frontier_step():
-		queue_redraw()
+		_queue_redraw()
 
 
 func get_unlocked_radius() -> float:
@@ -111,7 +120,7 @@ func reset_frontier() -> void:
 	_unlocked_radius = _apply_frontier_cap(base_radius)
 	_visual_unlocked_radius = _unlocked_radius
 	_frontier_tick_accum = 0.0
-	queue_redraw()
+	_queue_redraw()
 
 
 func _advance_frontier_simulation(delta: float) -> void:
@@ -121,7 +130,7 @@ func _advance_frontier_simulation(delta: float) -> void:
 	while _frontier_tick_accum >= tick_interval:
 		_frontier_tick_accum -= tick_interval
 		if _advance_frontier_step():
-			queue_redraw()
+			_queue_redraw()
 
 
 func _advance_frontier_step() -> bool:
@@ -186,6 +195,12 @@ func get_smoothed_torque() -> float:
 
 func get_cone_half_angle_radians() -> float:
 	return deg_to_rad(clampf(cone_half_angle_degrees, 1.0, 89.0))
+
+
+func _queue_redraw() -> void:
+	queue_redraw()
+	if _outside_overlay != null:
+		_outside_overlay.queue_redraw()
 
 
 func get_cone_apex_world() -> Vector2:
@@ -280,7 +295,7 @@ func _load_live_tuning_config(log_reload: bool) -> void:
 	_refresh_cone_apex()
 	_unlocked_radius = _apply_frontier_cap(_unlocked_radius)
 	_visual_unlocked_radius = _apply_frontier_cap(_visual_unlocked_radius)
-	queue_redraw()
+	_queue_redraw()
 
 	if log_reload:
 		print("Blockade: reloaded live frontier tuning from %s" % [live_tuning_cfg_path])

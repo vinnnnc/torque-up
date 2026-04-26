@@ -79,7 +79,7 @@ script = ExtResource("11_71kjp")
 
 [node name="Blockade" type="Node2D" parent="." unique_id=1234567890]
 script = ExtResource("12_blockade")
-blockade_color = Color(0.056291588, 0.056291603, 0.056291595, 1)
+blockade_color = Color(0.173, 0.106, 0.18, 1)
 
 [node name="UI" parent="." unique_id=1047276783 instance=ExtResource("5_a8t5x")]
 visible = false
