@@ -2,6 +2,7 @@ extends Node2D
 class_name WinController
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
 
 @export var blockade_path: NodePath = NodePath("../Blockade")
 @export var dev_level_editor_path: NodePath = NodePath("../DevLevelEditor")
@@ -79,6 +80,7 @@ func _build_score_screen() -> void:
 	_score_panel.offset_top = -125.0
 	_score_panel.offset_right = 210.0
 	_score_panel.offset_bottom = 125.0
+	_score_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_score_layer.add_child(_score_panel)
 
 	var margin := MarginContainer.new()
@@ -92,19 +94,19 @@ func _build_score_screen() -> void:
 	vbox.add_theme_constant_override("separation", 10)
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Run Complete"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
 	_score_label = Label.new()
 	_score_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_score_label.add_theme_font_override("font", HUD_FONT)
+	_score_label.add_theme_font_size_override("font_size", 20)
 	_score_label.text = ""
 	vbox.add_child(_score_label)
 
 	_play_again_button = Button.new()
 	_play_again_button.text = "Play Again"
 	_play_again_button.custom_minimum_size = Vector2(0.0, 34.0)
+	_play_again_button.add_theme_font_override("font", HUD_FONT)
+	_play_again_button.add_theme_font_size_override("font_size", 18)
 	_play_again_button.pressed.connect(_on_play_again_pressed)
 	vbox.add_child(_play_again_button)
 
@@ -146,6 +148,12 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _trigger_win() -> void:
 	_won = true
+	var signal_bus := get_node_or_null("/root/SignalBus")
+	if signal_bus != null:
+		signal_bus.component_selected.emit("")
+	var audio_manager := get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("play_win"):
+		audio_manager.call("play_win")
 	_set_gameplay_input_enabled(false)
 	_update_score_text()
 	if _score_panel != null:
@@ -155,27 +163,22 @@ func _trigger_win() -> void:
 func _update_score_text() -> void:
 	if _score_label == null:
 		return
-	var total_score := 0.0
-	var lifetime_hp := 0.0
-	var horsepower := 0.0
-	var kilowatts := 0.0
+	var run_time := 0.0
+	var torque := 0.0
 	if _game_state != null:
-		total_score = float(_game_state.get("total_score"))
-		lifetime_hp = float(_game_state.get("lifetime_hp"))
-		horsepower = float(_game_state.get("horsepower"))
-	if _game_manager != null and _game_manager.has_method("get_ui_overlay_snapshot"):
-		var snap := _game_manager.call("get_ui_overlay_snapshot") as Dictionary
-		if snap != null:
-			kilowatts = float(snap.get("kilowatts", 0.0))
-	_score_label.text = "Energy (kJ): %.1f\nLifetime HP: %.1f\nCurrent HP: %.1f\nGenerator kW: %.1f" % [
-		total_score,
-		lifetime_hp,
-		horsepower,
-		kilowatts
-	]
+		run_time = float(_game_state.get("run_time"))
+		torque = float(_game_state.get("available_torque"))
+
+	var total_seconds := maxi(int(run_time), 0)
+	var minutes := int(total_seconds / 60)
+	var seconds := total_seconds % 60
+	_score_label.text = "Time: %d:%02d\nTorque: %.1f" % [minutes, seconds, torque]
 
 
 func _on_play_again_pressed() -> void:
+	var audio_manager := get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("play_menu_click"):
+		audio_manager.call("play_menu_click")
 	await _restart_run()
 
 

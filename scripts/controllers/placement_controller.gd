@@ -404,6 +404,9 @@ func delete_component_at(world_pos: Vector2) -> void:
 	var nearest_component := find_component_at(world_pos, placement_clearance * 0.7)
 	if nearest_component == null:
 		return
+	var audio_manager := get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("play_gear_delete"):
+		audio_manager.call("play_gear_delete")
 
 	var attached_connectors := _collect_attached_connectors(nearest_component)
 	for connector_node in attached_connectors:

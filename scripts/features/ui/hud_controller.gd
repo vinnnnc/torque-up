@@ -103,7 +103,7 @@ func _ready() -> void:
 	if signal_bus and signal_bus.has_signal("placement_feedback") and not signal_bus.placement_feedback.is_connected(_on_placement_feedback):
 		signal_bus.placement_feedback.connect(_on_placement_feedback)
 
-	_select_component(COMPONENT_NONE)
+	_select_component(COMPONENT_NONE, false)
 	_update_network_overlay()
 
 
@@ -172,8 +172,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, total_score: float, lifetime_hp: float, reliability_multiplier: float) -> void:
-	_energy_value.text = "%.0f" % (total_score * 1000.0)
-	_horsepower_value.text = "%.1f" % available_torque
+	var torque_value := available_torque
+	if _game_manager != null and _game_manager.has_method("get_ui_overlay_snapshot"):
+		var snapshot := _game_manager.call("get_ui_overlay_snapshot") as Dictionary
+		if snapshot != null:
+			torque_value = float(snapshot.get("generator_load_torque", available_torque))
+	_energy_value.text = "%.1f" % torque_value
+	_horsepower_value.text = ""
 	
 	# Format run_time as MM:SS
 	var game_state := get_node_or_null("/root/GameState")
@@ -237,97 +242,25 @@ func _on_differential_button_pressed() -> void:
 
 
 func _configure_hotbar_tooltips() -> void:
-	_set_button_tooltip(
-		_none_button,
-		"Select / Inspect",
-		[
-			"Mode: No placement",
-			"Use: Hover parts to inspect live torque, RPM, friction, and state",
-			"Efficiency: Aggregate drivetrain quality (component + zone weighted)"
-		]
-	)
-	_set_button_tooltip(
-		_small_gear_button,
-		"Small Gear",
-		[
-			"Role: Ratio stage (compact)",
-			"Torque / RPM: Increases RPM when driving larger gears; trades torque",
-			"Efficiency: High component efficiency; boosts mixed-gear bonus when diversified",
-			"Best for: Speed-focused branches and fine ratio tuning"
-		]
-	)
-	_set_button_tooltip(
-		_medium_gear_button,
-		"Medium Gear",
-		[
-			"Role: Ratio stage (balanced)",
-			"Torque / RPM: Moderate conversion between torque and speed",
-			"Efficiency: Balanced component efficiency; stable core drivetrain element",
-			"Best for: General routing and stable mixed trains"
-		]
-	)
-	_set_button_tooltip(
-		_large_gear_button,
-		"Large Gear",
-		[
-			"Role: Ratio stage (high leverage)",
-			"Torque / RPM: Increases torque when driven by smaller gears; lowers RPM",
-			"Efficiency: Slightly lower component efficiency; optimized for torque-heavy paths",
-			"Best for: Heavy-load segments and low-speed torque delivery"
-		]
-	)
+	_set_button_tooltip(_none_button, "Inspect", ["Hover any part to see its live torque, RPM, and state"])
+	_set_button_tooltip(_small_gear_button, "Small Gear", ["Compact ratio stage — low torque cost"])
+	_set_button_tooltip(_medium_gear_button, "Medium Gear", ["Balanced ratio stage — moderate torque cost"])
+	_set_button_tooltip(_large_gear_button, "Large Gear", ["High-leverage stage — higher torque cost but can reach distant nodes"])
 	if _shaft_button:
 		_shaft_button.tooltip_text = ""
 	if _chain_button:
-		_set_button_tooltip(
-			_chain_button,
-			"Chain",
-			[
-				"Role: Flexible bridge between endpoints",
-				"Torque / RPM: Ratio follows connected sprocket/gear sizes",
-				"Efficiency: Higher loss and jam pressure under load/zones",
-				"Best for: Crossing gaps and obstacle routing"
-			]
-		)
-	_set_button_tooltip(
-		_flywheel_button,
-		"Flywheel",
-		[
-			"Role: Inertia buffer",
-			"Torque / RPM: Stores rotational energy to smooth short torque drops",
-			"Efficiency: Indirectly improves sustained output by reducing jam cascades",
-			"Best for: Unstable branches and zone-driven interruption recovery"
-		]
-	)
-	_set_button_tooltip(
-		_clutch_button,
-		"Clutch",
-		[
-			"Role: On/off drivetrain gate",
-			"Torque / RPM: Engaged passes flow; disengaged isolates branch",
-			"Efficiency: Avoids bad-path losses when branch is intentionally cut",
-			"Best for: Bypass control and selective source contribution"
-		]
-	)
-	_set_button_tooltip(
-		_differential_button,
-		"Differential",
-		[
-			"Role: Merge/split drivetrain branches",
-			"Torque / RPM: Combines multiple inputs into shared output path",
-			"Efficiency: Applies merge efficiency before downstream losses",
-			"Best for: Multi-source routing near engine trunk"
-		]
-	)
-	_set_button_tooltip(
-		_delete_button,
-		"Delete",
-		[
-			"Mode: Remove nearest component",
-			"Use: Trim friction-heavy or jam-prone segments quickly",
-			"Efficiency: Can improve total output by shortening bad paths"
-		]
-	)
+		_set_button_tooltip(_chain_button, "Chain", ["Bridges two gears across a gap"])
+	_set_button_tooltip(_flywheel_button, "Flywheel", ["Buffers torque dips and smooths jam cascades"])
+	_set_button_tooltip(_clutch_button, "Clutch", ["Engage or cut a branch from the drivetrain"])
+	_set_button_tooltip(_differential_button, "Differential", ["Merges multiple input branches into one path"])
+	_set_button_tooltip(_delete_button, "Delete", ["Remove a component"])
+	# Disable native tooltip popup on all hotbar buttons so our custom tooltip renders instead
+	var hotbar := get_node_or_null("HotbarPanel/MarginContainer/Hotbar")
+	if hotbar != null:
+		for btn_raw in hotbar.get_children():
+			var btn := btn_raw as Button
+			if btn != null:
+				btn.mouse_default_cursor_shape = Control.CURSOR_ARROW
 
 
 func _set_button_tooltip(button: Button, title: String, lines: Array) -> void:
@@ -335,12 +268,17 @@ func _set_button_tooltip(button: Button, title: String, lines: Array) -> void:
 		return
 	var text_lines: Array = [title]
 	text_lines.append_array(lines)
-	button.tooltip_text = _join_parts(text_lines, "\n")
+	button.set_meta("hud_tooltip", _join_parts(text_lines, "\n"))
+	button.tooltip_text = ""  # keep empty so Godot's native popup never fires
 
 
 func _toggle_component_selection(component_id: String) -> void:
 	if component_id == COMPONENT_NONE:
 		_select_component(COMPONENT_NONE)
+		return
+
+	if component_id == COMPONENT_DELETE:
+		_select_component(COMPONENT_DELETE)
 		return
 
 	if _selected_component == component_id:
@@ -389,7 +327,8 @@ func _is_text_input_focused() -> bool:
 	return focus_owner is LineEdit or focus_owner is TextEdit
 
 
-func _select_component(component_id: String) -> void:
+func _select_component(component_id: String, play_click_sound: bool = true) -> void:
+	var changed := _selected_component != component_id
 	_selected_component = component_id
 	_none_button.button_pressed = component_id == COMPONENT_NONE
 	_small_gear_button.button_pressed = component_id == COMPONENT_GEAR_SMALL
@@ -410,12 +349,17 @@ func _select_component(component_id: String) -> void:
 	if signal_bus:
 		signal_bus.component_selected.emit(component_id)
 
+	if play_click_sound and changed:
+		var audio_manager := get_node_or_null("/root/AudioManager")
+		if audio_manager != null and audio_manager.has_method("play_menu_click"):
+			audio_manager.call("play_menu_click")
+
 
 func _build_hover_tooltip() -> void:
 	_tooltip_panel = PanelContainer.new()
 	_tooltip_panel.visible = false
 	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tooltip_panel.custom_minimum_size = Vector2(230.0, 0.0)
+	_tooltip_panel.custom_minimum_size = Vector2(160.0, 0.0)
 	add_child(_tooltip_panel)
 
 	var margin := MarginContainer.new()
@@ -434,13 +378,17 @@ func _build_hover_tooltip() -> void:
 	_tooltip_title = Label.new()
 	_tooltip_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tooltip_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_tooltip_title.add_theme_font_override("font", HUD_FONT)
+	_tooltip_title.add_theme_font_size_override("font_size", 15)
 	stack.add_child(_tooltip_title)
 
 	_tooltip_body = Label.new()
 	_tooltip_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_tooltip_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_tooltip_body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_tooltip_body.add_theme_font_override("font", HUD_FONT)
+	_tooltip_body.add_theme_font_size_override("font_size", 13)
 	stack.add_child(_tooltip_body)
 
 
@@ -454,7 +402,7 @@ func _build_network_overlay() -> void:
 	_overlay_panel.anchor_bottom = 0.0
 	_overlay_panel.offset_left = 16.0
 	_overlay_panel.offset_top = 16.0
-	_overlay_panel.custom_minimum_size = Vector2(280.0, 0.0)
+	_overlay_panel.custom_minimum_size = Vector2(0.0, 0.0)
 	add_child(_overlay_panel)
 
 	var margin := MarginContainer.new()
@@ -467,9 +415,11 @@ func _build_network_overlay() -> void:
 
 	_overlay_label = Label.new()
 	_overlay_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_overlay_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_overlay_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_overlay_label.add_theme_font_override("font", HUD_FONT)
+	_overlay_label.add_theme_font_size_override("font_size", 13)
 	margin.add_child(_overlay_label)
 
 
@@ -567,7 +517,25 @@ func _update_hover_tooltip() -> void:
 		return
 
 	var hovered_control := get_viewport().gui_get_hovered_control()
-	if hovered_control != null:
+	if hovered_control != null and hovered_control is Button:
+		var btn := hovered_control as Button
+		var tip := (btn.get_meta("hud_tooltip", "") as String).strip_edges()
+		if not tip.is_empty():
+			var parts := tip.split("\n", false, 2)
+			_tooltip_title.text = parts[0] if parts.size() > 0 else ""
+			_tooltip_body.text = parts[1] if parts.size() > 1 else ""
+			var panel_size := _tooltip_panel.get_combined_minimum_size()
+			var mouse_pos := get_viewport().get_mouse_position()
+			var visible_rect := get_viewport().get_visible_rect()
+			var pos := mouse_pos + TOOLTIP_OFFSET
+			pos.x = minf(pos.x, visible_rect.size.x - panel_size.x - 12.0)
+			pos.y = minf(pos.y, visible_rect.size.y - panel_size.y - 12.0)
+			_tooltip_panel.position = pos
+			_set_tooltip_visible(true)
+			return
+		_set_tooltip_visible(false)
+		return
+	elif hovered_control != null:
 		_set_tooltip_visible(false)
 		return
 
@@ -701,33 +669,19 @@ func _build_tooltip_text(component: Node2D, snapshot: Dictionary) -> String:
 	var lines: Array = []
 	var badges := _get_component_badges(component, snapshot)
 	if not badges.is_empty():
-		lines.append("State: %s" % _join_parts(badges, " | "))
+		lines.append(_join_parts(badges, "  |  "))
 
 	var rpm := _get_component_rpm(component)
-	var is_node := component.name == "CentralEngine" or component.name.begins_with("Power")
-	if rpm > 0.01 or is_node:
+	if rpm > 0.01:
 		lines.append("RPM: %.0f" % rpm)
 
 	var torque := _get_component_torque(component, snapshot)
 	if torque >= 0.0:
 		lines.append("Torque: %.1f" % torque)
 
-	var friction := float(snapshot.get("friction", 0.0))
-	if friction > 0.0:
-		lines.append("Friction: %.1f" % friction)
-
-	var load_ratio := float(snapshot.get("load_ratio", 0.0))
-	if load_ratio > 0.0:
-		lines.append("Load: %.0f%%" % (load_ratio * 100.0))
-
-	_append_type_specific_lines(lines, component, snapshot)
-
 	var zone_type := str(snapshot.get("zone_type", ""))
 	if not zone_type.is_empty():
-		lines.append("Zone: %s (%.0f%%)" % [_format_zone_type(zone_type), float(snapshot.get("zone_intensity", 0.0)) * 100.0])
-
-	if Input.is_key_pressed(KEY_SHIFT):
-		_append_raw_detail_lines(lines, component, snapshot)
+		lines.append("Zone: %s" % _format_zone_type(zone_type))
 
 	return _join_parts(lines, "\n")
 
@@ -813,11 +767,11 @@ func _get_component_badges(component: Node2D, snapshot: Dictionary) -> Array:
 		badges.append("Engine Route")
 	if component.name.begins_with("Power"):
 		var source_status := str(snapshot.get("source_status", ""))
-		if not source_status.is_empty():
+		if not source_status.is_empty() and source_status != "in_band":
 			badges.append(_format_source_state_label(source_status))
 	if component.name == "CentralEngine":
 		var engine_state := str(snapshot.get("engine_operating_state", ""))
-		if not engine_state.is_empty():
+		if not engine_state.is_empty() and engine_state != "in_band":
 			badges.append(_format_source_state_label(engine_state))
 	if bool(snapshot.get("bottleneck", false)):
 		badges.append("Bottleneck")

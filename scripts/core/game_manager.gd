@@ -1025,7 +1025,7 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	}
 	hud_state.set_values(horsepower, free_torque, efficiency_for_engine, engine_rpm, friction_load, free_torque)
 
-	var score_delta := kilowatts * tick_delta
+	var score_delta := maxf(engine_torque, 0.0) * tick_delta
 	_last_tick_score_delta = score_delta
 	_cumulative_score += score_delta
 

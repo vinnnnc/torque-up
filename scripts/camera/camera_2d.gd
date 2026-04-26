@@ -26,6 +26,15 @@ func _process(delta: float) -> void:
 	input_dir.x = Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left")
 	input_dir.y = Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up")
 
+	if Input.is_key_pressed(KEY_D):
+		input_dir.x += 1.0
+	if Input.is_key_pressed(KEY_A):
+		input_dir.x -= 1.0
+	if Input.is_key_pressed(KEY_S):
+		input_dir.y += 1.0
+	if Input.is_key_pressed(KEY_W):
+		input_dir.y -= 1.0
+
 	if input_dir.length_squared() > 0.0:
 		position += input_dir.normalized() * pan_speed * delta * zoom.x
 

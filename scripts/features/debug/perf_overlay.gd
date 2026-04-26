@@ -19,6 +19,9 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+	if not PROJECT_PATHS_SCRIPT.DEV_MODE:
+		return
 	if not event is InputEventKey:
 		return
 	var key_event := event as InputEventKey

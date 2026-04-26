@@ -1,6 +1,9 @@
 extends RefCounted
 class_name ProjectPaths
 
+# Set to false before shipping a production build.
+const DEV_MODE: bool = false
+
 const COMPONENTS_CONTAINER_PATH := NodePath("../Network/Components")
 const POWER_SOURCE_PATH := NodePath("../Network/PowerSource")
 const CENTRAL_ENGINE_PATH := NodePath("../Network/CentralEngine")

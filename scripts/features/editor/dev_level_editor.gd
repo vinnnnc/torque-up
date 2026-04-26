@@ -61,6 +61,8 @@ func start_new_run(seed: int = -1) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not PROJECT_PATHS_SCRIPT.DEV_MODE:
+		return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event and mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
