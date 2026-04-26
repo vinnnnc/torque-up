@@ -31,3 +31,13 @@ https://pixabay.com/sound-effects/?utm_content=87782
 Sound Effect by u_y3wk5ympz8 (https://pixabay.com/users/u_y3wk5ympz8-47045027/)
 from Pixabay (https://pixabay.com/)
 https://pixabay.com/sound-effects/?utm_content=263638
+
+Font
+----
+
+Motion Control
+
+- Author: JapanYoshi
+- Source package in repository: font/MotionControl-Bold.otf
+- Included source readme: font/Read Me If You Feel Like It.txt
+- License note from source readme: Open Font License (OFL)

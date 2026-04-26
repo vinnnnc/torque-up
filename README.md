@@ -1,6 +1,6 @@
-# Ramp It Up
+# Torque Up!
 
-`Ramp It Up` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a central engine.
+`Torque Up!` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a central engine.
 
 The project currently focuses on readable top-down mechanical construction, engine-route optimization, and visible drivetrain feedback rather than full rigid-body simulation.
 
@@ -9,14 +9,10 @@ The project currently focuses on readable top-down mechanical construction, engi
 Implemented systems currently include:
 
 - standard gears in three sizes
-- chain connectors
-- flywheel
-- clutch
-- differential
-- multiple power node types
+- multiple power node sizes
 - sink-based engine scoring
 - local disconnected subnetwork simulation
-- condition, jam, underpowered, and direction-conflict feedback
+- jam, and direction-conflict feedback
 - dev editor tools for power nodes, zones, barriers, save, load, and clear
 
 ## Quick Start
@@ -31,33 +27,34 @@ Run:
 2. Load [project.godot](project.godot).
 3. Run the main scene configured at `res://scenes/main/Main.tscn`.
 
+## Web Export And Deploy
+
+The repository includes a Web export preset and deployment metadata for Wavedash.
+
+Files to know:
+
+- [export_presets.cfg](export_presets.cfg)
+- [wavedash.toml](wavedash.toml)
+
+Typical flow:
+
+1. Export the Web build from Godot into [export/](export/).
+2. Verify the build boots via [export/index.html](export/index.html).
+3. Upload using your Wavedash workflow/CLI from the repository root.
+
 ## Gameplay Snapshot
 
 The current game loop is:
 
 1. Place drivetrain parts.
 2. Connect power nodes into useful local and engine-valid routes.
-3. Manage friction, efficiency, torque limits, and conflicts.
-4. Deliver torque into the central engine to raise horsepower output.
+3. Manage efficiency, torque limits, and conflicts.
+4. Deliver torque into the generator to raise output.
 
 Important current rule:
 
-- only power sources connected to the central engine contribute to score/output totals
-- disconnected source islands still simulate locally so they can visibly spin, stall, jam, or conflict
-
-## Documentation
-
-Current implementation docs live in [docs/current-state/README.md](docs/current-state/README.md).
-
-Start with:
-
-- [docs/current-state/README.md](docs/current-state/README.md)
-- [docs/current-state/components.md](docs/current-state/components.md)
-- [docs/current-state/simulation.md](docs/current-state/simulation.md)
-- [docs/current-state/placement-and-editor.md](docs/current-state/placement-and-editor.md)
-- [docs/current-state/ui-and-world.md](docs/current-state/ui-and-world.md)
-
-These documents are the best reference for the repository as it exists now.
+- only power sources connected to the generator contribute to score/output totals
+- disconnected source islands still simulate locally so they can visibly spin jam, or conflict
 
 ## Session Management
 
@@ -74,21 +71,14 @@ See [docs/progression-and-balance.md](docs/progression-and-balance.md) for sessi
 
 The HUD currently exposes:
 
-- Horsepower
 - Torque
-- Efficiency
-- RPM
-- Personal best (top-right corner)
+- Time
 
 The build hotbar currently exposes:
 
 - Gear S (key 1)
 - Gear M (key 2)
 - Gear L (key 3)
-- Chain (key 4)
-- Flywheel (key 5)
-- Clutch (key 6)
-- Differential (key 7)
 - Delete mode (key X)
 
 ## Repository Structure
@@ -96,12 +86,23 @@ The build hotbar currently exposes:
 - [scripts/](scripts/): gameplay, simulation, UI, placement, and tooling logic
 - [scenes/](scenes/): Godot scenes
 - [assets/](assets/): art and icons
-- [docs/current-state/](docs/current-state/): repository-aligned design and implementation docs
-- [.github/copilot-instructions.md](.github/copilot-instructions.md): AI-facing repo guidance aligned to the current game state
+- [font/](font/): source font package and attribution notes used by UI/HUD font assets
 
-## Notes
+## Credits And Attribution
 
-- `chain` is the canonical term. `belt` remains only as a compatibility alias in some code paths and save handling.
-- shaft placement is deprecated for new builds; legacy shaft data is still supported for compatibility.
-- clutch and differential visuals now use static housings with visible internal motion.
-- flywheel, clutch, and differential use port-limited snapping rather than generic perimeter snapping.
+Third-party assets and acknowledgements are tracked in [CREDITS.txt](CREDITS.txt).
+
+This includes:
+
+- sound effects sources
+- Motion Control font attribution and license note
+
+## Contributing
+
+Contributions are welcome.
+
+Guidelines:
+
+- prefer small, readable systems over hidden special cases
+- avoid introducing full rigid-body gear physics
+- preserve save-data compatibility where practical
