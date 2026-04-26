@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Torque Up! banner" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Godot-4.6-blue?logo=godotengine&logoColor=white" alt="Godot 4.6" />
+  <img src="https://img.shields.io/badge/Language-GDScript-informational?logo=godotengine&logoColor=white" alt="GDScript" />
+  <img src="https://img.shields.io/badge/Renderer-GL%20Compatibility-lightgrey" alt="GL Compatibility" />
+  <img src="https://img.shields.io/badge/Platform-Web-orange?logo=html5&logoColor=white" alt="Web" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
+</p>
+
 # Torque Up!
 
 `Torque Up!` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a central engine.
@@ -96,13 +108,3 @@ This includes:
 
 - sound effects sources
 - Motion Control font attribution and license note
-
-## Contributing
-
-Contributions are welcome.
-
-Guidelines:
-
-- prefer small, readable systems over hidden special cases
-- avoid introducing full rigid-body gear physics
-- preserve save-data compatibility where practical
