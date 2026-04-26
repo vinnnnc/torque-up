@@ -24,6 +24,9 @@ var reliability_multiplier: float = 1.0
 var total_score: float = 0.0
 var last_score_delta: float = 0.0
 
+## Run timer in seconds.
+var run_time: float = 0.0
+
 ## Jam tracking for reliability calculation.
 var total_jams: int = 0
 ## Jams in a rolling 60-second window.
@@ -50,6 +53,7 @@ func set_state(
 
 	if tick_delta > 0.0:
 		_purge_old_jams()
+		run_time += tick_delta
 		lifetime_hp += horsepower * tick_delta * reliability_multiplier
 		total_score += last_score_delta
 		lifetime_hp_changed.emit(lifetime_hp, reliability_multiplier)
@@ -82,6 +86,7 @@ func reset_run_state() -> void:
 	total_jams = 0
 	_recent_jams.clear()
 	reliability_multiplier = 1.0
+	run_time = 0.0
 	state_changed.emit(horsepower, available_torque, efficiency, total_score, lifetime_hp, reliability_multiplier)
 
 

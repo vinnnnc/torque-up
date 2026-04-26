@@ -10,7 +10,7 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 15.0
-offset_top = -161.0
+offset_top = -110.0
 offset_right = 279.0
 offset_bottom = -15.0
 grow_vertical = 0
@@ -26,6 +26,19 @@ theme_override_constants/margin_bottom = 10
 layout_mode = 2
 theme_override_constants/separation = 6
 
+[node name="EnergyRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=315480504]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/EnergyRow" unique_id=434259801]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Energy (kJ)"
+
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/EnergyRow" unique_id=802495323]
+layout_mode = 2
+text = "0.0"
+horizontal_alignment = 2
+
 [node name="HorsepowerRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=967979965]
 layout_mode = 2
 
@@ -39,56 +52,17 @@ layout_mode = 2
 text = "0.0"
 horizontal_alignment = 2
 
-[node name="EfficiencyRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=1436002549]
+[node name="TimerRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=1436002550]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/EfficiencyRow" unique_id=933873028]
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/TimerRow" unique_id=933873029]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Efficiency"
+text = "Time"
 
-[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/EfficiencyRow" unique_id=973224651]
+[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/TimerRow" unique_id=973224652]
 layout_mode = 2
-text = "100.0%"
-horizontal_alignment = 2
-
-[node name="TorqueRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats" unique_id=315480503]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/TorqueRow" unique_id=434259800]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Torque"
-
-[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/TorqueRow" unique_id=802495322]
-layout_mode = 2
-text = "0.0"
-horizontal_alignment = 2
-
-[node name="ScoreRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/ScoreRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Energy (kJ)"
-
-[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/ScoreRow"]
-layout_mode = 2
-text = "0.0"
-horizontal_alignment = 2
-
-[node name="LifetimeHpRow" type="HBoxContainer" parent="PanelContainer/MarginContainer/Stats"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="PanelContainer/MarginContainer/Stats/LifetimeHpRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Generator (kW)"
-
-[node name="Value" type="Label" parent="PanelContainer/MarginContainer/Stats/LifetimeHpRow"]
-layout_mode = 2
-text = "0.0"
+text = "0:00"
 horizontal_alignment = 2
 
 [node name="HotbarPanel" type="PanelContainer" parent="." unique_id=2049472253]

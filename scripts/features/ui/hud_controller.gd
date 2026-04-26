@@ -7,11 +7,9 @@ const TOOLTIP_OFFSET := Vector2(18.0, 18.0)
 const OVERLAY_REFRESH_INTERVAL := 0.12
 const FEEDBACK_DURATION := 2.4
 
+@onready var _energy_value: Label = $PanelContainer/MarginContainer/Stats/EnergyRow/Value
 @onready var _horsepower_value: Label = $PanelContainer/MarginContainer/Stats/HorsepowerRow/Value
-@onready var _torque_value: Label = $PanelContainer/MarginContainer/Stats/TorqueRow/Value
-@onready var _efficiency_value: Label = $PanelContainer/MarginContainer/Stats/EfficiencyRow/Value
-@onready var _score_value: Label = $PanelContainer/MarginContainer/Stats/ScoreRow/Value
-@onready var _lifetime_hp_value: Label = $PanelContainer/MarginContainer/Stats/LifetimeHpRow/Value
+@onready var _timer_value: Label = $PanelContainer/MarginContainer/Stats/TimerRow/Value
 @onready var _none_button: Button = $HotbarPanel/MarginContainer/Hotbar/NoneButton
 @onready var _small_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/SmallGearButton
 @onready var _medium_gear_button: Button = $HotbarPanel/MarginContainer/Hotbar/MediumGearButton
@@ -144,17 +142,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_state_changed(horsepower: float, available_torque: float, efficiency: float, total_score: float, lifetime_hp: float, reliability_multiplier: float) -> void:
+	_energy_value.text = "%.1f" % total_score
 	_horsepower_value.text = "%.1f" % horsepower
-	_torque_value.text = "%.1f" % maxf(available_torque, 0.0)
-	_efficiency_value.text = "%.1f%%" % (efficiency * 100.0)
 	
-	# Score row now shows accumulated energy in kJ
-	_score_value.text = "%.1f" % total_score
-	
-	# Lifetime HP row now shows live generator power in kW
-	var snapshot := _get_overlay_snapshot()
-	var kilowatts := float(snapshot.get("kilowatts", 0.0))
-	_lifetime_hp_value.text = "%.1f" % kilowatts
+	# Format run_time as MM:SS
+	var game_state := get_node_or_null("/root/GameState")
+	if game_state:
+		var seconds := int(game_state.run_time)
+		var minutes := seconds / 60
+		var secs := seconds % 60
+		_timer_value.text = "%d:%02d" % [minutes, secs]
 	
 	if _overlay_visible:
 		_update_network_overlay()

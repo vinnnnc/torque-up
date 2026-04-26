@@ -5,12 +5,12 @@ extends Node2D
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_geometry.gd")
 
-@export var blockade_color: Color = Color(0.0, 0.0, 0.0, 0.85)
-@export var fog_color: Color = Color(0.0, 0.0, 0.0, 0.28)
-@export var ring_color: Color = Color(0.72, 0.84, 1.0, 0.72)
+@export var blockade_color: Color = Color(PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.r, PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.g, PROJECT_PATHS_SCRIPT.BLOCKADE_COLOR.b, 1.0)
+@export var fog_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.28)
+@export var ring_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.72)
 @export var exploration_light_enabled: bool = true
-@export var exploration_light_color: Color = Color(1.0, 0.94, 0.78, 0.18)
-@export var exploration_light_core_color: Color = Color(1.0, 0.98, 0.86, 0.24)
+@export var exploration_light_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.18)
+@export var exploration_light_core_color: Color = Color(PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.r, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.g, PROJECT_PATHS_SCRIPT.FRONTIER_AREA_COLOR.b, 0.24)
 @export var exploration_light_steps: int = 16
 @export var exploration_light_inner_ratio: float = 0.24
 @export var world_half_width: float = PROJECT_PATHS_SCRIPT.WORLD_HALF_WIDTH
@@ -340,30 +340,27 @@ func constrain_world_position(world_pos: Vector2, clearance_radius: float = 0.0,
 
 
 func _draw() -> void:
-	# Solid blockade covers the entire world outside the upward cone (all unplayable area).
 	var half_angle := get_cone_half_angle_radians()
-	var blockade_pts := FRONTIER_GEOMETRY_SCRIPT.build_full_outside_polygon(
-		_cone_apex, half_angle,
-		-world_half_width, world_half_width,
-		_center.y - world_height, _center.y + world_height
+
+	# Use a simple oversized rectangle for blockade fill to avoid concave triangulation gaps.
+	var blockade_half_width := maxf(world_half_width * 2.0, 1.0)
+	var blockade_half_height := maxf(world_height * 2.0, 1.0)
+	var blockade_rect := Rect2(
+		_center - Vector2(blockade_half_width, blockade_half_height),
+		Vector2(blockade_half_width * 2.0, blockade_half_height * 2.0)
 	)
-	draw_colored_polygon(blockade_pts, blockade_color)
+	draw_rect(blockade_rect, blockade_color, true)
+
 	_draw_exploration_light(half_angle)
 
-	# Fog outside the frontier cone-sector in upper world.
-	# Built as a single concave polygon: full upper-world rectangle with a
-	# cone-sector bite taken from the lower-center.
-	var fog_pts := FRONTIER_GEOMETRY_SCRIPT.build_upper_outside_polygon(
+	# Draw the unlocked frontier cone over the blockade background.
+	var unlocked_pts := FRONTIER_GEOMETRY_SCRIPT.build_upward_cone_sector(
 		_cone_apex,
 		_visual_unlocked_radius,
 		half_angle,
-		world_half_width,
-		_center.y - world_height,
-		_center.y,
 		72
 	)
-
-	draw_colored_polygon(fog_pts, fog_color)
+	draw_colored_polygon(unlocked_pts, fog_color)
 	_draw_fog_feather(half_angle)
 
 	# Frontier ring outline (cone sector arc + side rays).

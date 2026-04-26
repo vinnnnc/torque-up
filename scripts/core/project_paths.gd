@@ -126,7 +126,7 @@ const CAMERA_MIN_Y: float = WORLD_HALF_WIDTH * (-1.0) + VIEWPORT_HEIGHT
 const CAMERA_MAX_Y: float = 400.0
 const WORLD_HALF_WIDTH: float = 8000.0
 const WORLD_VERTICAL_EXTENT: float = WORLD_HALF_WIDTH
-const WORLD_BLOCKADE_Z_INDEX: int = 250
+const WORLD_BLOCKADE_Z_INDEX: int = -50
 const ENGINE_FOREGROUND_Z_INDEX: int = 350
 const PLACEMENT_OVERLAY_Z_INDEX: int = 360
 
@@ -152,6 +152,29 @@ const FRONTIER_WIN_LEVER_TOP_MARGIN: float = 160.0
 # meshing phase requirements from multiple neighbors.
 const PLACEMENT_MAX_ROTATION_MISMATCH_DEGREES: float = 20.0
 const PLACEMENT_NEAR_SNAP_ASSIST_DISTANCE: float = 5.0
+
+# Brand color palette (hex source: fff4e0 8fcccb 449489 285763 2f2b5c 4b3b9c 457cd6 f2b63d d46e33 e34262 94353d 57253b 9c656c d1b48c b4ba47 6d8c32 2c1b2e)
+const PALETTE_CREAM: Color   = Color(1.00, 0.957, 0.878, 1.0)       # fff4e0
+const PALETTE_TEAL: Color    = Color(0.561, 0.8, 0.796, 1.0)        # 8fcccb
+const PALETTE_SAGE: Color    = Color(0.267, 0.576, 0.537, 1.0)      # 449489
+const PALETTE_SLATE: Color   = Color(0.157, 0.341, 0.388, 1.0)      # 285763
+const PALETTE_PURPLE: Color  = Color(0.184, 0.169, 0.361, 1.0)      # 2f2b5c
+const PALETTE_INDIGO: Color  = Color(0.294, 0.231, 0.612, 1.0)      # 4b3b9c
+const PALETTE_BLUE: Color    = Color(0.271, 0.486, 0.839, 1.0)      # 457cd6
+const PALETTE_AMBER: Color   = Color(0.949, 0.714, 0.239, 1.0)      # f2b63d
+const PALETTE_ORANGE: Color  = Color(0.831, 0.431, 0.2, 1.0)        # d46e33
+const PALETTE_SALMON: Color  = Color(0.89, 0.259, 0.384, 1.0)       # e34262
+const PALETTE_CRIMSON: Color = Color(0.58, 0.208, 0.239, 1.0)       # 94353d
+const PALETTE_MAUVE: Color   = Color(0.341, 0.145, 0.231, 1.0)      # 57253b
+const PALETTE_ROSE: Color    = Color(0.612, 0.396, 0.424, 1.0)      # 9c656c
+const PALETTE_TAN: Color     = Color(0.82, 0.706, 0.549, 1.0)       # d1b48c
+const PALETTE_OLIVE: Color   = Color(0.706, 0.729, 0.278, 1.0)      # b4ba47
+const PALETTE_MOSS: Color    = Color(0.427, 0.549, 0.196, 1.0)      # 6d8c32
+const PALETTE_VOID: Color    = Color(0.173, 0.106, 0.18, 1.0)       # 2c1b2e
+
+# Frontier visuals
+const FRONTIER_AREA_COLOR: Color = PALETTE_ROSE                      # 9c656c
+const BLOCKADE_COLOR: Color      = PALETTE_VOID                      # 2c1b2e
 
 # Dev procedural map generation (frontier-start, spacing-first)
 const DEV_MAP_DEFAULT_NODE_COUNT: int = 300

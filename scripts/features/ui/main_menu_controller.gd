@@ -9,10 +9,10 @@ class_name MainMenuController
 @export var menu_camera_offset: Vector2 = Vector2(50.0, -70.0)
 @export var menu_camera_zoom: float = 3.0
 
-@onready var _panel: PanelContainer = $Root/Panel
-@onready var _tutorial_checkbox: CheckBox = $Root/Panel/Margin/VBox/TutorialCheckbox
-@onready var _start_button: Button = $Root/Panel/Margin/VBox/StartButton
-@onready var _panel_vbox: VBoxContainer = $Root/Panel/Margin/VBox
+@onready var _panel: Control = $Root/MenuCard
+@onready var _tutorial_checkbox: CheckBox = $Root/MenuCard/VBox/TutorialCheckbox
+@onready var _start_button: Button = $Root/MenuCard/VBox/StartButton
+@onready var _panel_vbox: VBoxContainer = $Root/MenuCard/VBox
 @onready var _camera: Camera2D = get_node_or_null(camera_path)
 @onready var _engine: Node2D = get_node_or_null(engine_path)
 @onready var _placement_controller: Node = get_node_or_null(placement_controller_path)
@@ -40,6 +40,11 @@ func _ready() -> void:
 	set_process_unhandled_input(true)
 	_ensure_restart_button()
 
+	const MOTION_CONTROL := preload("res://assets/icons/MotionControl-Bold.otf")
+	for node in [$Root/MenuCard/VBox/Subtitle, _start_button, _tutorial_checkbox]:
+		if node != null:
+			node.add_theme_font_override("font", MOTION_CONTROL)
+
 	if _start_button != null and not _start_button.pressed.is_connected(_on_start_pressed):
 		_start_button.pressed.connect(_on_start_pressed)
 
@@ -55,6 +60,7 @@ func _ensure_restart_button() -> void:
 	_restart_button.text = "Restart Run"
 	_restart_button.visible = false
 	_restart_button.pressed.connect(_on_restart_pressed)
+	_restart_button.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
 	_panel_vbox.add_child(_restart_button)
 
 
