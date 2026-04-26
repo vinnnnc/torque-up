@@ -5,10 +5,13 @@ extends GearVisual
 
 func _ready() -> void:
 	visual_mode = "gear"
+	use_module_profile = true
 	outer_radius = PROJECT_PATHS_SCRIPT.LARGE_GEAR_OUTER_RADIUS
-	# Calculate inner_radius based on module to match actual gear geometry
-	var tooth_depth: float = PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_ADDENDUM + PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_DEDENDUM
-	inner_radius = maxf(1.0, outer_radius - tooth_depth)
-	tooth_count = max(tooth_count, 20)
+	body_color = Color(0.26, 0.47, 0.33, 1.0)
+	tooth_color = Color(0.68, 0.9, 0.56, 1.0)
+	outline_color = Color(0.08, 0.18, 0.11, 1.0)
+	spoke_count = 7
+	spoke_width = 4.5
+	_sync_module_profile()
 	queue_redraw()
 

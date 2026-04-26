@@ -169,6 +169,9 @@ func clear_level() -> void:
 func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: int = -1) -> void:
 	# Clear existing dev-placed network nodes and world objects.
 	_clear_dev_world_nodes()
+	if _components_container != null:
+		for child in _components_container.get_children():
+			child.queue_free()
 	if _network_node != null:
 		for child in _network_node.get_children():
 			if child.has_meta("dev_created"):
@@ -206,6 +209,7 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: i
 	max_radius = minf(max_radius, world_max_radius)
 
 	var placed_positions: Array[Vector2] = []
+	var placed_power_nodes: Array[Node2D] = []
 	var placed_nodes := 0
 	var row_radius := start_radius
 	while placed_nodes < total_nodes and row_radius <= max_radius:
@@ -232,25 +236,48 @@ func generate_procedural_map(node_count: int = -1, zone_count: int = -1, seed: i
 			if _is_too_close_to_positions(world_pos, placed_positions, min_separation):
 				continue
 
-			_create_power_node(world_pos, _pick_procedural_power_overrides(rng))
+			var overrides := _pick_procedural_power_overrides(rng)
+			if placed_nodes == 0:
+				overrides = _build_power_overrides_from_radius(PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_4_RADIUS)
+			var created_node := _create_power_node(world_pos, overrides)
+			if created_node != null:
+				placed_power_nodes.append(created_node)
 			placed_positions.append(world_pos)
 			placed_nodes += 1
 		row_radius += row_spacing
-    # Scatter environmental zones.
+
+	_upgrade_some_nodes_to_giant(placed_power_nodes, rng)
+
+	# Scatter environmental zones in two bands: a few in 20-40%, then the rest above 40%.
 	var requested_zone_count := zone_count
 	if requested_zone_count <= 0:
 		requested_zone_count = PROJECT_PATHS_SCRIPT.DEV_MAP_DEFAULT_ZONE_COUNT
 	var zone_types := ["heat", "cold"]
-	var zones_placed := 0
-	var zone_attempts := 0
 	var zone_max_radius := minf(max_radius + PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_RADIUS_EXTRA, world_max_radius)
-	while zones_placed < requested_zone_count and zone_attempts < requested_zone_count * 20:
-		zone_attempts += 1
-		var r := rng.randf_range(start_radius, zone_max_radius)
-		var angle := rng.randf_range(-half_angle, half_angle)
-		var world_pos := apex + Vector2(sin(angle), -cos(angle)) * r
-		_create_zone(world_pos, zone_types[rng.randi() % zone_types.size()])
-		zones_placed += 1
+	var zone_span := maxf(zone_max_radius - start_radius, 1.0)
+	var inner_min_radius := start_radius + (zone_span * PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_INNER_FRONTIER_MIN_RATIO)
+	var inner_max_radius := start_radius + (zone_span * PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_INNER_FRONTIER_MAX_RATIO)
+	inner_min_radius = clampf(inner_min_radius, start_radius, zone_max_radius)
+	inner_max_radius = clampf(inner_max_radius, inner_min_radius, zone_max_radius)
+
+	var inner_target := int(round(float(requested_zone_count) * PROJECT_PATHS_SCRIPT.DEV_MAP_ZONE_INNER_TARGET_SHARE))
+	if requested_zone_count > 0:
+		inner_target = clampi(inner_target, 1, requested_zone_count)
+	var outer_target : Variant = max(requested_zone_count - inner_target, 0)
+
+	var zones_placed := 0
+	zones_placed += _scatter_zones_in_band(rng, apex, half_angle, inner_min_radius, inner_max_radius, inner_target, zone_types)
+	zones_placed += _scatter_zones_in_band(rng, apex, half_angle, inner_max_radius, zone_max_radius, outer_target, zone_types)
+	if zones_placed < requested_zone_count:
+		zones_placed += _scatter_zones_in_band(
+			rng,
+			apex,
+			half_angle,
+			inner_min_radius,
+			zone_max_radius,
+			requested_zone_count - zones_placed,
+			zone_types
+		)
 
 	_notify_layout_changed()
 	print("DevLevelEditor: generated %d/%d power nodes, %d zones" % [
@@ -270,6 +297,126 @@ func _pick_procedural_power_overrides(rng: RandomNumberGenerator) -> Dictionary:
 	var radius := _random_power_node_radius(rng)
 	var rated := PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)
 	return { "source_outer_radius": radius, "rated_torque_output": rated }
+
+
+func _build_power_overrides_from_radius(radius: float, torque_override: float = -1.0) -> Dictionary:
+	var rated := torque_override if torque_override > 0.0 else PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)
+	return {
+		"source_outer_radius": radius,
+		"rated_torque_output": rated,
+	}
+
+
+func _scatter_zones_in_band(
+	rng: RandomNumberGenerator,
+	apex: Vector2,
+	half_angle: float,
+	min_radius: float,
+	max_radius: float,
+	target_count: int,
+	zone_types: Array
+) -> int:
+	if target_count <= 0 or zone_types.is_empty():
+		return 0
+
+	var safe_min := minf(min_radius, max_radius)
+	var safe_max := maxf(min_radius, max_radius)
+	var placed := 0
+	var attempts := 0
+	var max_attempts := maxi(target_count * 25, 25)
+	while placed < target_count and attempts < max_attempts:
+		attempts += 1
+		var r := rng.randf_range(safe_min, safe_max)
+		var angle := rng.randf_range(-half_angle, half_angle)
+		var world_pos := apex + Vector2(sin(angle), -cos(angle)) * r
+		_create_zone(world_pos, zone_types[rng.randi() % zone_types.size()])
+		placed += 1
+
+	return placed
+
+
+func _upgrade_some_nodes_to_giant(power_nodes: Array, rng: RandomNumberGenerator) -> void:
+	if power_nodes.size() <= 1:
+		return
+
+	var min_count := PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_COUNT_MIN
+	var max_count := PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_COUNT_MAX
+	var desired_count := clampi(PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_COUNT_DEFAULT, min_count, max_count)
+	var giant_count := clampi(desired_count, 0, power_nodes.size() - 1)
+	if giant_count <= 0:
+		return
+
+	var candidate_indices: Array = []
+	for idx in range(1, power_nodes.size()):
+		candidate_indices.append(idx)
+
+	for _pick in range(giant_count):
+		if candidate_indices.is_empty():
+			break
+		var pick_i := rng.randi() % candidate_indices.size()
+		var node_index := int(candidate_indices[pick_i])
+		candidate_indices.remove_at(pick_i)
+		var node := power_nodes[node_index] as Node2D
+		if node == null:
+			continue
+		_apply_power_node_size(
+			node,
+			PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_RADIUS,
+			PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_TORQUE
+		)
+
+
+func _apply_power_node_size(node: Node2D, radius: float, rated_torque: float = -1.0) -> void:
+	if node == null:
+		return
+	var rated := rated_torque if rated_torque > 0.0 else PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)
+	node.set("source_outer_radius", radius)
+	node.set("rated_torque_output", rated)
+	node.set("stall_torque_output", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_RATIO)
+	node.set("brake_torque_cap", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_CAP_RATIO)
+
+	var visual := node.get_node_or_null("Visual")
+	if visual != null:
+		var is_giant := radius >= (PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_RADIUS - 0.01)
+		var visual_outer := radius * PROJECT_PATHS_SCRIPT.DEV_MAP_GIANT_NODE_VISUAL_SCALE if is_giant else radius
+		var safe_outer := maxf(visual_outer, 2.0)
+		var module_variant: Variant = visual.get("module_size")
+		var module_size := PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_MODULE
+		if module_variant != null:
+			module_size = maxf(float(module_variant), 0.5)
+		var safe_module := maxf(module_size / maxf(PROJECT_PATHS_SCRIPT.GEAR_TOOTH_DENSITY_SCALE, 0.1), 0.5)
+		var pitch_radius := maxf(safe_outer - PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_ADDENDUM, safe_module * 3.0)
+		var inner_radius := maxf(2.0, pitch_radius - PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_DEDENDUM)
+		var tooth_depth := safe_outer - inner_radius
+		var hub_radius := maxf(safe_module * 1.4, inner_radius * PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_HUB_RADIUS_RATIO)
+
+		visual.set("outer_radius", safe_outer)
+		visual.set("tooth_count", PROJECT_PATHS_SCRIPT.compute_tooth_count_from_outer_radius(safe_outer))
+		visual.set("inner_radius", inner_radius)
+		visual.set("hub_radius", hub_radius)
+		visual.set("tooth_depth", tooth_depth)
+		visual.set("tooth_width_ratio", PROJECT_PATHS_SCRIPT.DEFAULT_GEAR_TOOTH_WIDTH_RATIO)
+		visual.set("spokes_enabled", false)
+		visual.set("cutout_windows_enabled", false)
+
+		if is_giant:
+			visual.set("body_color", Color(0.26, 0.3, 0.22, 1.0))
+			visual.set("tooth_color", Color(0.53, 0.62, 0.34, 1.0))
+			visual.set("outline_color", Color(0.12, 0.15, 0.09, 1.0))
+		elif radius >= PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_4_RADIUS:
+			visual.set("body_color", Color(0.27, 0.4, 0.72, 1.0))
+			visual.set("tooth_color", Color(0.52, 0.74, 1.0, 1.0))
+			visual.set("outline_color", Color(0.09, 0.14, 0.27, 1.0))
+		elif radius >= PROJECT_PATHS_SCRIPT.POWER_NODE_TIER_3_RADIUS:
+			visual.set("body_color", Color(0.28, 0.47, 0.68, 1.0))
+			visual.set("tooth_color", Color(0.46, 0.74, 0.94, 1.0))
+			visual.set("outline_color", Color(0.09, 0.18, 0.24, 1.0))
+		else:
+			visual.set("body_color", Color(0.31, 0.52, 0.82, 1.0))
+			visual.set("tooth_color", Color(0.48, 0.76, 1.0, 1.0))
+			visual.set("outline_color", Color(0.09, 0.18, 0.3, 1.0))
+		if visual.has_method("queue_redraw"):
+			visual.call("queue_redraw")
 
 
 func _serialize_components() -> Dictionary:
@@ -568,23 +715,20 @@ func _place_with_active_tool(world_pos: Vector2) -> void:
 	_notify_layout_changed()
 
 
-func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> void:
+func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> Node2D:
 	if _network_node == null:
-		return
+		return null
 
 	var anchor_script := load(ANCHOR_ROTOR_SCRIPT_PATH) as Script
 	var visual_script := load(GEAR_VISUAL_SCRIPT_PATH) as Script
 	if anchor_script == null or visual_script == null:
-		return
+		return null
 
 	# Generate random defaults; overrides win so loading saved nodes restores exact values.
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var radius := float(overrides.get("source_outer_radius", _random_power_node_radius(rng)))
-	var rated := float(overrides.get("rated_torque_output",
-			PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)))
-	var stall := float(overrides.get("stall_torque_output", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_STALL_RATIO))
-	var brake := float(overrides.get("brake_torque_cap", rated * PROJECT_PATHS_SCRIPT.POWER_NODE_BRAKE_CAP_RATIO))
+	var rated := float(overrides.get("rated_torque_output", PROJECT_PATHS_SCRIPT.get_power_node_torque_from_radius(radius)))
 
 	var power_node := Node2D.new()
 	power_node.set_script(anchor_script)
@@ -592,11 +736,7 @@ func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> void:
 	power_node.global_position = world_pos
 	power_node.set_meta("dev_created", true)
 	power_node.set("always_active", bool(overrides.get("always_active", false)))
-	power_node.set("rated_torque_output", rated)
-	power_node.set("stall_torque_output", stall)
-	power_node.set("brake_torque_cap", brake)
 	power_node.set("no_load_rpm", PROJECT_PATHS_SCRIPT.POWER_NODE_NO_LOAD_RPM)
-	power_node.set("source_outer_radius", radius)
 	power_node.set("base_spin_speed", PROJECT_PATHS_SCRIPT.POWER_NODE_BASE_SPIN_SPEED)
 	power_node.set("torque_spin_factor", PROJECT_PATHS_SCRIPT.POWER_NODE_TORQUE_SPIN_FACTOR)
 	power_node.set("min_output_ratio", PROJECT_PATHS_SCRIPT.POWER_NODE_MIN_OUTPUT_RATIO)
@@ -605,14 +745,15 @@ func _create_power_node(world_pos: Vector2, overrides: Dictionary = {}) -> void:
 	var visual := Node2D.new()
 	visual.name = "Visual"
 	visual.set_script(visual_script)
-	visual.set("outer_radius", radius)
 	visual.set("use_module_profile", true)
 	visual.set("body_color", Color(0.26, 0.48, 0.78, 1.0))
 	visual.set("tooth_color", Color(0.4, 0.68, 1.0, 1.0))
 	visual.set("outline_color", Color(0.07, 0.14, 0.23, 1.0))
 	power_node.add_child(visual)
+	_apply_power_node_size(power_node, radius, rated)
 
 	_network_node.add_child(power_node)
+	return power_node
 
 
 func _random_power_node_radius(rng: RandomNumberGenerator) -> float:

@@ -33,6 +33,14 @@ const DEFAULT_GEAR_TOOTH_WIDTH_RATIO: float = 0.45
 @export var belt_module_size: float = 1.8
 @export var is_stacked_top: bool = false
 @export var flywheel_color: Color = Color(0.35, 0.65, 0.92, 1.0)
+@export var spokes_enabled: bool = true
+@export var spoke_count: int = 5
+@export var spoke_width: float = 2.2
+@export var spoke_inner_ratio: float = 1.1
+@export var spoke_outer_ratio: float = 0.86
+@export var spoke_color_mix: float = 0.35
+@export var cutout_windows_enabled: bool = true
+@export var cutout_rim_ratio: float = 0.22
 
 var _shaft_spin_speed: float = 0.0
 var _shaft_phase: float = 0.0
@@ -153,10 +161,11 @@ func _draw() -> void:
 		var top_right: Vector2 = Vector2.RIGHT.rotated(center_angle + half_top) * outer_radius
 		var base_right: Vector2 = Vector2.RIGHT.rotated(center_angle + half_base) * (root_radius -1.0)
 		var tooth_poly := PackedVector2Array([base_left, top_left, top_right, base_right])
-		draw_colored_polygon(tooth_poly, tooth_color)
+		draw_colored_polygon(tooth_poly, body_color)
 
 	# Base wheel body below the teeth ring.
-	draw_circle(Vector2.ZERO, root_radius, body_color)
+	_draw_gear_body(root_radius)
+	_draw_spokes(root_radius)
 
 	# Subtle contour strokes that do not cut through the tooth faces.
 	var contour_color := Color(outline_color.r, outline_color.g, outline_color.b, clampf(outline_color.a * outline_strength, 0.0, 1.0))
@@ -181,6 +190,44 @@ func _draw() -> void:
 
 	if is_stacked_top:
 		_draw_stacked_ring()
+
+
+func _draw_gear_body(root_radius: float) -> void:
+	if not cutout_windows_enabled:
+		draw_circle(Vector2.ZERO, root_radius, body_color)
+		return
+
+	var rim_thickness := maxf(root_radius * clampf(cutout_rim_ratio, 0.08, 0.45), 1.8)
+	var rim_radius := maxf(root_radius - rim_thickness * 0.5, hub_radius + 1.0)
+
+	# Draw only the outer rim and let center spaces remain transparent.
+	draw_arc(Vector2.ZERO, rim_radius, 0.0, TAU, 84, body_color, rim_thickness)
+
+	# Keep a compact center core under the hub so spokes anchor visually.
+	var core_radius := maxf(hub_radius * 1.08, 1.6)
+	draw_circle(Vector2.ZERO, core_radius, body_color)
+
+
+func _draw_spokes(root_radius: float) -> void:
+	if visual_mode != "gear" or not spokes_enabled:
+		return
+	if hub_radius >= root_radius - 1.0:
+		return
+
+	var safe_count := maxi(spoke_count, 2)
+	var safe_width := maxf(spoke_width, 1.0)
+	var inner := maxf(hub_radius * maxf(spoke_inner_ratio, 1.0), hub_radius + 0.8)
+	var outer := maxf(inner + 1.0, root_radius * clampf(spoke_outer_ratio, 0.3, 1.0))
+	var spoke_color := body_color
+
+	for i in range(safe_count):
+		var angle := TAU * float(i) / float(safe_count)
+		var direction := Vector2.RIGHT.rotated(angle)
+		draw_line(direction * inner, direction * outer, spoke_color, safe_width)
+
+	# Solid rings anchoring the spoke pattern.
+	draw_arc(Vector2.ZERO, inner, 0.0, TAU, 36, spoke_color, 1.0)
+	draw_arc(Vector2.ZERO, outer, 0.0, TAU, 36, spoke_color, 0.9)
 
 
 func _draw_flywheel() -> void:

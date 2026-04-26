@@ -2,6 +2,7 @@ extends Node2D
 class_name AnchorRotor
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
+const GEAR_VISUAL_SCRIPT = preload("res://scripts/components/gear_visual.gd")
 
 @export var always_active: bool = false
 @export var rated_torque_output: float = PROJECT_PATHS_SCRIPT.BASE_POWER_NODE_OUTPUT
@@ -40,6 +41,10 @@ var _last_source_torque: float = 0.0
 var _source_status: String = "in_band"
 var _presentation_visible: bool = true
 var _is_direction_conflict: bool = false
+var _generator_top_assembly: Node2D = null
+var _generator_top_gear_a: Node2D = null
+var _generator_top_gear_b: Node2D = null
+var _generator_cover: Polygon2D = null
 
 const SPIN_SMOOTHING: float = 6.0
 
@@ -91,6 +96,8 @@ func set_target_angular_speed(target_speed: float, network_active: bool) -> void
 	_direct_drive_speed = target_speed
 	_is_network_active = network_active
 	_use_direct_drive = true
+	if absf(target_speed) > 0.001:
+		_spin_direction = signf(target_speed)
 
 
 func set_underpowered_state(is_underpowered: bool) -> void:
@@ -98,6 +105,10 @@ func set_underpowered_state(is_underpowered: bool) -> void:
 
 
 func get_spin_direction() -> float:
+	if _use_direct_drive and absf(_direct_drive_speed) > 0.001:
+		return signf(_direct_drive_speed)
+	if absf(_angular_velocity) > 0.001:
+		return signf(_angular_velocity)
 	return _spin_direction
 
 
@@ -176,6 +187,7 @@ func _process(delta: float) -> void:
 	if not Engine.is_editor_hint() and not _presentation_visible:
 		return
 	rotation += _angular_velocity * delta
+	_update_generator_top_assembly_spin(delta)
 
 	var target_tint := underpowered_tint
 	if not _is_underpowered:
@@ -239,9 +251,13 @@ func _apply_engine_presentation_tunables() -> void:
 	visual.set("tooth_depth", PROJECT_PATHS_SCRIPT.ENGINE_VISUAL_TOOTH_DEPTH)
 	visual.set("tooth_count", auto_tooth_count)
 	visual.set("engine_shell_mode", false)
+	visual.set("spokes_enabled", false)
+	visual.set("cutout_windows_enabled", false)
 
 	if visual.has_method("queue_redraw"):
 		visual.call("queue_redraw")
+
+	_ensure_generator_top_assembly()
 
 
 func _apply_power_node_torque_profile() -> void:
@@ -263,3 +279,116 @@ func _ensure_engine_art_node() -> void:
 	art_node.centered = true
 	art_node.z_as_relative = false
 	art_node.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX + 1
+
+
+func _ensure_generator_top_assembly() -> void:
+	if name != "CentralEngine":
+		return
+
+	if _generator_top_assembly == null:
+		_generator_top_assembly = get_node_or_null("GeneratorTopAssembly") as Node2D
+	if _generator_top_assembly == null:
+		_generator_top_assembly = Node2D.new()
+		_generator_top_assembly.name = "GeneratorTopAssembly"
+		add_child(_generator_top_assembly)
+
+	_generator_top_assembly.z_as_relative = false
+	_generator_top_assembly.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX + 2
+	_generator_top_assembly.position = Vector2(0.0, PROJECT_PATHS_SCRIPT.ENGINE_TOP_ASSEMBLY_Y_OFFSET)
+
+	if _generator_top_gear_a == null:
+		_generator_top_gear_a = _generator_top_assembly.get_node_or_null("TopGearA") as Node2D
+	if _generator_top_gear_a == null:
+		_generator_top_gear_a = Node2D.new()
+		_generator_top_gear_a.name = "TopGearA"
+		_generator_top_gear_a.set_script(GEAR_VISUAL_SCRIPT)
+		_generator_top_assembly.add_child(_generator_top_gear_a)
+
+	if _generator_top_gear_b == null:
+		_generator_top_gear_b = _generator_top_assembly.get_node_or_null("TopGearB") as Node2D
+	if _generator_top_gear_b == null:
+		_generator_top_gear_b = Node2D.new()
+		_generator_top_gear_b.name = "TopGearB"
+		_generator_top_gear_b.set_script(GEAR_VISUAL_SCRIPT)
+		_generator_top_assembly.add_child(_generator_top_gear_b)
+
+	_generator_top_gear_a.position = Vector2(-PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_CENTER_SPACING * 0.5, 0.0)
+	_generator_top_gear_b.position = Vector2(PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_CENTER_SPACING * 0.5, 0.0)
+
+	_configure_top_gear_visual(
+		_generator_top_gear_a,
+		PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_A_RADIUS,
+		Color(0.24, 0.34, 0.52, 1.0),
+		Color(0.55, 0.78, 1.0, 1.0),
+		Color(0.08, 0.12, 0.2, 1.0)
+	)
+	_configure_top_gear_visual(
+		_generator_top_gear_b,
+		PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_B_RADIUS,
+		Color(0.3, 0.41, 0.26, 1.0),
+		Color(0.68, 0.86, 0.47, 1.0),
+		Color(0.11, 0.16, 0.09, 1.0)
+	)
+
+	if _generator_cover == null:
+		_generator_cover = _generator_top_assembly.get_node_or_null("GeneratorCover") as Polygon2D
+	if _generator_cover == null:
+		_generator_cover = Polygon2D.new()
+		_generator_cover.name = "GeneratorCover"
+		_generator_top_assembly.add_child(_generator_cover)
+
+	_generator_cover.z_as_relative = false
+	_generator_cover.z_index = PROJECT_PATHS_SCRIPT.ENGINE_FOREGROUND_Z_INDEX + 3
+	_generator_cover.color = Color(0.2, 0.23, 0.28, 0.95)
+	_generator_cover.polygon = PackedVector2Array([
+		Vector2(-28.0, -7.0),
+		Vector2(28.0, -7.0),
+		Vector2(36.0, 6.0),
+		Vector2(33.0, 20.0),
+		Vector2(-33.0, 20.0),
+		Vector2(-36.0, 6.0)
+	])
+
+
+func _configure_top_gear_visual(
+	gear_node: Node2D,
+	radius: float,
+	body: Color,
+	tooth: Color,
+	outline: Color
+) -> void:
+	if gear_node == null:
+		return
+	gear_node.set("visual_mode", "gear")
+	gear_node.set("use_module_profile", true)
+	gear_node.set("outer_radius", radius)
+	gear_node.set("body_color", body)
+	gear_node.set("tooth_color", tooth)
+	gear_node.set("outline_color", outline)
+	gear_node.set("spokes_enabled", false)
+	gear_node.set("cutout_windows_enabled", false)
+	gear_node.set("spoke_count", 4)
+	gear_node.set("spoke_width", 1.8)
+	if gear_node.has_method("_sync_module_profile"):
+		gear_node.call("_sync_module_profile")
+	if gear_node.has_method("queue_redraw"):
+		gear_node.call("queue_redraw")
+
+
+func _update_generator_top_assembly_spin(delta: float) -> void:
+	if name != "CentralEngine":
+		return
+	if _generator_top_assembly == null or _generator_top_gear_a == null or _generator_top_gear_b == null:
+		return
+
+	# Force the assembly to a fixed world position/rotation every frame so it
+	# never orbits or rotates with the parent engine gear.
+	_generator_top_assembly.global_position = global_position + Vector2(0.0, PROJECT_PATHS_SCRIPT.ENGINE_TOP_ASSEMBLY_Y_OFFSET)
+	_generator_top_assembly.global_rotation = 0.0
+
+	# Normalize engine RPM to [0, 1] over the 15–1500 RPM operational range so
+	# the decorative gears scale their spin proportionally.
+	var t := clampf((_last_source_rpm - 15.0) / (1500.0 - 15.0), 0.0, 1.0)
+	var dir := signf(_angular_velocity)
+	_generator_top_gear_a.rotation += dir * t * PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_A_SPEED_MULTIPLIER * delta
+	_generator_top_gear_b.rotation += dir * t * PROJECT_PATHS_SCRIPT.ENGINE_TOP_GEAR_B_SPEED_MULTIPLIER * delta

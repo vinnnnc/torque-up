@@ -6,8 +6,8 @@ class_name MainMenuController
 @export var placement_controller_path: NodePath = NodePath("../PlacementController")
 @export var hud_path: NodePath = NodePath("../UI")
 @export var dev_level_editor_path: NodePath = NodePath("../DevLevelEditor")
-@export var menu_camera_offset: Vector2 = Vector2(260.0, -140.0)
-@export var menu_camera_zoom: float = 1.0
+@export var menu_camera_offset: Vector2 = Vector2(50.0, -70.0)
+@export var menu_camera_zoom: float = 3.0
 
 @onready var _panel: PanelContainer = $Root/Panel
 @onready var _tutorial_checkbox: CheckBox = $Root/Panel/Margin/VBox/TutorialCheckbox
@@ -196,6 +196,8 @@ func _apply_menu_camera_pose() -> void:
 func _restore_gameplay_camera_pose() -> void:
 	if _camera == null or not _has_initial_camera_state:
 		return
+
+	await get_tree().process_frame
 
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_QUAD)

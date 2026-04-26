@@ -819,6 +819,8 @@ func _get_component_badges(component: Node2D, snapshot: Dictionary) -> Array:
 	if underpowered != null and bool(underpowered):
 		badges.append("Underpowered")
 	var conflict: Variant = component.get("_has_direction_conflict")
+	if conflict == null:
+		conflict = component.get("_is_direction_conflict")
 	if conflict != null and bool(conflict):
 		badges.append("Conflict")
 	var condition_state: Variant = component.get("_condition_state")

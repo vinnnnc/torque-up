@@ -17,6 +17,7 @@ const COMPONENT_GEAR_LARGE := PROJECT_PATHS_SCRIPT.COMPONENT_GEAR_LARGE
 const DENSE_MESH_FASTPATH_COMPONENT_THRESHOLD := 240
 const DENSE_MESH_ULTRA_FASTPATH_COMPONENT_THRESHOLD := 420
 const MESH_CONTACT_EPSILON := 1.4
+const SNAP_CONTACT_EPSILON: float = PROJECT_PATHS_SCRIPT.DEFAULT_CONNECTION_TOLERANCE
 
 ## Set by PlacementController when this handler is activated (e.g. "gear_small").
 var component_id: String = ""
@@ -147,7 +148,7 @@ func draw_overlay(draw_node: Node2D) -> void:
 		draw_node.draw_line(anchor_local, projected_local, Color(0.85, 0.95, 1.0, 0.38), 1.4)
 		draw_node.draw_circle(anchor_local, 3.5, Color(0.85, 0.95, 1.0, 0.55))
 
-	# -- Gear rotation arc-arrows (only when snapped near an existing gear) --
+	# -- Gear rotation arc-arrows (only when snapped near an existing mesh origin) --
 	if not _preview_is_snapped or ctx == null or ctx.components_container == null:
 		return
 
@@ -156,27 +157,16 @@ func draw_overlay(draw_node: Node2D) -> void:
 	var candidate_required_sign: float = 0.0
 	var has_conflict := false
 
-	# Gather meshing neighbors and determine candidate spin direction.
-	var meshing_neighbors: Array = []
-	for child in ctx.components_container.get_children():
-		var neighbor := child as Node2D
-		if neighbor == null or not _is_standard_gear(neighbor):
-			continue
-		var neighbor_radius := ctx.get_node_connection_radius(neighbor)
-		var tangent_distance := neighbor_radius + selected_radius
-		var dist := neighbor.global_position.distance_to(_preview_world_pos)
-		if absf(dist - tangent_distance) > MESH_CONTACT_EPSILON:
-			continue
-		meshing_neighbors.append(neighbor)
-
-		if neighbor.has_method("get_spin_direction"):
-			var nspin := float(neighbor.call("get_spin_direction"))
-			if absf(nspin) >= 0.5:
-				var required := -nspin
-				if candidate_required_sign == 0.0:
-					candidate_required_sign = required
-				elif signf(required) != signf(candidate_required_sign):
-					has_conflict = true
+	# Gather meshing neighbors (gears + network anchors) and determine candidate spin.
+	var meshing_neighbors := _collect_meshing_spin_neighbors(_preview_world_pos, selected_radius)
+	for neighbor_data_raw in meshing_neighbors:
+		var neighbor_data := neighbor_data_raw as Dictionary
+		var nspin := float(neighbor_data.get("spin", 0.0))
+		var required := -nspin
+		if candidate_required_sign == 0.0:
+			candidate_required_sign = required
+		elif signf(required) != signf(candidate_required_sign):
+			has_conflict = true
 
 	if meshing_neighbors.is_empty():
 		return
@@ -185,13 +175,13 @@ func draw_overlay(draw_node: Node2D) -> void:
 	var color_bad := Color(1.0, 0.25, 0.25, pulse_alpha)
 
 	# Draw arc-arrow on each meshing neighbor showing its spin direction.
-	for neighbor in meshing_neighbors:
-		if not neighbor.has_method("get_spin_direction"):
+	for neighbor_data_raw in meshing_neighbors:
+		var neighbor_data := neighbor_data_raw as Dictionary
+		var neighbor := neighbor_data.get("node", null) as Node2D
+		if neighbor == null:
 			continue
-		var nspin := float(neighbor.call("get_spin_direction"))
-		if absf(nspin) < 0.5:
-			continue
-		var n_radius := ctx.get_node_connection_radius(neighbor)
+		var nspin := float(neighbor_data.get("spin", 0.0))
+		var n_radius := float(neighbor_data.get("radius", selected_radius))
 		var arrow_color := color_bad if has_conflict else color_ok
 		_draw_spin_arc_arrow(draw_node, neighbor.global_position, n_radius * 0.80, nspin, arrow_color)
 
@@ -281,6 +271,9 @@ func _place_meshed_gear(pos: Vector2, emit_network_update: bool = true) -> void:
 	)
 	var use_snap := bool(snap_result.get("valid", false))
 	var snapped_pos: Vector2 = snap_result.get("position", pos)
+	if not use_snap and _should_promote_near_snap(pos, snap_result, blocked_positions, selected_radius, collision_filter):
+		use_snap = true
+		snapped_pos = snap_result.get("position", pos)
 	var target_pos := snapped_pos if use_snap else pos
 	if not ctx.placement_rules.can_place_at(target_pos, ctx.components_container, blocked_positions, selected_radius, collision_filter):
 		return
@@ -308,31 +301,13 @@ func _would_trigger_snap_jam(target_pos: Vector2, selected_radius: float) -> boo
 	if ctx == null or ctx.components_container == null:
 		return false
 
-	# Collect the spin direction each meshing neighbor requires from the candidate.
-	# Meshing gears always reverse direction, so required_sign = -neighbor_spin_sign.
+	# Collect spin requirements from all meshing neighbors (gears + anchors).
+	# Meshing gears reverse direction, so required_sign = -neighbor_spin_sign.
 	# If two neighbors require opposite signs, placement creates an irresolvable conflict.
 	var required_sign: float = 0.0  # 0 = undecided
-	for child in ctx.components_container.get_children():
-		var neighbor := child as Node2D
-		if neighbor == null:
-			continue
-		if not _is_standard_gear(neighbor):
-			continue
-
-		var neighbor_radius := ctx.get_node_connection_radius(neighbor)
-		var tangent_distance := neighbor_radius + selected_radius
-		var distance_to_target := neighbor.global_position.distance_to(target_pos)
-		if absf(distance_to_target - tangent_distance) > MESH_CONTACT_EPSILON:
-			continue
-
-		# Only use neighbors that have an active, known spin direction.
-		if not neighbor.has_method("get_spin_direction"):
-			continue
-		var neighbor_spin := float(neighbor.call("get_spin_direction"))
-		if absf(neighbor_spin) < 0.5:
-			continue  # direction not yet assigned — skip
-
-		var this_required := -neighbor_spin  # meshing reverses direction
+	for neighbor_data_raw in _collect_meshing_spin_neighbors(target_pos, selected_radius):
+		var neighbor_data := neighbor_data_raw as Dictionary
+		var this_required := -float(neighbor_data.get("spin", 0.0))
 
 		if required_sign == 0.0:
 			required_sign = this_required
@@ -340,6 +315,95 @@ func _would_trigger_snap_jam(target_pos: Vector2, selected_radius: float) -> boo
 			return true  # two neighbors require opposite directions → jam
 
 	return false
+
+
+func _should_promote_near_snap(
+	mouse_pos: Vector2,
+	snap_result: Dictionary,
+	blocked_positions: Array,
+	selected_radius: float,
+	collision_filter: Callable
+) -> bool:
+	if ctx == null or ctx.placement_rules == null or snap_result.is_empty():
+		return false
+	if snap_result.get("origin", null) == null:
+		return false
+
+	var candidate_pos := snap_result.get("position", mouse_pos) as Vector2
+	var base_snap_distance := PROJECT_PATHS_SCRIPT.DEFAULT_SNAP_MAX_DISTANCE
+	if ctx.snap_max_distance > 0.0:
+		base_snap_distance = ctx.snap_max_distance
+	var assist_distance := PROJECT_PATHS_SCRIPT.PLACEMENT_NEAR_SNAP_ASSIST_DISTANCE
+	if candidate_pos.distance_to(mouse_pos) > (base_snap_distance + assist_distance):
+		return false
+
+	return ctx.placement_rules.can_place_at(
+		candidate_pos,
+		ctx.components_container,
+		blocked_positions,
+		selected_radius,
+		collision_filter
+	)
+
+
+func _collect_meshing_spin_neighbors(target_pos: Vector2, selected_radius: float) -> Array:
+	var neighbors: Array = []
+	if ctx == null or ctx.components_container == null:
+		return neighbors
+
+	var seen_ids: Dictionary = {}
+	for child in ctx.components_container.get_children():
+		_collect_single_neighbor_spin(child as Node2D, target_pos, selected_radius, neighbors, seen_ids)
+
+	for seed_raw in ctx.get_cached_seed_positions():
+		if not seed_raw is Dictionary:
+			continue
+		var seed_node := (seed_raw as Dictionary).get("node", null) as Node2D
+		_collect_single_neighbor_spin(seed_node, target_pos, selected_radius, neighbors, seen_ids)
+
+	return neighbors
+
+
+func _collect_single_neighbor_spin(
+	neighbor: Node2D,
+	target_pos: Vector2,
+	selected_radius: float,
+	neighbors: Array,
+	seen_ids: Dictionary
+) -> void:
+	if neighbor == null or not neighbor.has_method("get_spin_direction"):
+		return
+	if not _is_standard_gear(neighbor) and not _is_network_anchor(neighbor):
+		return
+
+	var neighbor_id := neighbor.get_instance_id()
+	if seen_ids.has(neighbor_id):
+		return
+
+	var neighbor_radius := ctx.get_node_connection_radius(neighbor)
+	var tangent_distance := neighbor_radius + selected_radius
+	var distance_to_target := neighbor.global_position.distance_to(target_pos)
+	if absf(distance_to_target - tangent_distance) > SNAP_CONTACT_EPSILON:
+		return
+
+	var neighbor_spin := float(neighbor.call("get_spin_direction"))
+	if absf(neighbor_spin) < 0.5:
+		return
+
+	seen_ids[neighbor_id] = true
+	neighbors.append({
+		"node": neighbor,
+		"radius": neighbor_radius,
+		"spin": neighbor_spin,
+	})
+
+
+func _is_network_anchor(node: Node2D) -> bool:
+	if node == null or ctx == null or ctx.components_container == null:
+		return false
+	if node.get_parent() == ctx.components_container:
+		return false
+	return node.name == "CentralEngine" or node.name.begins_with("Power")
 
 
 func _required_candidate_rotation_for_neighbor(

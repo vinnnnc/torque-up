@@ -11,7 +11,7 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var exploration_light_enabled: bool = true
 @export var exploration_light_color: Color = Color(1.0, 0.94, 0.78, 0.18)
 @export var exploration_light_core_color: Color = Color(1.0, 0.98, 0.86, 0.24)
-@export var exploration_light_steps: int = 6
+@export var exploration_light_steps: int = 16
 @export var exploration_light_inner_ratio: float = 0.24
 @export var world_half_width: float = PROJECT_PATHS_SCRIPT.WORLD_HALF_WIDTH
 @export var world_height: float = PROJECT_PATHS_SCRIPT.WORLD_VERTICAL_EXTENT
@@ -30,7 +30,10 @@ const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_
 @export var rpm_gate_soft_min: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_SOFT_MIN
 @export var rpm_gate_full: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_FULL
 @export var rpm_gate_min_factor: float = 0.2
+@export var rpm_gate_curve_exponent: float = PROJECT_PATHS_SCRIPT.FRONTIER_RPM_GATE_CURVE_EXPONENT
 @export var frontier_update_hz: float = 14.0
+@export var frontier_regression_response: float = 0.28
+@export var frontier_regression_step_scale: float = 0.55
 
 @export var live_tuning_enabled: bool = false
 @export var live_tuning_poll_interval: float = 0.25
@@ -129,22 +132,33 @@ func _advance_frontier_step() -> bool:
 
 	var candidate_radius := base_radius + (radius_scale_k * sqrt(_smoothed_torque))
 	candidate_radius = _apply_frontier_cap(candidate_radius)
-	if candidate_radius <= _unlocked_radius:
-		return false
 
 	var previous_radius := _unlocked_radius
 	var required_step := maxf(min_expansion_step, 0.0)
-	if required_step <= 0.001:
-		_unlocked_radius = candidate_radius
-	elif candidate_radius >= (_unlocked_radius + required_step):
-		_unlocked_radius = candidate_radius
+	if candidate_radius >= _unlocked_radius:
+		if required_step <= 0.001:
+			_unlocked_radius = candidate_radius
+		elif candidate_radius >= (_unlocked_radius + required_step):
+			_unlocked_radius = candidate_radius
+		else:
+			var step_progress := clampf((candidate_radius - _unlocked_radius) / required_step, 0.0, 1.0)
+			if step_progress > 0.0:
+				var creep_step := required_step * 0.15 * step_progress
+				_unlocked_radius = minf(candidate_radius, _unlocked_radius + creep_step)
 	else:
-		var step_progress := clampf((candidate_radius - _unlocked_radius) / required_step, 0.0, 1.0)
-		if step_progress > 0.0:
-			var creep_step := required_step * 0.15 * step_progress
-			_unlocked_radius = minf(candidate_radius, _unlocked_radius + creep_step)
+		var regression_response := clampf(frontier_regression_response, 0.0, 1.0)
+		var regression_step := maxf(required_step * maxf(frontier_regression_step_scale, 0.0), 0.0)
+		if regression_step <= 0.001:
+			_unlocked_radius = lerpf(_unlocked_radius, candidate_radius, regression_response)
+		else:
+			var next_radius := _unlocked_radius - regression_step
+			if next_radius <= candidate_radius:
+				_unlocked_radius = lerpf(_unlocked_radius, candidate_radius, regression_response)
+			else:
+				_unlocked_radius = next_radius
 
-	return _unlocked_radius > previous_radius
+	_unlocked_radius = _apply_frontier_cap(_unlocked_radius)
+	return absf(_unlocked_radius - previous_radius) > 0.01
 
 
 func _apply_frontier_cap(radius_value: float) -> float:
@@ -157,7 +171,10 @@ func _compute_rpm_gate_factor(rpm: float) -> float:
 	var soft_min := rpm_gate_soft_min
 	var full_rpm := maxf(rpm_gate_full, soft_min + 0.001)
 	var t := clampf(inverse_lerp(soft_min, full_rpm, maxf(rpm, 0.0)), 0.0, 1.0)
-	# Smoothstep easing: near-idle contributes very little, progression ramps up as RPM rises.
+	# Ease-in control: exponent < 1 ramps earlier so high gate-full values are usable.
+	var curve_exp := clampf(rpm_gate_curve_exponent, 0.2, 2.0)
+	t = pow(t, curve_exp)
+	# Smoothstep easing keeps the ramp visually smooth near both ends.
 	t = t * t * (3.0 - (2.0 * t))
 	var floor_factor := clampf(rpm_gate_min_factor, 0.0, 1.0)
 	return lerpf(floor_factor, 1.0, t)
@@ -227,6 +244,9 @@ func _write_live_tuning_config_defaults() -> void:
 	cfg.set_value("frontier", "rpm_gate_soft_min", rpm_gate_soft_min)
 	cfg.set_value("frontier", "rpm_gate_full", rpm_gate_full)
 	cfg.set_value("frontier", "rpm_gate_min_factor", rpm_gate_min_factor)
+	cfg.set_value("frontier", "rpm_gate_curve_exponent", rpm_gate_curve_exponent)
+	cfg.set_value("frontier", "frontier_regression_response", frontier_regression_response)
+	cfg.set_value("frontier", "frontier_regression_step_scale", frontier_regression_step_scale)
 	var save_err := cfg.save(live_tuning_cfg_path)
 	if save_err != OK:
 		push_warning("Blockade: failed to write live tuning defaults (%s)" % [save_err])
@@ -253,6 +273,9 @@ func _load_live_tuning_config(log_reload: bool) -> void:
 	rpm_gate_soft_min = maxf(_cfg_float(cfg, "frontier", "rpm_gate_soft_min", rpm_gate_soft_min), 0.0)
 	rpm_gate_full = maxf(_cfg_float(cfg, "frontier", "rpm_gate_full", rpm_gate_full), rpm_gate_soft_min + 0.001)
 	rpm_gate_min_factor = clampf(_cfg_float(cfg, "frontier", "rpm_gate_min_factor", rpm_gate_min_factor), 0.0, 1.0)
+	rpm_gate_curve_exponent = clampf(_cfg_float(cfg, "frontier", "rpm_gate_curve_exponent", rpm_gate_curve_exponent), 0.2, 2.0)
+	frontier_regression_response = clampf(_cfg_float(cfg, "frontier", "frontier_regression_response", frontier_regression_response), 0.0, 1.0)
+	frontier_regression_step_scale = maxf(_cfg_float(cfg, "frontier", "frontier_regression_step_scale", frontier_regression_step_scale), 0.0)
 
 	_refresh_cone_apex()
 	_unlocked_radius = _apply_frontier_cap(_unlocked_radius)
@@ -377,8 +400,8 @@ func _draw_exploration_light(half_angle: float) -> void:
 		var r1 := lerpf(inner_radius, radius, t1)
 		var ring_radius := (r0 + r1) * 0.5
 		var ring_width := maxf(r1 - r0, 1.0)
-		var falloff := 1.0 - t0
-		var alpha := exploration_light_color.a * falloff * falloff * intensity
+		var falloff := smoothstep(1.0, 0.0, t0)
+		var alpha := exploration_light_color.a * falloff * intensity
 		if alpha <= 0.001:
 			continue
 		var ring_color_value := Color(exploration_light_color.r, exploration_light_color.g, exploration_light_color.b, alpha)

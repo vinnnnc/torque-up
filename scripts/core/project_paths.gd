@@ -100,6 +100,14 @@ const GENERATOR_OUTPUT_TORQUE_FOR_MAX_RPM: float = 100.0
 const GENERATOR_BREAKAWAY_TORQUE: float = 0.25
 const GENERATOR_RPM_RESPONSE: float = 5.5
 
+# Decorative generator head visuals
+const ENGINE_TOP_ASSEMBLY_Y_OFFSET: float = -54.0
+const ENGINE_TOP_GEAR_A_RADIUS: float = 15.0
+const ENGINE_TOP_GEAR_B_RADIUS: float = 11.0
+const ENGINE_TOP_GEAR_CENTER_SPACING: float = 24.0
+const ENGINE_TOP_GEAR_A_SPEED_MULTIPLIER: float = 2.8
+const ENGINE_TOP_GEAR_B_SPEED_MULTIPLIER: float = -4.2
+
 # Engine visual tuning (simple larger gear)
 const ENGINE_VISUAL_OUTER_RADIUS: float = 100.0
 const ENGINE_VISUAL_TOOTH_COUNT: int = 64
@@ -135,13 +143,15 @@ const FRONTIER_VISUAL_RADIUS_SMOOTHING: float = 6.5
 const FRONTIER_FOG_FEATHER_WIDTH: float = 44.0
 const FRONTIER_FOG_FEATHER_STEPS: int = 4
 const FRONTIER_REQUIRE_RPM_RAMP: bool = true
-const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.0
-const FRONTIER_RPM_GATE_FULL: float = 5.0
+const FRONTIER_RPM_GATE_SOFT_MIN: float = 0.5
+const FRONTIER_RPM_GATE_FULL: float = 15.0
+const FRONTIER_RPM_GATE_CURVE_EXPONENT: float = 0.55
 const FRONTIER_WIN_LEVER_TOP_MARGIN: float = 160.0
 
 # Placement-time jam prevention: reject snap candidates with incompatible
 # meshing phase requirements from multiple neighbors.
 const PLACEMENT_MAX_ROTATION_MISMATCH_DEGREES: float = 20.0
+const PLACEMENT_NEAR_SNAP_ASSIST_DISTANCE: float = 5.0
 
 # Dev procedural map generation (frontier-start, spacing-first)
 const DEV_MAP_DEFAULT_NODE_COUNT: int = 300
@@ -155,6 +165,15 @@ const DEV_MAP_CONE_APEX_RAISE: float = 256.0
 const DEV_MAP_NODE_MIN_SEPARATION_FACTOR: float = 1.8
 const DEV_MAP_ZONE_RADIUS_EXTRA: float = 0.0
 const DEV_MAP_DEFAULT_ZONE_COUNT: int = 5
+const DEV_MAP_ZONE_INNER_FRONTIER_MIN_RATIO: float = 0.20
+const DEV_MAP_ZONE_INNER_FRONTIER_MAX_RATIO: float = 0.40
+const DEV_MAP_ZONE_INNER_TARGET_SHARE: float = 0.30
+const DEV_MAP_GIANT_NODE_COUNT_DEFAULT: int = 7
+const DEV_MAP_GIANT_NODE_COUNT_MIN: int = 5
+const DEV_MAP_GIANT_NODE_COUNT_MAX: int = 10
+const DEV_MAP_GIANT_NODE_RADIUS: float = 30.0
+const DEV_MAP_GIANT_NODE_TORQUE: float = 4.5
+const DEV_MAP_GIANT_NODE_VISUAL_SCALE: float = 1.15
 
 # Map seed. Set to -1 to use a random seed on each run.
 const DEFAULT_RUN_SEED: int = 111

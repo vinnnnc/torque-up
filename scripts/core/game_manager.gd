@@ -15,6 +15,9 @@ const CONDITION_SERVICE_SCRIPT = preload("res://scripts/features/condition/compo
 @export var simulation_tick_hz: float = 14.0
 @export var underpowered_tick_hz: float = 8.0
 @export var underpowered_tick_component_threshold: int = 180
+@export var web_simulation_tick_hz: float = 9.0
+@export var web_underpowered_tick_hz: float = 5.0
+@export var web_underpowered_tick_component_threshold: int = 120
 @export var threaded_solver_enabled: bool = true
 @export var threaded_solver_component_threshold: int = 1
 
@@ -89,6 +92,9 @@ const DRIVE_SYNC_TOTAL_WEIGHT_EPS := 0.00005
 
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		threaded_solver_enabled = false
+
 	if _signal_bus and not _signal_bus.gear_placed.is_connected(_on_gear_placed):
 		_signal_bus.gear_placed.connect(_on_gear_placed)
 	if _signal_bus and not _signal_bus.component_removed.is_connected(_on_component_removed):
@@ -271,11 +277,33 @@ func _recalculate_and_publish_state() -> bool:
 	if _should_run_threaded_solver():
 		return _recalculate_and_publish_state_threaded()
 
-	_perf_last_solver_mode = "sync"
-	_perf_last_thread_request_ms = 0.0
-	_perf_last_thread_worker_ms = 0.0
+	return _recalculate_and_publish_state_sync_with_cache()
+
+
+func _recalculate_and_publish_state_sync_with_cache() -> bool:
+	var request_start_usec := Time.get_ticks_usec()
+	var request := _build_threaded_solver_request()
+	_perf_last_thread_request_ms = float(Time.get_ticks_usec() - request_start_usec) / 1000.0
+	if request.is_empty():
+		_perf_last_solver_mode = "sync-no-request"
+		_perf_last_thread_worker_ms = 0.0
+		_perf_last_thread_apply_ms = 0.0
+		_recalculate_and_publish_state_sync({}, {})
+		return true
+
+	var component_snapshot := request.get("snapshot", {}) as Dictionary
+	var source_nodes := request.get("source_nodes", []) as Array
+	var engine_data := request.get("engine_data", {}) as Dictionary
+	var worker_start_usec := Time.get_ticks_usec()
+	var graph_cache := network_service.compute_threaded_graph_cache(
+		component_snapshot,
+		source_nodes,
+		engine_data
+	)
+	_perf_last_thread_worker_ms = float(Time.get_ticks_usec() - worker_start_usec) / 1000.0
 	_perf_last_thread_apply_ms = 0.0
-	_recalculate_and_publish_state_sync({}, {})
+	_perf_last_solver_mode = "sync-cache"
+	_recalculate_and_publish_state_sync(component_snapshot, graph_cache)
 	return true
 
 
@@ -952,7 +980,8 @@ func _recalculate_and_publish_state_sync(graph_snapshot: Dictionary = {}, graph_
 	var engine_torque := generator_output_torque
 	var engine_operating_state := "in_band"
 	if _central_engine and _central_engine.has_method("set_direction_conflict"):
-		_central_engine.set_direction_conflict(_generator_direction_conflict)
+		var engine_direction_conflict := _generator_direction_conflict or not source_direction_conflicts.is_empty()
+		_central_engine.set_direction_conflict(engine_direction_conflict)
 	if generator_output_connected:
 		input_horsepower = torque_system.compute_output_horsepower(engine_torque, generator_internal_rpm, efficiency_for_engine)
 		horsepower = input_horsepower
@@ -1875,9 +1904,17 @@ func _process(_delta: float) -> void:
 	if not _network_dirty:
 		return
 
-	var safe_hz := maxf(1.0, simulation_tick_hz)
-	if _perf_last_underpowered and _perf_last_component_count >= underpowered_tick_component_threshold:
-		safe_hz = minf(safe_hz, maxf(1.0, underpowered_tick_hz))
+	var runtime_sim_hz := simulation_tick_hz
+	var runtime_underpowered_hz := underpowered_tick_hz
+	var runtime_underpowered_threshold := underpowered_tick_component_threshold
+	if OS.has_feature("web"):
+		runtime_sim_hz = web_simulation_tick_hz
+		runtime_underpowered_hz = web_underpowered_tick_hz
+		runtime_underpowered_threshold = web_underpowered_tick_component_threshold
+
+	var safe_hz := maxf(1.0, runtime_sim_hz)
+	if _perf_last_underpowered and _perf_last_component_count >= runtime_underpowered_threshold:
+		safe_hz = minf(safe_hz, maxf(1.0, runtime_underpowered_hz))
 	var tick_interval := 1.0 / safe_hz
 	_recalc_timer += _delta
 	if _recalc_timer < tick_interval:
@@ -1909,6 +1946,10 @@ func get_perf_stats() -> Dictionary:
 		"profile_count": _perf_last_profile_count,
 		"underpowered": _perf_last_underpowered,
 		"component_count": component_count,
+		"web_runtime": OS.has_feature("web"),
+		"web_sim_tick_hz": web_simulation_tick_hz,
+		"web_underpowered_tick_hz": web_underpowered_tick_hz,
+		"web_underpowered_tick_component_threshold": web_underpowered_tick_component_threshold,
 		"threaded_solver_enabled": threaded_solver_enabled,
 		"threaded_solver_running": _threaded_solver_running,
 		"threaded_solver_eligible": thread_eligible,
