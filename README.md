@@ -8,13 +8,22 @@
   <img src="https://img.shields.io/badge/Renderer-GL%20Compatibility-lightgrey" alt="GL Compatibility" />
   <img src="https://img.shields.io/badge/Platform-Web-orange?logo=html5&logoColor=white" alt="Web" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
+  <img src="https://img.shields.io/badge/Gamedev.js%20Jam%202026-Machines-purple" alt="Gamedev.js Jam 2026" />
 </p>
 
 # Torque Up!
 
 `Torque Up!` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a generator.
 
-The project currently focuses on readable top-down mechanical construction, engine-route optimization, and visible drivetrain feedback rather than full rigid-body simulation.
+The project currently focuses on readable top-down mechanical construction, generator-route optimization, and visible drivetrain feedback rather than full rigid-body simulation.
+
+## Gamedev.js Jam 2026
+
+This game is an entry in the [Gamedev.js Jam 2026](https://itch.io/jam/gamedevjs-2026).
+
+- **Theme:** Machines
+- **Dates:** April 13–26 2026
+- **Challenges entered:** Open Source (GitHub), Deploy to Wavedash
 
 ## Current Status
 
@@ -22,7 +31,7 @@ Implemented systems currently include:
 
 - standard gears in three sizes
 - multiple power node sizes
-- sink-based engine scoring
+- sink-based generator scoring
 - local disconnected subnetwork simulation
 - jam, and direction-conflict feedback
 - dev editor tools for power nodes, zones, barriers, save, load, and clear
@@ -59,32 +68,27 @@ Typical flow:
 The current game loop is:
 
 1. Place drivetrain parts.
-2. Connect power nodes into useful local and engine-valid routes.
+2. Connect power nodes into useful local and generator-valid routes.
 3. Manage efficiency, torque limits, and conflicts.
 4. Deliver torque into the generator to raise output.
 
 Important current rule:
 
 - only power sources connected to the generator contribute to score/output totals
-- disconnected source islands still simulate locally so they can visibly spin jam, or conflict
+- disconnected source islands still simulate locally so they can visibly spin, jam, or conflict
 
 ## Session Management
 
-The game uses persistent session tracking with local personal best records:
+The current build supports run/session flow:
 
-- **Auto-save on exit**: Component layout, network state, and lifetime HP are saved
-- **Resume or start fresh**: Player can resume last session or clear and begin new game
-- **Personal best**: Highest lifetime HP ever achieved is tracked locally and displayed in HUD
-- **No leaderboards**: Focus is on self-improvement iteration, not competitive ranking
-
-See [docs/progression-and-balance.md](docs/progression-and-balance.md) for session design and balancing parameters.
+- **Resume or start fresh**: Player can resume last session or clear and begin a new run
 
 ## Current UI
 
 The HUD currently exposes:
 
-- Torque
-- Time
+- Torque (generator load)
+- Time (run timer)
 
 The build hotbar currently exposes:
 
@@ -100,6 +104,15 @@ The build hotbar currently exposes:
 - [assets/](assets/): art and icons
 - [font/](font/): source font package and attribution notes used by UI/HUD font assets
 
+## License
+
+The game code is licensed under [MIT](LICENSE).
+
+Third-party assets are licensed separately and are not re-licensed under MIT.
+See [CREDITS.txt](CREDITS.txt) for attribution details.
+
+For the bundled Motion Control font, the full SIL Open Font License text is included at [font/OFL.txt](font/OFL.txt).
+
 ## Credits And Attribution
 
 Third-party assets and acknowledgements are tracked in [CREDITS.txt](CREDITS.txt).
@@ -107,4 +120,4 @@ Third-party assets and acknowledgements are tracked in [CREDITS.txt](CREDITS.txt
 This includes:
 
 - sound effects sources
-- Motion Control font attribution and license note
+- Motion Control font attribution and license note (with OFL text in [font/OFL.txt](font/OFL.txt))

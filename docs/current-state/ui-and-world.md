@@ -2,18 +2,12 @@
 
 ## HUD
 
-The HUD currently exposes:
+The HUD stats panel currently shows:
 
-- Horsepower
-- Torque
-- Efficiency
-- Energy (kJ)
-- Generator (kW)
+- Generator Load Torque (displayed in the Energy row)
+- Run Timer (MM:SS elapsed time)
 
-The HUD also now exposes two inspection layers:
-
-- a hover tooltip for components, connectors, the engine, and power nodes
-- a toggleable network overlay summary (`Q` by default)
+The Horsepower row exists in the scene tree but renders empty in the current build.
 
 The bottom hotbar currently exposes:
 
@@ -21,12 +15,14 @@ The bottom hotbar currently exposes:
 - Gear S
 - Gear M
 - Gear L
-- Shaft
-- Chain
-- Flywheel
-- Clutch
-- Differential
 - Delete
+
+Shaft, Chain, Flywheel, Clutch, and Differential buttons are present in the scene tree but are hidden and disabled in the current build.
+
+The HUD also exposes two inspection layers:
+
+- a hover tooltip for components, the engine, and power nodes
+- a toggleable network overlay summary (`Q` by default)
 
 ## Inspection UI
 
@@ -35,11 +31,10 @@ The bottom hotbar currently exposes:
 Hovering a component currently shows a tooltip with:
 
 - component name
-- current state badges such as connected, engine-route, underpowered, conflict, jam risk, jammed, bottleneck, and sprocket mode where applicable
+- current state badges such as connected, engine-route, underpowered, conflict, jammed, and bottleneck where applicable
 - local RPM where available
 - local torque where the component exposes it
-- current friction and load ratio on engine-connected parts
-- type-specific details such as tooth count, chain/shaft span length, flywheel charge, clutch engagement, and differential merge efficiency
+- zone type for components inside a zone
 
 Holding `Shift` while hovering expands the tooltip with raw values such as
 angular velocity, condition state, heat, dust, and other low-level diagnostics.
@@ -50,14 +45,11 @@ Press `Q` to toggle the network overlay panel.
 
 The overlay currently summarizes:
 
-- horsepower
-- delivered torque
-- generator output RPM (debug/tuning)
-- generator power output (kW)
+- horsepower (with target band hint for 1–2 connected sources)
+- net torque and engine input torque
 - aggregate efficiency
 - friction load
-- connected source count vs total source count
-- reachable component count
+- connected source count vs total source count, and reachable component count
 - underpowered state
 - current bottleneck component by friction load
 
@@ -72,8 +64,6 @@ Examples:
 - stalled tint
 - conflict tint
 - condition heat / risk tinting
-- shaft banding for visible spin
-- static clutch/differential housings with visible internal motion
 
 ## Engine Route Highlighting
 
