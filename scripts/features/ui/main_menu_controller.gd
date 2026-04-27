@@ -57,7 +57,7 @@ func _ready() -> void:
 	_ensure_help_buttons()
 	_build_info_overlay()
 
-	const MOTION_CONTROL := preload("res://assets/icons/MotionControl-Bold.otf")
+	const MOTION_CONTROL := preload("res://assets/fonts/MotionControl-Bold.otf")
 	for node in [$Root/MenuCard/VBox/Subtitle, _start_button, _tutorial_checkbox, _show_controls_button, _how_to_play_button]:
 		if node != null:
 			node.add_theme_font_override("font", MOTION_CONTROL)
@@ -79,14 +79,14 @@ func _ensure_restart_button() -> void:
 	_restart_button.text = "Restart Run"
 	_restart_button.visible = false
 	_restart_button.pressed.connect(_on_restart_pressed)
-	_restart_button.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+	_restart_button.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 	_panel_vbox.call_deferred("add_child", _restart_button)
 	_main_menu_button = Button.new()
 	_main_menu_button.custom_minimum_size = Vector2(0, 32)
 	_main_menu_button.text = "Main Menu"
 	_main_menu_button.visible = false
 	_main_menu_button.pressed.connect(_on_main_menu_pressed)
-	_main_menu_button.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+	_main_menu_button.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 	_panel_vbox.call_deferred("add_child", _main_menu_button)
 
 
@@ -109,7 +109,7 @@ func _ensure_help_buttons() -> void:
 		_seed_row = HBoxContainer.new()
 		_seed_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_seed_checkbox = CheckBox.new()
-		const MOTION_FONT_PATH := "res://assets/icons/MotionControl-Bold.otf"
+		const MOTION_FONT_PATH := "res://assets/fonts/MotionControl-Bold.otf"
 		_seed_checkbox.text = "Seed"
 		_seed_checkbox.add_theme_font_override("font", load(MOTION_FONT_PATH))
 		_seed_checkbox.add_theme_font_size_override("font_size", 11)
@@ -181,7 +181,7 @@ func _build_info_overlay() -> void:
 
 	_info_title = Label.new()
 	_info_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_info_title.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+	_info_title.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 	_info_title.add_theme_font_size_override("font_size", 24)
 	stack.add_child(_info_title)
 
@@ -193,7 +193,7 @@ func _build_info_overlay() -> void:
 	var close_button := Button.new()
 	close_button.text = "Close"
 	close_button.custom_minimum_size = Vector2(0, 34)
-	close_button.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+	close_button.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 	close_button.pressed.connect(_hide_info_overlay)
 	stack.add_child(close_button)
 
@@ -330,7 +330,7 @@ func _show_controls_overlay() -> void:
 
 		var action_label := Label.new()
 		action_label.text = "  " + str(row.get("action", ""))
-		action_label.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+		action_label.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 		action_label.add_theme_font_size_override("font_size", 16)
 		action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		line.add_child(action_label)
@@ -357,7 +357,7 @@ func _show_how_to_play_overlay() -> void:
 		var line := Label.new()
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		line.text = text
-		line.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+		line.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 		line.add_theme_font_size_override("font_size", 16)
 		_info_content.add_child(line)
 
@@ -388,7 +388,7 @@ func _create_keycap(text: String) -> PanelContainer:
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_override("font", load("res://assets/icons/MotionControl-Bold.otf"))
+	label.add_theme_font_override("font", load("res://assets/fonts/MotionControl-Bold.otf"))
 	label.add_theme_font_size_override("font_size", 14)
 	cap.add_child(label)
 	return cap
@@ -423,7 +423,7 @@ func _build_audio_toggle_buttons() -> void:
 	_sfx_toggle_button.pressed.connect(_on_sfx_toggle_pressed)
 	_audio_toggle_row.add_child(_sfx_toggle_button)
 
-	var motion_control := load("res://assets/icons/MotionControl-Bold.otf")
+	var motion_control := load("res://assets/fonts/MotionControl-Bold.otf")
 	if motion_control != null:
 		_music_toggle_button.add_theme_font_override("font", motion_control)
 		_sfx_toggle_button.add_theme_font_override("font", motion_control)

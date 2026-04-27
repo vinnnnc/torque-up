@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="Torque Up! banner" />
+  <img src="assets/images/banner.png" alt="Torque Up! banner" />
 </p>
 
 <p align="center">

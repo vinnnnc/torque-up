@@ -2,7 +2,7 @@ extends Node2D
 class_name WinController
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
-const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
+const HUD_FONT = preload("res://assets/fonts/MotionControl-Bold.otf")
 
 @export var blockade_path: NodePath = NodePath("../Blockade")
 @export var dev_level_editor_path: NodePath = NodePath("../DevLevelEditor")

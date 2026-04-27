@@ -2,7 +2,7 @@ extends CanvasLayer
 
 const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const MINIMAP_VIEW_SCRIPT = preload("res://scripts/features/ui/minimap_view.gd")
-const HUD_FONT = preload("res://assets/icons/MotionControl-Bold.otf")
+const HUD_FONT = preload("res://assets/fonts/MotionControl-Bold.otf")
 const HUD_FONT_SIZE_LABEL := 18
 const HUD_FONT_SIZE_BUTTON := 17
 const HOVER_PICK_RADIUS := 30.0

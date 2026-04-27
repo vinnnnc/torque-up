@@ -38,7 +38,7 @@ Font
 Motion Control
 
 - Author: JapanYoshi
-- Source package in repository: font/MotionControl-Bold.otf
-- Included source readme: font/Read Me If You Feel Like It.txt
+- Source package in repository: assets/fonts/MotionControl-Bold.otf
+- Included source readme: assets/fonts/Read Me If You Feel Like It.txt
 - License note from source readme: Open Font License (OFL)
-- Full OFL 1.1 text included at: font/OFL.txt
+- Full OFL 1.1 text included at: assets/fonts/OFL.txt

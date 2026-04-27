@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dod1gpr6dxsin"
-path="res://.godot/imported/MotionControl-Bold.otf-2c800bc2abbfda6bd0739f4be1ce0b28.fontdata"
+uid="uid://bmqkyawv7xp1r"
+path="res://.godot/imported/MotionControl-Bold.otf-d5a312400d96cb90af6f57c107e47e0b.fontdata"
 
 [deps]
 
-source_file="res://font/MotionControl-Bold.otf"
-dest_files=["res://.godot/imported/MotionControl-Bold.otf-2c800bc2abbfda6bd0739f4be1ce0b28.fontdata"]
+source_file="res://assets/fonts/MotionControl-Bold.otf"
+dest_files=["res://.godot/imported/MotionControl-Bold.otf-d5a312400d96cb90af6f57c107e47e0b.fontdata"]
 
 [params]
 
