@@ -12,7 +12,7 @@
 
 # Torque Up!
 
-`Torque Up!` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a central engine.
+`Torque Up!` is a Godot-based mechanical network optimization game about routing torque from distributed power nodes into a generator.
 
 The project currently focuses on readable top-down mechanical construction, engine-route optimization, and visible drivetrain feedback rather than full rigid-body simulation.
 
