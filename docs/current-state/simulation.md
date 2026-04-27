@@ -22,7 +22,6 @@ Torque processing currently includes:
 
 - friction load from reachable component profiles
 - generator sink resistance load based on current generator shaft speed
-- shaft joint penalties
 - zone-driven output modifiers and added load
 - source droop under load ratio
 - reflected source-side load scaling from source-to-engine ratio:
@@ -35,8 +34,7 @@ Efficiency is currently based on:
 
 - number of reachable engine-network connections
 - zone efficiency modifiers
-- a small mixed-network bonus when a reachable network uses both gears and shafts
-- a gear-variation bonus based on small/medium/large gear diversity (with optional chain/compound add-ons)
+- a gear-variation bonus based on small/medium/large gear diversity
 - compound stack added-layer penalty (per added layer)
 
 Efficiency is clamped to a minimum floor.
@@ -121,6 +119,4 @@ Barrier zones do not modify simulation directly. They block placement and snappi
 
 ## Current Known Limits
 
-- clutch and differential still use simplified ratio propagation in the graph layer
-- differential roles are not yet fully directional in simulation
 - disconnected source islands use simplified visual drive targets rather than full per-path drive/conflict propagation

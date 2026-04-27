@@ -129,8 +129,6 @@ Current knobs (efficiency multiplier bonus):
 
 - GEAR_VARIATION_BONUS_PER_TYPE
 - GEAR_VARIATION_BONUS_MAX_TYPES
-- GEAR_VARIATION_INCLUDE_CHAIN
-- GEAR_VARIATION_CHAIN_BONUS
 - GEAR_VARIATION_INCLUDE_COMPOUND
 - GEAR_VARIATION_COMPOUND_BONUS_PER_STACK
 - GEAR_VARIATION_COMPOUND_BONUS_MAX_STACKS
@@ -138,7 +136,7 @@ Current knobs (efficiency multiplier bonus):
 Scope:
 
 - Counts small/medium/large gears.
-- Excludes shaft, clutch, differential from variation scoring.
+- Excludes compound stack contributions from gear-type diversity scoring.
 
 ## One-Pass Calibration Workflow
 

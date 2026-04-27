@@ -41,3 +41,4 @@ Motion Control
 - Source package in repository: font/MotionControl-Bold.otf
 - Included source readme: font/Read Me If You Feel Like It.txt
 - License note from source readme: Open Font License (OFL)
+- Full OFL 1.1 text included at: font/OFL.txt
