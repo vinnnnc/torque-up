@@ -48,9 +48,9 @@ Run:
 2. Load [project.godot](project.godot).
 3. Run the main scene configured at `res://scenes/main/Main.tscn`.
 
-## Web Export And Deploy
+## Web Export And Publishing
 
-The repository includes a Web export preset and deployment metadata for Wavedash.
+The repository includes a Web export preset for publishing to browser-based platforms.
 
 Files to know:
 
@@ -61,7 +61,7 @@ Typical flow:
 
 1. Export the Web build from Godot into [export/](export/).
 2. Verify the build boots via [export/index.html](export/index.html).
-3. Upload using your Wavedash workflow/CLI from the repository root.
+3. Upload the exported build to your target host.
 
 ## Gameplay Snapshot
 
@@ -102,7 +102,7 @@ The build hotbar currently exposes:
 - [scripts/](scripts/): gameplay, simulation, UI, placement, and tooling logic
 - [scenes/](scenes/): Godot scenes
 - [assets/](assets/): art and icons
-- [font/](font/): source font package and attribution notes used by UI/HUD font assets
+- [assets/fonts/](assets/fonts/): source font package and attribution notes used by UI/HUD font assets
 
 ## License
 
@@ -111,7 +111,7 @@ The game code is licensed under [MIT](LICENSE).
 Third-party assets are licensed separately and are not re-licensed under MIT.
 See [CREDITS.txt](CREDITS.txt) for attribution details.
 
-For the bundled Motion Control font, the full SIL Open Font License text is included at [font/OFL.txt](font/OFL.txt).
+For the bundled Motion Control font, the full SIL Open Font License text is included at [assets/fonts/OFL.txt](assets/fonts/OFL.txt).
 
 ## Credits And Attribution
 
@@ -120,4 +120,4 @@ Third-party assets and acknowledgements are tracked in [CREDITS.txt](CREDITS.txt
 This includes:
 
 - sound effects sources
-- Motion Control font attribution and license note (with OFL text in [font/OFL.txt](font/OFL.txt))
+- Motion Control font attribution and license note (with OFL text in [assets/fonts/OFL.txt](assets/fonts/OFL.txt))
