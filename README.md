@@ -3,6 +3,12 @@
 </p>
 
 <p align="center">
+  <b>Play Online:</b>
+  <a href="https://vinnnnc.itch.io/torque-up">Itch.io</a> |
+  <a href="https://wavedash.com/games/torque-up">Wavedash</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Godot-4.6-blue?logo=godotengine&logoColor=white" alt="Godot 4.6" />
   <img src="https://img.shields.io/badge/Language-GDScript-informational?logo=godotengine&logoColor=white" alt="GDScript" />
   <img src="https://img.shields.io/badge/Renderer-GL%20Compatibility-lightgrey" alt="GL Compatibility" />
