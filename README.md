@@ -71,9 +71,8 @@ Typical flow:
 
 ## Gameplay Snapshot
 
-<table>
-    <tr>
-    <td width="60%">
+<p align="center"><img src="assets/images/gameplay.gif" alt="Torque Up! gameplay" width="50%"/></p>
+
 The current game loop is:
 
 1. Place drivetrain parts.
@@ -85,12 +84,6 @@ Important current rule:
 
 - only power sources connected to the generator contribute to score/output totals
 - disconnected source islands still simulate locally so they can visibly spin, jam, or conflict
-      </td>
-      <td width="40%" align="center">
-      <img src="assets/images/gameplay.gif" alt="Torque Up! gameplay" width="100%"/>
-      </td>
-      </tr>
-      </table>
 
 ## Session Management
 
