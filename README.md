@@ -61,13 +61,12 @@ The repository includes a Web export preset for publishing to browser-based plat
 Files to know:
 
 - [export_presets.cfg](export_presets.cfg)
-- [wavedash.toml](wavedash.toml)
 
 Typical flow:
 
 1. Export the Web build from Godot into [export/](export/).
 2. Verify the build boots via [export/index.html](export/index.html).
-3. Upload the exported build to your target host.
+3. Upload the exported build to your target host (itch.io, GitHub Pages, etc.).
 
 ## Gameplay Snapshot
 
