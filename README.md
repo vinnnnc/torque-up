@@ -9,12 +9,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Godot-4.6-blue?logo=godotengine&logoColor=white" alt="Godot 4.6" />
-  <img src="https://img.shields.io/badge/Language-GDScript-informational?logo=godotengine&logoColor=white" alt="GDScript" />
-  <img src="https://img.shields.io/badge/Renderer-GL%20Compatibility-lightgrey" alt="GL Compatibility" />
-  <img src="https://img.shields.io/badge/Platform-Web-orange?logo=html5&logoColor=white" alt="Web" />
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Gamedev.js%20Jam%202026-Machines-purple" alt="Gamedev.js Jam 2026" />
+  <a href="https://godotengine.org/"><img src="https://img.shields.io/badge/Godot-4.6-blue?logo=godotengine&logoColor=white" alt="Godot 4.6"/></a>
+  <a href="https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_basics.html"><img src="https://img.shields.io/badge/Language-GDScript-informational?logo=godotengine&logoColor=white" alt="GDScript" /></a>
+  <a href="https://docs.godotengine.org/en/stable/engine_details/architecture/internal_rendering_architecture.html#compatibility"><img src="https://img.shields.io/badge/Renderer-GL%20Compatibility-lightgrey" alt="GL Compatibility" /></a>
+  <a href="https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html"><img src="https://img.shields.io/badge/Platform-Web-orange?logo=html5&logoColor=white" alt="Web" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" /></a>
+  <a href="https://itch.io/jam/gamedevjs-2026"><img src="https://img.shields.io/badge/Gamedev.js%20Jam%202026-Machines-purple" alt="Gamedev.js Jam 2026" /></a>
 </p>
 
 # Torque Up!
@@ -71,6 +71,9 @@ Typical flow:
 
 ## Gameplay Snapshot
 
+<table>
+    <tr>
+    <td width="60%">
 The current game loop is:
 
 1. Place drivetrain parts.
@@ -82,6 +85,12 @@ Important current rule:
 
 - only power sources connected to the generator contribute to score/output totals
 - disconnected source islands still simulate locally so they can visibly spin, jam, or conflict
+      </td>
+      <td width="40%" align="center">
+      <img src="assets/images/gameplay.gif" alt="Torque Up! gameplay" width="100%"/>
+      </td>
+      </tr>
+      </table>
 
 ## Session Management
 
