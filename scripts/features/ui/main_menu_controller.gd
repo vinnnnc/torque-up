@@ -53,8 +53,8 @@ func _ready() -> void:
 		_has_initial_camera_state = true
 
 	set_process_unhandled_input(true)
-	_ensure_restart_button()
 	_ensure_help_buttons()
+	_ensure_restart_button()
 	_build_info_overlay()
 
 	const MOTION_CONTROL := preload("res://assets/fonts/MotionControl-Bold.otf")
@@ -223,9 +223,9 @@ func _show_menu_state(startup_mode: bool) -> void:
 	if _tutorial_checkbox != null:
 		_tutorial_checkbox.visible = false
 	if _show_controls_button != null:
-		_show_controls_button.visible = startup_mode
+		_show_controls_button.visible = true
 	if _how_to_play_button != null:
-		_how_to_play_button.visible = startup_mode
+		_how_to_play_button.visible = true
 	if _seed_row != null:
 		_seed_row.visible = startup_mode
 	if _start_button != null:

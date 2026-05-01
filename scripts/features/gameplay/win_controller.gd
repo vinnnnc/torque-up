@@ -38,6 +38,12 @@ var _score_panel: PanelContainer = null
 var _score_label: Label = null
 var _play_again_button: Button = null
 
+# Confetti system
+var _confetti_layer: CanvasLayer = null
+var _confetti_particles: Array = []
+var _confetti_colors: Array = []
+const CONFETTI_COUNT: int = 80
+
 
 func _ready() -> void:
 	z_as_relative = false
@@ -46,12 +52,14 @@ func _ready() -> void:
 	_reset_lever_pose()
 	_compute_lever_position()
 	_build_score_screen()
+	_build_confetti_layer()
 	queue_redraw()
 
 
 func _process(_delta: float) -> void:
 	if _lever_animating:
 		queue_redraw()
+	_update_confetti(_delta)
 
 
 func _reset_lever_pose() -> void:
@@ -172,6 +180,7 @@ func _trigger_win() -> void:
 	_update_score_text()
 	if _score_panel != null:
 		_score_panel.visible = true
+	_spawn_confetti()
 
 
 func _animate_lever_flick() -> void:
@@ -206,6 +215,8 @@ func _on_play_again_pressed() -> void:
 
 
 func _restart_run() -> void:
+	_animate_camera_to_start()
+	_clear_confetti()
 	if _score_panel != null:
 		_score_panel.visible = false
 	if _game_state != null and _game_state.has_method("reset_run_state"):
@@ -223,6 +234,16 @@ func _restart_run() -> void:
 	queue_redraw()
 
 
+func _animate_camera_to_start() -> void:
+	if _camera == null:
+		return
+	var start_pos := Vector2(PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_X, PROJECT_PATHS_SCRIPT.VIEWPORT_CENTER_Y)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(_camera, "global_position", start_pos, 0.8)
+
+
 func _set_gameplay_input_enabled(enabled: bool) -> void:
 	if _camera != null:
 		_camera.set_process_input(enabled)
@@ -235,3 +256,134 @@ func _set_gameplay_input_enabled(enabled: bool) -> void:
 func _emit_feedback(message: String) -> void:
 	if _signal_bus != null and _signal_bus.has_signal("placement_feedback"):
 		_signal_bus.placement_feedback.emit(message)
+
+
+# Confetti system
+func _build_confetti_layer() -> void:
+	_confetti_layer = CanvasLayer.new()
+	_confetti_layer.name = "ConfettiLayer"
+	add_child(_confetti_layer)
+	_confetti_layer.visible = false
+	
+	# Define confetti colors from palette
+	_confetti_colors = [
+		PROJECT_PATHS_SCRIPT.PALETTE_TEAL,
+		PROJECT_PATHS_SCRIPT.PALETTE_AMBER,
+		PROJECT_PATHS_SCRIPT.PALETTE_SALMON,
+		PROJECT_PATHS_SCRIPT.PALETTE_OLIVE,
+		PROJECT_PATHS_SCRIPT.PALETTE_PURPLE,
+		PROJECT_PATHS_SCRIPT.PALETTE_ORANGE,
+		PROJECT_PATHS_SCRIPT.PALETTE_TEAL.lightened(0.2),
+		PROJECT_PATHS_SCRIPT.PALETTE_AMBER.lightened(0.2)
+	]
+
+
+func _spawn_confetti() -> void:
+	if _confetti_layer == null:
+		return
+	
+	# Clear existing confetti
+	for particle in _confetti_particles:
+		if is_instance_valid(particle["node"]):
+			particle["node"].queue_free()
+	_confetti_particles.clear()
+	
+	_confetti_layer.visible = true
+	
+	var viewport_size := get_viewport().get_visible_rect().size
+	var center := viewport_size * 0.5
+	
+	for i in range(CONFETTI_COUNT):
+		var confetti := Control.new()
+		confetti.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		confetti.position = center
+		confetti.custom_minimum_size = Vector2(8.0, 8.0)
+		_confetti_layer.add_child(confetti)
+		
+		# Random burst direction
+		var angle := randf() * TAU
+		var speed := 200.0 + randf() * 400.0
+		var upward_bias := -300.0 - randf() * 200.0  # Initial upward burst
+		
+		var particle := {
+			"node": confetti,
+			"pos": center,
+			"vel": Vector2(cos(angle) * speed, sin(angle) * speed + upward_bias),
+			"rot": randf() * TAU,
+			"rot_speed": (randf() - 0.5) * 10.0,
+			"color": _confetti_colors.pick_random(),
+			"scale": 0.6 + randf() * 0.6,
+			"life": 3.0 + randf() * 2.0
+		}
+		_confetti_particles.append(particle)
+		_draw_confetti_piece(confetti, particle)
+
+
+func _draw_confetti_piece(node: Control, particle: Dictionary) -> void:
+	# Create a simple colored rect for each confetti piece
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(8.0, 8.0) * particle["scale"]
+	panel.modulate = particle["color"]
+	
+	# Add a colored stylebox
+	var style := StyleBoxFlat.new()
+	style.bg_color = particle["color"]
+	style.corner_radius_top_left = 1.0
+	style.corner_radius_top_right = 1.0
+	style.corner_radius_bottom_left = 1.0
+	style.corner_radius_bottom_right = 1.0
+	panel.add_theme_stylebox_override("panel", style)
+	node.add_child(panel)
+
+
+func _update_confetti(delta: float) -> void:
+	if _confetti_particles.is_empty():
+		return
+	
+	var gravity := 400.0
+	var viewport_size := get_viewport().get_visible_rect().size
+	
+	for particle in _confetti_particles:
+		if not is_instance_valid(particle["node"]):
+			continue
+		
+		# Apply gravity
+		particle["vel"].y += gravity * delta
+		
+		# Update position
+		particle["pos"] += particle["vel"] * delta
+		
+		# Update rotation
+		particle["rot"] += particle["rot_speed"] * delta
+		
+		# Fade out over time
+		particle["life"] -= delta
+		if particle["life"] < 1.0:
+			particle["node"].modulate.a = particle["life"]
+		
+		# Wrap horizontally (optional - keeps confetti on screen)
+		if particle["pos"].x < -20.0:
+			particle["pos"].x = viewport_size.x + 20.0
+		elif particle["pos"].x > viewport_size.x + 20.0:
+			particle["pos"].x = -20.0
+		
+		# Update node position and rotation
+		particle["node"].position = particle["pos"]
+		particle["node"].rotation = particle["rot"]
+	
+	# Hide confetti layer when all particles are done
+	var any_alive := false
+	for particle in _confetti_particles:
+		if particle["life"] > 0.0:
+			any_alive = true
+			break
+	if not any_alive:
+		_confetti_layer.visible = false
+
+
+func _clear_confetti() -> void:
+	for particle in _confetti_particles:
+		if is_instance_valid(particle["node"]):
+			particle["node"].queue_free()
+	_confetti_particles.clear()
+	_confetti_layer.visible = false
