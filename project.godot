@@ -16,7 +16,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 boot_splash/bg_color=Color(0.17254902, 0.105882354, 0.18039216, 1)
 boot_splash/stretch_mode=0
 boot_splash/image="uid://dydc1mqne81db"
-config/icon="res://assets/icons/logo_small.png"
+config/icon="res://assets/images/logo_small.png"
 
 [autoload]
 
@@ -26,7 +26,7 @@ AudioManager="*res://scripts/autoload/audio_manager.gd"
 
 [boot_splash]
 
-image="res://assets/icons/title.png"
+image="res://assets/images/title.png"
 bg_color=Color(0.173, 0.106, 0.18, 1)
 fullsize=false
 minimum_display_time=0
