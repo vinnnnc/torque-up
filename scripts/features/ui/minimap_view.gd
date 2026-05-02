@@ -5,7 +5,7 @@ const PROJECT_PATHS_SCRIPT = preload("res://scripts/core/project_paths.gd")
 const FRONTIER_GEOMETRY_SCRIPT = preload("res://scripts/features/world/frontier_geometry.gd")
 
 @export var background_color: Color = Color(0.05, 0.07, 0.09, 0.0)
-@export var blocked_color: Color = Color(0.02, 0.03, 0.04, 0.92)
+@export var blocked_color: Color = Color(0.02, 0.03, 0.04, 0.5)
 @export var unlocked_fill_color: Color = Color(0.17, 0.25, 0.31, 0.72)
 @export var frontier_color: Color = Color(0.76, 0.9, 1.0, 0.95)
 @export var camera_rect_color: Color = Color(0.98, 0.96, 0.74, 0.95)
@@ -80,10 +80,10 @@ func _draw() -> void:
 	var half_angle := _get_cone_half_angle_radians()
 	var frustum_inner_world := minf(_get_frontier_frustum_inner_radius_world(), maxf(frontier_radius - 1.0, 0.0))
 	var frustum_inner_px := frustum_inner_world * scale_map
-
+	var scale_x = 20.0
 	# Blocked region covers entire minimap area outside the upward cone.
 	var blocked_pts := FRONTIER_GEOMETRY_SCRIPT.build_full_outside_polygon(
-		center_px, half_angle, 0.0, size.x, 0.0, size.y
+		center_px, half_angle, scale_x, size.x -scale_x, 60.0, size.y
 	)
 	draw_colored_polygon(blocked_pts, blocked_color)
 
@@ -137,7 +137,7 @@ func _draw_power_nodes(center_world: Vector2, map_radius_world: float, center_px
 			continue
 		if center_world.distance_to(node.global_position) > map_radius_world:
 			continue
-		draw_circle(_world_to_map(node.global_position, center_world, center_px, scale), 2.8, power_color)
+		draw_circle(_world_to_map(node.global_position, center_world, center_px, scale), 1.8, power_color)
 
 
 func _draw_components(center_world: Vector2, map_radius_world: float, center_px: Vector2, scale: float) -> void:
@@ -150,45 +150,45 @@ func _draw_components(center_world: Vector2, map_radius_world: float, center_px:
 		if center_world.distance_to(node.global_position) > map_radius_world:
 			continue
 		var node_px := _world_to_map(node.global_position, center_world, center_px, scale)
-		draw_circle(node_px, 1.6, component_color)
+		draw_circle(node_px, 1.5, component_color)
 
 
-func _get_component_rpm(component: Node2D) -> float:
-	if component == null:
-		return 0.0
-	var component_type := str(component.get_meta("component_type", ""))
-	if component_type == "chain":
-		return _get_average_endpoint_rpm(component.get("pulley_a") as Node2D, component.get("pulley_b") as Node2D)
-	if component_type == "shaft":
-		return _get_average_endpoint_rpm(component.get("gear_a") as Node2D, component.get("gear_b") as Node2D)
-	if component.has_method("get_angular_velocity"):
-		return _to_rpm(float(component.call("get_angular_velocity")))
-	var angular_velocity: Variant = component.get("angular_velocity")
-	if angular_velocity == null:
-		return 0.0
-	return _to_rpm(float(angular_velocity))
+# func _get_component_rpm(component: Node2D) -> float:
+# 	if component == null:
+# 		return 0.0
+# 	var component_type := str(component.get_meta("component_type", ""))
+# 	if component_type == "chain":
+# 		return _get_average_endpoint_rpm(component.get("pulley_a") as Node2D, component.get("pulley_b") as Node2D)
+# 	if component_type == "shaft":
+# 		return _get_average_endpoint_rpm(component.get("gear_a") as Node2D, component.get("gear_b") as Node2D)
+# 	if component.has_method("get_angular_velocity"):
+# 		return _to_rpm(float(component.call("get_angular_velocity")))
+# 	var angular_velocity: Variant = component.get("angular_velocity")
+# 	if angular_velocity == null:
+# 		return 0.0
+# 	return _to_rpm(float(angular_velocity))
 
 
-func _get_average_endpoint_rpm(a: Node2D, b: Node2D) -> float:
-	var values: Array = []
-	if a != null:
-		var angular_a: Variant = a.get("angular_velocity")
-		if angular_a != null:
-			values.append(_to_rpm(float(angular_a)))
-	if b != null:
-		var angular_b: Variant = b.get("angular_velocity")
-		if angular_b != null:
-			values.append(_to_rpm(float(angular_b)))
-	if values.is_empty():
-		return 0.0
-	var total := 0.0
-	for value_raw in values:
-		total += float(value_raw)
-	return total / float(values.size())
+# func _get_average_endpoint_rpm(a: Node2D, b: Node2D) -> float:
+# 	var values: Array = []
+# 	if a != null:
+# 		var angular_a: Variant = a.get("angular_velocity")
+# 		if angular_a != null:
+# 			values.append(_to_rpm(float(angular_a)))
+# 	if b != null:
+# 		var angular_b: Variant = b.get("angular_velocity")
+# 		if angular_b != null:
+# 			values.append(_to_rpm(float(angular_b)))
+# 	if values.is_empty():
+# 		return 0.0
+# 	var total := 0.0
+# 	for value_raw in values:
+# 		total += float(value_raw)
+# 	return total / float(values.size())
 
 
-func _to_rpm(angular_speed: float) -> float:
-	return absf(angular_speed) * (60.0 / TAU)
+# func _to_rpm(angular_speed: float) -> float:
+# 	return absf(angular_speed) * (60.0 / TAU)
 
 
 func _get_frontier_radius() -> float:
