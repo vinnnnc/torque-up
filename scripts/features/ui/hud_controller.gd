@@ -60,10 +60,15 @@ var _feedback_label: Label = null
 var _feedback_timer: float = 0.0
 var _minimap_panel: PanelContainer = null
 var _minimap_view: Control = null
+var _menu_button: Button = null
+var _controls_overlay_panel: PanelContainer = null
+var _controls_overlay_enabled: bool = true
 
 
 func _ready() -> void:
 	_apply_hud_style()
+	_build_menu_button()
+	_build_controls_overlay()
 
 	var game_state := get_node_or_null("/root/GameState")
 	if game_state:
@@ -246,14 +251,14 @@ func _configure_hotbar_tooltips() -> void:
 	_set_button_tooltip(_small_gear_button, "Small Gear", ["Compact ratio stage — low torque cost"])
 	_set_button_tooltip(_medium_gear_button, "Medium Gear", ["Balanced ratio stage — moderate torque cost"])
 	_set_button_tooltip(_large_gear_button, "Large Gear", ["High-leverage stage — higher torque cost but can reach distant nodes"])
-	if _shaft_button:
-		_shaft_button.tooltip_text = ""
-	if _chain_button:
-		_set_button_tooltip(_chain_button, "Chain", ["Bridges two gears across a gap"])
-	_set_button_tooltip(_flywheel_button, "Flywheel", ["Buffers torque dips and smooths jam cascades"])
-	_set_button_tooltip(_clutch_button, "Clutch", ["Engage or cut a branch from the drivetrain"])
-	_set_button_tooltip(_differential_button, "Differential", ["Merges multiple input branches into one path"])
-	_set_button_tooltip(_delete_button, "Delete", ["Remove a component"])
+	# if _shaft_button:
+	# 	_shaft_button.tooltip_text = ""
+	# if _chain_button:
+	# 	_set_button_tooltip(_chain_button, "Chain", ["Bridges two gears across a gap"])
+	# _set_button_tooltip(_flywheel_button, "Flywheel", ["Buffers torque dips and smooths jam cascades"])
+	# _set_button_tooltip(_clutch_button, "Clutch", ["Engage or cut a branch from the drivetrain"])
+	# _set_button_tooltip(_differential_button, "Differential", ["Merges multiple input branches into one path"])
+	# _set_button_tooltip(_delete_button, "Delete", ["Remove a component"])
 	# Disable native tooltip popup on all hotbar buttons so our custom tooltip renders instead
 	var hotbar := get_node_or_null("HotbarPanel/MarginContainer/Hotbar")
 	if hotbar != null:
@@ -449,12 +454,12 @@ func _build_minimap() -> void:
 	_minimap_panel.clip_contents = true
 	_minimap_panel.anchor_left = 1.0
 	_minimap_panel.anchor_right = 1.0
-	_minimap_panel.anchor_top = 1.0
-	_minimap_panel.anchor_bottom = 1.0
+	_minimap_panel.anchor_top = 0.0
+	_minimap_panel.anchor_bottom = 0.0
 	_minimap_panel.offset_left = -236.0
-	_minimap_panel.offset_top = -262.0
+	_minimap_panel.offset_top = 18.0
 	_minimap_panel.offset_right = -18.0
-	_minimap_panel.offset_bottom = -84.0
+	_minimap_panel.offset_bottom = 200.0
 	_minimap_panel.custom_minimum_size = Vector2(204.0, 160.0)
 	var minimap_panel_style := StyleBoxFlat.new()
 	minimap_panel_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
@@ -511,6 +516,125 @@ func _show_feedback(message: String) -> void:
 	_feedback_label.visible = true
 	_feedback_timer = FEEDBACK_DURATION
 
+
+func _build_menu_button() -> void:
+	_menu_button = Button.new()
+	_menu_button.text = "Menu"
+	_menu_button.anchor_left = 0.0
+	_menu_button.anchor_top = 0.0
+	_menu_button.anchor_right = 0.0
+	_menu_button.anchor_bottom = 0.0
+	_menu_button.offset_left = 16.0
+	_menu_button.offset_top = 16.0
+	_menu_button.custom_minimum_size = Vector2(88.0, 34.0)
+	_menu_button.add_theme_font_override("font", HUD_FONT)
+	_menu_button.add_theme_font_size_override("font_size", HUD_FONT_SIZE_BUTTON)
+	_menu_button.pressed.connect(_on_menu_button_pressed)
+	add_child(_menu_button)
+
+func _on_menu_button_pressed() -> void:
+	var audio_manager := get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("play_menu_click"):
+		audio_manager.call("play_menu_click")
+	var main_menu := get_node_or_null("../MainMenu")
+	if main_menu != null and main_menu.has_method("_open_pause_menu"):
+		main_menu.call("_open_pause_menu")
+	elif main_menu != null and main_menu.has_method("open_pause_menu"):
+		main_menu.call("open_pause_menu")
+
+func _build_controls_overlay() -> void:
+	_controls_overlay_panel = PanelContainer.new()
+	_controls_overlay_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controls_overlay_panel.anchor_left = 1.0
+	_controls_overlay_panel.anchor_right = 1.0
+	_controls_overlay_panel.anchor_top = 1.0
+	_controls_overlay_panel.anchor_bottom = 1.0
+	_controls_overlay_panel.offset_left = -256.0
+	_controls_overlay_panel.offset_top = -235.0
+	_controls_overlay_panel.offset_right = -16.0
+	_controls_overlay_panel.offset_bottom = -280.0
+	_controls_overlay_panel.custom_minimum_size = Vector2(240.0, 166.0)
+	var overlay_style := StyleBoxFlat.new()
+	overlay_style.bg_color = Color(0.05, 0.05, 0.05, 0.35)
+	overlay_style.border_color = Color(1.0, 1.0, 1.0, 0.08)
+	overlay_style.set_border_width_all(1)
+	overlay_style.set_corner_radius_all(12)
+	_controls_overlay_panel.add_theme_stylebox_override("panel", overlay_style)
+	add_child(_controls_overlay_panel)
+
+	var margin := MarginContainer.new()
+	margin.layout_mode = 2
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	_controls_overlay_panel.add_child(margin)
+
+	var stack := VBoxContainer.new()
+	stack.layout_mode = 2
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 6)
+	margin.add_child(stack)
+
+	var rows := [
+		{"keys": ["W", "A", "S", "D"], "action": "Pan camera"},
+		{"keys": ["Mouse Wheel"], "action": "Zoom"},
+		{"keys": ["Middle Mouse"], "action": "Drag camera"},
+		{"keys": ["1", "2", "3"], "action": "Select gear"},
+		{"keys": ["X"], "action": "Delete"},
+		{"keys": ["Esc"], "action": "Pause menu"}
+	]
+
+	for row_raw in rows:
+		var row := row_raw as Dictionary
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		stack.add_child(line)
+
+		var key_box := HBoxContainer.new()
+		key_box.add_theme_constant_override("separation", 6)
+		line.add_child(key_box)
+
+		for key_text_raw in (row.get("keys", []) as Array):
+			key_box.add_child(_create_overlay_keycap(str(key_text_raw)))
+
+		var action_label := Label.new()
+		action_label.text = str(row.get("action", ""))
+		action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		action_label.add_theme_font_override("font", HUD_FONT)
+		action_label.add_theme_font_size_override("font_size", 14)
+		line.add_child(action_label)
+
+	set_controls_overlay_enabled(_controls_overlay_enabled)
+
+func _create_overlay_keycap(text: String) -> PanelContainer:
+	var cap := PanelContainer.new()
+	cap.custom_minimum_size = Vector2(0, 28)
+	var cap_style := StyleBoxFlat.new()
+	cap_style.bg_color = Color(1.0, 1.0, 1.0, 0.08)
+	cap_style.border_color = Color(1.0, 1.0, 1.0, 0.18)
+	cap_style.set_border_width_all(1)
+	cap_style.set_corner_radius_all(8)
+	cap_style.content_margin_left = 10
+	cap_style.content_margin_right = 10
+	cap_style.content_margin_top = 4
+	cap_style.content_margin_bottom = 4
+	cap.add_theme_stylebox_override("panel", cap_style)
+
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", HUD_FONT)
+	label.add_theme_font_size_override("font_size", 13)
+	cap.add_child(label)
+	return cap
+
+func set_controls_overlay_enabled(enabled: bool) -> void:
+	_controls_overlay_enabled = enabled
+	if _controls_overlay_panel != null:
+		_controls_overlay_panel.visible = enabled
 
 func _update_hover_tooltip() -> void:
 	if _tooltip_panel == null:

@@ -21,6 +21,7 @@ const STARTUP_SNAPSHOT_PATH := "res://data/menu_startup_snapshot.json"
 @onready var _hud: CanvasLayer = get_node_or_null(hud_path) as CanvasLayer
 @onready var _dev_level_editor: Node = get_node_or_null(dev_level_editor_path)
 @onready var _game_state: Node = get_node_or_null("/root/GameState")
+@onready var _user_settings: Node = get_node_or_null("/root/UserSettings")
 
 var _initial_camera_position: Vector2 = Vector2.ZERO
 var _initial_camera_zoom: Vector2 = Vector2.ONE
@@ -29,7 +30,7 @@ var _menu_active: bool = true
 var _menu_mode: String = "startup"
 var _restart_button: Button = null
 var _main_menu_button: Button = null
-var _show_controls_button: Button = null
+var _show_controls_checkbox: CheckBox = null
 var _how_to_play_button: Button = null
 var _info_overlay: Control = null
 var _info_panel: PanelContainer = null
@@ -44,6 +45,8 @@ var _seed_input: LineEdit = null
 
 const MENU_MODE_STARTUP := "startup"
 const MENU_MODE_PAUSE := "pause"
+const CONTROLS_PREF_SECTION := "preferences"
+const CONTROLS_PREF_KEY := "show_controls_overlay"
 
 
 func _ready() -> void:
@@ -58,7 +61,7 @@ func _ready() -> void:
 	_build_info_overlay()
 
 	const MOTION_CONTROL := preload("res://assets/fonts/MotionControl-Bold.otf")
-	for node in [$Root/MenuCard/VBox/Subtitle, _start_button, _tutorial_checkbox, _show_controls_button, _how_to_play_button]:
+	for node in [$Root/MenuCard/VBox/Subtitle, _start_button, _tutorial_checkbox, _show_controls_checkbox, _how_to_play_button]:
 		if node != null:
 			node.add_theme_font_override("font", MOTION_CONTROL)
 
@@ -67,6 +70,7 @@ func _ready() -> void:
 
 	_open_startup_menu()
 	_build_audio_toggle_buttons()
+	_load_preferences()
 	call_deferred("_load_startup_snapshot_background")
 
 
@@ -93,12 +97,12 @@ func _ensure_restart_button() -> void:
 func _ensure_help_buttons() -> void:
 	if _panel_vbox == null:
 		return
-	if _show_controls_button == null:
-		_show_controls_button = Button.new()
-		_show_controls_button.custom_minimum_size = Vector2(0, 32)
-		_show_controls_button.text = "Show Controls"
-		_show_controls_button.pressed.connect(_on_show_controls_pressed)
-		_panel_vbox.call_deferred("add_child", _show_controls_button)
+	if _show_controls_checkbox == null:
+		_show_controls_checkbox = CheckBox.new()
+		_show_controls_checkbox.custom_minimum_size = Vector2(0, 28)
+		_show_controls_checkbox.text = "Show controls overlay"
+		_show_controls_checkbox.toggled.connect(_on_show_controls_toggled)
+		_panel_vbox.call_deferred("add_child", _show_controls_checkbox)
 	if _how_to_play_button == null:
 		_how_to_play_button = Button.new()
 		_how_to_play_button.custom_minimum_size = Vector2(0, 32)
@@ -222,8 +226,8 @@ func _show_menu_state(startup_mode: bool) -> void:
 		_panel.visible = true
 	if _tutorial_checkbox != null:
 		_tutorial_checkbox.visible = false
-	if _show_controls_button != null:
-		_show_controls_button.visible = true
+	if _show_controls_checkbox != null:
+		_show_controls_checkbox.visible = not startup_mode
 	if _how_to_play_button != null:
 		_how_to_play_button.visible = true
 	if _seed_row != null:
@@ -285,12 +289,24 @@ func _on_main_menu_pressed() -> void:
 
 
 
-func _on_show_controls_pressed() -> void:
+func _on_show_controls_toggled(enabled: bool) -> void:
 	var audio_manager := get_node_or_null("/root/AudioManager")
 	if audio_manager != null and audio_manager.has_method("play_menu_click"):
 		audio_manager.call("play_menu_click")
-	_show_controls_overlay()
+	if _user_settings != null and _user_settings.has_method("set_value"):
+		_user_settings.call("set_value", CONTROLS_PREF_KEY, enabled, CONTROLS_PREF_SECTION)
+		_user_settings.call("save")
+	if _hud != null and _hud.has_method("set_controls_overlay_enabled"):
+		_hud.call("set_controls_overlay_enabled", enabled)
 
+func _load_preferences() -> void:
+	if _user_settings == null or not _user_settings.has_method("get_bool"):
+		return
+	var show_controls: bool = bool(_user_settings.call("get_bool", CONTROLS_PREF_KEY, true, CONTROLS_PREF_SECTION))
+	if _hud != null and _hud.has_method("set_controls_overlay_enabled"):
+		_hud.call("set_controls_overlay_enabled", show_controls)
+	if _show_controls_checkbox != null:
+		_show_controls_checkbox.button_pressed = show_controls
 
 func _on_how_to_play_pressed() -> void:
 	var audio_manager := get_node_or_null("/root/AudioManager")

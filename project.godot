@@ -23,6 +23,7 @@ config/icon="res://assets/images/logo_small.png"
 GameState="*res://scripts/autoload/game_state.gd"
 SignalBus="*res://scripts/autoload/signal_bus.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
+UserSettings="*res://scripts/core/user_settings.gd"
 
 [boot_splash]
 
